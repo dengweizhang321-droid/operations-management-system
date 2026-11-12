@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { packagesRoot, parseWorktrees, planRetention, selectPackageWorktrees } from "../tools/release-package-retention.mjs";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import test, { afterEach } from "node:test";
+import { packagesRoot, parseWorktrees, planRetention, resolveProtected, selectPackageWorktrees } from "../tools/release-package-retention.mjs";
 
 const name = (index) => `${index.toString(16).padStart(12, "0")}-aabbccdd-11223344`;
 const pkg = (index, mtimeMs) => ({ name: name(index), mtimeMs });
@@ -69,4 +72,164 @@ test("invalid retention input and malformed names fail closed", () => {
   assert.throws(() => planRetention({ ...base, protectedNames: [] }), /Invalid protected set/);
   assert.throws(() => planRetention({ ...base, protectedNames: ["../../escape"] }), /Invalid protected set/);
   assert.throws(() => planRetention({ ...base, packages: [{ name: "../../etc", mtimeMs: 1 }] }), /Invalid package name/);
+});
+
+// ---- protected set: catalog / frontend source / preparation pointer (synthetic temp trees only) ----
+const release = "20261112T000000Z-test";
+const elsewhere = path.join(os.tmpdir(), "retention-elsewhere");
+
+// Every temp tree is removed after its test, pass or fail.
+const createdBases = [];
+afterEach(async () => {
+  for (const base of createdBases.splice(0)) await rm(base, { recursive: true, force: true });
+});
+
+async function buildWorld({ packages = [1, 3], django = 1, catalogSource = 3, frontendSource = 3, frontendRaw, catalog, writeCatalog = true } = {}) {
+  const base = await mkdtemp(path.join(os.tmpdir(), "retention-protect-"));
+  createdBases.push(base);
+  const packagesDirectory = path.join(base, "packages");
+  const roots = { djangoRoot: path.join(base, "django"), stateDirectory: path.join(base, "state"), workerRoot: path.join(base, "worker"), packagesDirectory };
+  const source = (index) => path.join(packagesDirectory, name(index), "source");
+  for (const index of packages) await mkdir(source(index), { recursive: true });
+  await mkdir(path.join(roots.djangoRoot, "app"), { recursive: true });
+  await mkdir(roots.stateDirectory, { recursive: true });
+  await mkdir(path.join(roots.workerRoot, "releases", release), { recursive: true });
+  await writeFile(path.join(roots.djangoRoot, "app", "deployment.json"), JSON.stringify({ sourceRoot: source(django) }));
+  await writeFile(path.join(roots.workerRoot, "releases", release, "deployment-manifest.json"),
+    JSON.stringify({ source: { sourceBinding: { raw: frontendRaw ?? JSON.stringify({ sourceRoot: source(frontendSource) }) } } }));
+  const catalogFile = path.join(roots.stateDirectory, "PUBLISHED-MAIN.json");
+  const writeCatalogFile = (value) => writeFile(catalogFile, typeof value === "string" ? value : JSON.stringify(value));
+  const standard = { source: source(catalogSource), workerRelease: release,
+    receiptPath: path.join(packagesDirectory, name(catalogSource), "publish-aabbccddeeff", "SUCCESS.json") };
+  if (writeCatalog) await writeCatalogFile(typeof catalog === "string" ? catalog : { ...standard, ...catalog });
+  const writePointer = (value) => writeFile(path.join(roots.stateDirectory, "LATEST-PREPARED.json"), typeof value === "string" ? value : JSON.stringify(value));
+  return { roots, source, writeCatalogFile, writePointer, standard };
+}
+
+test("frontend-only release: catalog package differs from Django and survives as oldest with keepRecent 0", async () => {
+  // Django still runs package 1; catalog and frontend point at package 3, the oldest by mtime.
+  const world = await buildWorld({ packages: [1, 3], django: 1, catalogSource: 3, frontendSource: 3 });
+  const guard = await resolveProtected(world.roots);
+  assert.equal(guard.installed, name(1));
+  assert.equal(guard.catalogSource, name(3));
+  assert.deepEqual([...guard.names].sort(), [name(1), name(3)].sort());
+  const packages = [pkg(3, 1), pkg(1, 2), pkg(7, 3)];
+  const plan = planRetention({ packages, worktrees: [], branches: [], protectedNames: guard.names, keepRecent: 0 });
+  assert.ok(plan.keep.includes(name(3)));
+  assert.deepEqual(plan.removeDirectories.map((item) => item.name), [name(7)]);
+});
+
+test("adoption receipt outside the packages root: no throw, receipt entry null, source still protected", async () => {
+  const world = await buildWorld({ packages: [1, 2], catalogSource: 2, frontendSource: 2,
+    catalog: { receiptPath: path.join(elsewhere, "adoptions", "u", "ADOPTED.json") } });
+  const guard = await resolveProtected(world.roots);
+  assert.equal(guard.catalogReceipt, null);
+  assert.equal(guard.catalogSource, name(2));
+  assert.ok(guard.names.includes(name(2)));
+});
+
+test("catalog missing, unparsable, sourceless or pointing outside a package fails closed", async () => {
+  await assert.rejects(resolveProtected((await buildWorld({ writeCatalog: false })).roots), /Publication catalog unreadable/);
+  await assert.rejects(resolveProtected((await buildWorld({ catalog: "{not json" })).roots), /Publication catalog is not valid JSON/);
+  await assert.rejects(resolveProtected((await buildWorld({ catalog: { source: "" } })).roots), /Publication catalog has no source/);
+  await assert.rejects(resolveProtected((await buildWorld({ catalog: { source: path.join(elsewhere, "source") } })).roots),
+    /catalog source is not inside a release package/);
+  const world = await buildWorld();
+  await mkdir(path.join(world.roots.packagesDirectory, "not-a-package", "source"), { recursive: true });
+  await world.writeCatalogFile({ ...world.standard, source: path.join(world.roots.packagesDirectory, "not-a-package", "source") });
+  await assert.rejects(resolveProtected(world.roots), /catalog source is not inside a release package/);
+});
+
+test("catalog source or receipt package absent from the packages root fails closed", async () => {
+  const ghostSource = await buildWorld();
+  await ghostSource.writeCatalogFile({ ...ghostSource.standard, source: ghostSource.source(9) });
+  await assert.rejects(resolveProtected(ghostSource.roots), /source package is missing/);
+  const ghostReceipt = await buildWorld();
+  await ghostReceipt.writeCatalogFile({ ...ghostReceipt.standard,
+    receiptPath: path.join(ghostReceipt.roots.packagesDirectory, name(8), "publish-aabbccddeeff", "SUCCESS.json") });
+  await assert.rejects(resolveProtected(ghostReceipt.roots), /receipt package is missing/);
+});
+
+test("receipt inside the packages root with the wrong shape fails closed", async () => {
+  const world = await buildWorld();
+  const inside = path.join(world.roots.packagesDirectory, name(3));
+  for (const receiptPath of [path.join(inside, "publish-aabbccddeeff"), path.join(inside, "publish-xyz", "SUCCESS.json"),
+    path.join(inside, "other", "SUCCESS.json"), path.join(inside, "publish-aabbccddeeff", "deep", "SUCCESS.json")]) {
+    await world.writeCatalogFile({ ...world.standard, receiptPath });
+    await assert.rejects(resolveProtected(world.roots), /receiptPath has an unexpected shape/, receiptPath);
+  }
+});
+
+test("frontend manifest unreadable or without sourceRoot fails closed", async () => {
+  await assert.rejects(resolveProtected((await buildWorld({ frontendRaw: "{}" })).roots), /Frontend manifest has no sourceRoot/);
+  await assert.rejects(resolveProtected((await buildWorld({ frontendRaw: "{nope" })).roots), /no parsable sourceRoot/);
+  await assert.rejects(resolveProtected((await buildWorld({ catalog: { workerRelease: "../escape" } })).roots), /workerRelease is missing or malformed/);
+  const gone = await buildWorld();
+  await rm(path.join(gone.roots.workerRoot, "releases"), { recursive: true });
+  await assert.rejects(resolveProtected(gone.roots), /Frontend deployment manifest unreadable/);
+});
+
+test("frontend source package already deleted is reported, not fatal", async () => {
+  const world = await buildWorld({ frontendSource: 5 });
+  const guard = await resolveProtected(world.roots);
+  assert.equal(guard.frontendSource, name(5));
+  assert.equal(guard.frontendSourceExists, false);
+  assert.ok(guard.names.includes(name(5)));
+});
+
+test("preparation pointer: absent is null, valid is protected, malformed fails closed", async () => {
+  const world = await buildWorld({ packages: [1, 3, 4] });
+  const absent = await resolveProtected(world.roots);
+  assert.equal(absent.preparedPacket, null);
+  const packetDir = path.join(world.roots.packagesDirectory, name(4));
+  await world.writePointer({ packet: packetDir });
+  const guard = await resolveProtected(world.roots);
+  assert.equal(guard.preparedPacket, name(4));
+  assert.equal(guard.preparedPacketExists, true);
+  assert.deepEqual([...guard.names].sort(), [name(1), name(3), name(4)].sort());
+  for (const bad of ["{nope", "{}", JSON.stringify({ packet: path.join(world.roots.packagesDirectory, "not-a-package") }),
+    JSON.stringify({ packet: path.join(packetDir, "source") }), JSON.stringify({ packet: path.join(elsewhere, "p") })]) {
+    await world.writePointer(bad);
+    await assert.rejects(resolveProtected(world.roots), /Preparation pointer/, bad);
+  }
+});
+
+test("four protections each hold their own package: Django, frontend source, catalog source, catalog receipt", async () => {
+  // Four distinct packages, all older than the unprotected 5 and 6; no preparation pointer to cover for any of them.
+  const world = await buildWorld({ packages: [1, 2, 3, 4, 5, 6], django: 1, frontendSource: 2, catalogSource: 3 });
+  await world.writeCatalogFile({ ...world.standard,
+    receiptPath: path.join(world.roots.packagesDirectory, name(4), "publish-aabbccddeeff", "SUCCESS.json") });
+  const guard = await resolveProtected(world.roots);
+  assert.equal(guard.installed, name(1));
+  assert.equal(guard.frontendSource, name(2));
+  assert.equal(guard.catalogSource, name(3));
+  assert.equal(guard.catalogReceipt, name(4));
+  assert.equal(guard.preparedPacket, null);
+  const packages = [pkg(1, 1), pkg(2, 2), pkg(3, 3), pkg(4, 4), pkg(5, 5), pkg(6, 6)];
+  const plan = planRetention({ packages, worktrees: [], branches: [], protectedNames: guard.names, keepRecent: 0 });
+  for (const index of [1, 2, 3, 4]) assert.ok(plan.keep.includes(name(index)), "protected: " + name(index));
+  assert.deepEqual(plan.removeDirectories.map((item) => item.name).sort(), [name(5), name(6)].sort());
+});
+
+test("root containment ignores drive/directory case and slash style", { skip: process.platform !== "win32" }, async () => {
+  const world = await buildWorld({ packages: [1, 2, 3, 4], django: 1 });
+  // Same directory, written upper-case with forward slashes; package names stay lower-case hex.
+  const variant = world.roots.packagesDirectory.toUpperCase().replaceAll("\\", "/");
+  assert.notEqual(variant, world.roots.packagesDirectory);
+  await world.writeCatalogFile({ ...world.standard, source: variant + "/" + name(3) + "/source",
+    receiptPath: variant + "/" + name(4) + "/publish-aabbccddeeff/SUCCESS.json" });
+  const manifestFile = path.join(world.roots.workerRoot, "releases", release, "deployment-manifest.json");
+  await writeFile(manifestFile, JSON.stringify({ source: { sourceBinding: { raw: JSON.stringify({ sourceRoot: variant + "/" + name(2) + "/source" }) } } }));
+  const guard = await resolveProtected(world.roots);
+  assert.equal(guard.catalogSource, name(3));
+  assert.equal(guard.catalogReceipt, name(4));
+  assert.equal(guard.frontendSource, name(2));
+});
+
+test("relative catalog receiptPath fails closed instead of being treated as outside the root", async () => {
+  const world = await buildWorld();
+  for (const receiptPath of ["publish-aabbccddeeff/SUCCESS.json", "../adoptions/ADOPTED.json"]) {
+    await world.writeCatalogFile({ ...world.standard, receiptPath });
+    await assert.rejects(resolveProtected(world.roots), /receiptPath is not an absolute path/, receiptPath);
+  }
 });
