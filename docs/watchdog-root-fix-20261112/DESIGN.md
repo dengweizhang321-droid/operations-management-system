@@ -200,21 +200,21 @@
 **加载顺序**：按各脚本真实的 dot-source 顺序建函数表，同名函数以该 profile 下后加载的一份为准（PowerShell 语义）；先加载的被覆盖，不再扫描。所有权函数必须由 overlay 定义提供，否则 `ownership_function_missing`。扫描范围是所有会执行的顶层语句加调用传递闭包，并按各脚本门控（Worker `FunctionsOnly`、backend `TERUISI_DJANGO_SERVICE_LIBRARY_ONLY`、supervisor `$librarySupervisorMode`、控制脚本 `$Action -ne "Panel"` 分发、wrapper `DiagnosticTarget` 分支）取舍。
 
 **已覆盖的形态**：
-- 结束/启动进程：`Stop-Process`、`Start-Process`、`.Kill()`/`Terminate`、`[Diagnostics.Process]::Start`、`Invoke-Item`、taskkill/wmic/pskill 字符串常量
+- 结束/启动进程：`Stop-Process`、`Start-Process`、`.Kill()`/`Terminate`、`[Diagnostics.Process]::Start`、`Invoke-Item`、taskkill/wmic/pskill 字符串常量、`Invoke-CimMethod`/`Remove-CimInstance`/`Set-CimInstance`/`Invoke-WmiMethod`/`Remove-WmiObject`（不论方法与实例）
 - 删除/移动：`Remove-Item`、`Move-Item`、`Rename-Item`、`Clear-Content`、`.Delete()`/`.MoveTo()`、`[IO.File/Directory]::Delete|Move|Replace`
-- 写入：`Set-Content`、`Add-Content`、`Out-File`、`Tee-Object`、`>` 重定向、`[IO.File]::Write*|Append*|Create*`
-- 动态执行：`Invoke-Expression`、`Invoke-Command`、`& <非字面量>`、`. <非字面量>`、`[scriptblock]::Create`、`.InvokeScript(`、`$ExecutionContext`
+- 写入：`Set-Content`、`Add-Content`、`Out-File`、`Tee-Object`、`>` 重定向、`[IO.File]::Write*|Append*|Create*`、`New-Item`、`Copy-Item`（不论目标）
+- 动态执行：`Invoke-Expression`、`Invoke-Command`、`& <非字面量>`、`. <非字面量>`、`[scriptblock]::Create`、`.InvokeScript(`、`$ExecutionContext`、`[powershell]::Create`、`.AddScript(`、`[runspacefactory]`；函数引用（`${function:X}`、`$function:X`、`Get-Command X`、`Get-Item function:X`）按对 X 的调用纳入闭包，引用到的删除/写入原语同样命中
 
 **已知盲区**：
 - 字符串 `.Replace(` 与文件 `Replace` 无法区分，只标记静态 `[IO.File]::Replace`
-- COM / WMI / 其他 .NET 结束进程路径未逐一列名；`New-Object System.Diagnostics.Process` 未覆盖
-- `Copy-Item`、`New-Item` 不视为写入
+- COM 与其他 .NET 结束进程路径未逐一列名；`New-Object System.Diagnostics.Process` 未覆盖
+- `Get-Command`/`Get-Item function:` 的参数不是字面量时无法解析被引用的函数，只有紧跟 `.ScriptBlock` 的形态会被标记为动态调用
 - Python 等子程序内部行为不分析
 - 动态构造的命令名或经例外放行的脚本块内容，只在调用点被扫描
 
 `WriteScope` 取 `'any'`：任何写入原语都算命中，不依赖 pid 相关的豁免，因此没有「按 pid 放行」的兜底。
 
-### 闭包检查例外表（共 11 条，上限 25）
+### 闭包检查例外表（共 12 条，上限 25）
 
 每条按 `脚本|函数|原语` 钉住，并钉「命中文本（空白归一化）sha256 + 命中个数」。出现多余或改变的命中，该键的全部命中都按违规处理。行号为 2026-11-12 当前生产源码位置。
 
@@ -223,18 +223,21 @@
 | 1 | transport | `Invoke-DeadlineProcess` | `.kill()`（process-deadline.ps1:192） | `9bd9e6f7…2cb0` ×1 | 只终止本次调用自己拉起的 Process 对象 |
 | 2 | transport | `Invoke-DeadlineProcess` | io-delete（:199-200） | `a8bd4f4a…cd75` ×1、`981e5176…ede4` ×1 | 只删除自己的临时文件/目录 |
 | 3 | transport | `Invoke-DeadlineProcess` | io-write（:140） | `392faf6b…6ef` ×1 | 只创建自己的临时目录 |
-| 4 | backend | `Invoke-BoundedNativeProcess` | dynamic-call（django-local-service.ps1:300） | `e75ee646…c9d7` ×1 | 脚本块由只读调用方传入 |
-| 5 | backend | `Invoke-InProcessJsonStatus` | dynamic-call（:4867） | `a66f7ab9…0357` ×1 | 调用点为字面量只读状态块 |
-| 6 | backend | `Invoke-WithDjangoEnvironment` | dynamic-call（:3758） | `a66f7ab9…0357` ×1 | 唯一调用点执行单条只读授权查询 |
+| 4 | backend | `Invoke-BoundedNativeProcess` | dynamic-call（django-local-service.ps1:300，`& $Executable @Arguments`） | `e75ee646…c9d7` ×1 | 第一个参数是可执行文件路径而不是脚本块，内容无法静态验证，因此限制调用方：闭包内只允许 `Show-AggregateServiceStatus`、`Test-PostgresReady`、`Get-FinanceWriteAuthority` 调用（均为只读探测），新增调用方即失效 |
+| 5 | backend | `Invoke-InProcessJsonStatus` | dynamic-call（:4867） | `a66f7ab9…0357` ×1 | 调用点为字面量只读状态块；调用点约束：参数 `Operation` 必须是字面量 `{ … }` |
+| 6 | backend | `Invoke-WithDjangoEnvironment` | dynamic-call（:3758） | `a66f7ab9…0357` ×1 | 唯一调用点执行单条只读授权查询；调用点约束：参数 `Operation` 必须是字面量 `{ … }` |
 | 7 | backend | `Rotate-LauncherLog` | remove-item（:403） | `d26f0011…278e` ×1 | 只丢弃最旧的轮转启动日志 |
 | 8 | backend | `Rotate-LauncherLog` | move-item（:405、:409） | `eaedc451…c415` ×1、`54cbdcbb…b1d19` ×1 | 只轮转启动日志文件名 |
 | 9 | backend | `Write-LauncherEvent` | io-write（:424） | `a017f5b0…ccea` ×1 | 追加一行启动日志 |
-| 10 | overlay | `Invoke-ReadonlyMetadataObservation` | dynamic-call（约 :246） | `ef292c89…be88` ×1 | 调用 wrapper 传入的只读状态块 |
+| 10 | overlay | `Invoke-ReadonlyMetadataObservation` | dynamic-call（约 :246） | `ef292c89…be88` ×1 | 调用 wrapper 传入的只读状态块；调用点约束：参数 `ReadStatus` 必须是字面量 `{ … }` |
 | 11 | supervisor | `Move-SupervisorStatePreviousGeneration` | move-item（django-runtime-supervisor.ps1:364） | `874defdb…5fc0` ×1，另钉调用点（见下） | 归档 `state.json`；只经 `Read-SupervisorState` 第 327 行的 Mode 闸（`ArchivePreviousStopped`）到达。唯一传 Archive 的是 `Invoke-SupervisorRun`（:832），看门狗 Status 块（:1140）传 `AllowPreviousStopped` |
+| 12 | backend | `Write-LauncherEvent` | new-item（:414） | `88038315…2133` ×1 | 追加启动日志前确保日志目录存在（`New-Item` 现按写入原语处理后新增的现存命中） |
 
-**第 11 条的调用点约束**（例外表条目的可选 `callsite` 字段，通用实现，不特判字符串）：该 profile 闭包内所有对 `Read-SupervisorState` 的调用，`-Mode` 或第一个位置参数必须缺省，或是字面量 `Strict`/`AllowPreviousStopped`，变量、splat、`ArchivePreviousStopped` 都使例外失效、命中转为违规；`Move-SupervisorStatePreviousGeneration` 的唯一允许调用方是 `Read-SupervisorState`；`Read-SupervisorState` 内包住该调用的最内层 `if` 语句（Mode 闸）原文钉 sha256 `1e58504e…6a10`，闸被改动或去掉即失效。测试 `watchdog-driver-closure.test.ps1` 3f 覆盖四种改写、三种合法写法和去闸，各自去掉对应检查都变红。
+**调用点约束（例外表条目的可选 `callsite` 字段，通用实现，不特判字符串）**：`onlyCallers`（命中函数只允许这些函数调用）、`hitParameter`（命中函数的该参数在每个可达调用点必须是脚本块字面量）、`target`+`parameter`+`allowed`（目标函数该参数缺省或为列出的字符串字面量）、`pinFunction`+`pinSha256`（整个函数定义原文钉哈希）。调用点的参数名按 PowerShell 规则绑定（大小写不敏感的唯一前缀，其余按声明顺序的位置绑定），无法确定绑定（splat、未知或有歧义的参数名）一律视为违反；函数引用（`${function:X}`、`Get-Command X`、`Get-Item function:X`）也是对 X 的引用点，使 X 的调用点条件失效。
 
-当前生产源码实测：`ok=True`，被例外放行 19 处命中（c7b1d265 后守护脚本新增第 11 条）；可达函数数 control 25 / wrapper-backend 58 / wrapper-worker 47 / wrapper-supervisor 36。`Invoke-DjangoSupervisorRelaunch`、`Invoke-DjangoSupervisorProcessCreate` 等新函数在四个 profile 里都不可达。
+第 11 条的具体约束：`Read-SupervisorState` 的所有可达调用，`-Mode`（含 `-Mo` 之类前缀）或第一个位置参数必须缺省，或是字面量 `Strict`/`AllowPreviousStopped`；变量、splat、`ArchivePreviousStopped` 都使例外失效、命中转为违规；`Move-SupervisorStatePreviousGeneration` 的唯一允许调用方是 `Read-SupervisorState`；并钉住整个 `Read-SupervisorState` 函数定义（含参数默认值与 Mode 闸）的原文 sha256 `8473c0eb…3a85`。**钉整个函数意味着守护脚本改动 `Read-SupervisorState` 的任何字节都会使该例外失效、触发失明告警，这是有意接受的代价**：这个函数决定守护是否归档状态文件，改动它应当重新审一次。测试 `watchdog-driver-closure.test.ps1` 3f/3g/3h 覆盖各种改写、合法写法、引用与新增原语，各自去掉对应检查都变红。
+
+当前生产源码实测：`ok=True`，被例外放行 20 处命中；可达函数数 control 25 / wrapper-backend 58 / wrapper-worker 47 / wrapper-supervisor 36。`Invoke-DjangoSupervisorRelaunch`、`Invoke-DjangoSupervisorProcessCreate` 等新函数在四个 profile 里都不可达。
 
 ### 所有权调用白名单（2026-11-12 枚举）
 
