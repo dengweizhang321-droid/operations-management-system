@@ -262,6 +262,31 @@ class StreamEndpointTransactionTests(TransactionTestCase):
             ).error_code, "provider_timeout")
             self.assertEqual(dispatch.call_count, 1)
 
+    def test_signed_stream_keeps_reason_for_definite_failure_after_confirmed_round(self):
+        def unregistered_tool_round(*args, **kwargs):
+            chat.transport.commit_provider_send()
+            return {"text": "", "calls": [{"id": "call-1", "name": "unregistered_write", "arguments": {}}],
+                    "frame": {"role": "assistant", "content": None, "tool_calls": [{
+                        "id": "call-1", "type": "function",
+                        "function": {"name": "unregistered_write", "arguments": "{}"}}]}}
+
+        body = {"clientRequestId": "threaded-stream-definite", "message": "业务问题", "workspaceModule": "sales"}
+        with patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": "A-valid-isolated-signing-secret-13579-abcdefghijklmnopqrstuvwxyz"}), \
+             patch.object(chat.transport, "catalog", return_value=[]), \
+             patch.object(provider, "turn", side_effect=unregistered_tool_round):
+            headers = signed_headers("/api/ai/chat", body, self.owner, "threaded-stream-definite")
+            headers["Accept"] = "text/event-stream"
+            response = self.client.post("/api/ai/chat", canonical(body), content_type="application/json", headers=headers)
+            wire = b"".join(response.streaming_content).decode()
+            response.ai_stream.thread.join(3)
+        failure = json.loads(wire.split("event: failure\ndata: ", 1)[1].split("\n", 1)[0])
+        self.assertEqual(failure["code"], "ai_chat_not_dispatched")
+        self.assertIn("模型请求了当前账号未获授权的工具", failure["error"])
+        self.assertIn("可重新发送", failure["error"])
+        self.assertNotIn("。。", failure["error"])
+        receipt = m.AiChatRequestReceipts.objects.get(client_request_id=body["clientRequestId"])
+        self.assertEqual((receipt.status, receipt.error_code), ("failed", "ai_chat_not_dispatched"))
+
     def test_signed_stream_commits_in_producer_before_terminal_receipt(self):
         body = {"clientRequestId": "threaded-stream-receipt", "message": "业务问题"}
         with patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": "A-valid-isolated-signing-secret-13579-abcdefghijklmnopqrstuvwxyz"}), \

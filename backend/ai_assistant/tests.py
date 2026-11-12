@@ -324,6 +324,120 @@ class AiDomainTests(TestCase):
         self.assertEqual(failure.error_code, "provider_timeout")
         self.assertGreaterEqual(failure.duration_ms, 0)
 
+    # --- classification of a failure after earlier, already-returned rounds ---
+    @staticmethod
+    def _tool_round_reply():
+        return {
+            "text": "",
+            "calls": [{"id": "call-1", "name": "get_data_freshness", "arguments": {}}],
+            "frame": {"role": "assistant", "content": None, "tool_calls": [{
+                "id": "call-1", "type": "function",
+                "function": {"name": "get_data_freshness", "arguments": "{}"}}]},
+        }
+
+    def _run_two_rounds(self, client_id, second):
+        """Round 1 returns a tool call; round 2 is `second(receipt)`."""
+        state = {"turn": 0}
+
+        def turn(*args, **kwargs):
+            state["turn"] += 1
+            receipt = m.AiChatRequestReceipts.objects.get(client_request_id=client_id)
+            if state["turn"] == 1:
+                chat.transport.commit_provider_send()
+                return self._tool_round_reply()
+            return second(receipt)
+
+        with (
+            patch.object(chat.transport, "catalog", return_value=CATALOG),
+            patch.object(chat.provider, "turn", side_effect=turn) as provider,
+            patch.object(chat.transport, "execute_tool", return_value={"ok": True, "data": {"returned": 0}}),
+        ):
+            with self.assertRaises(AiError) as caught:
+                chat.answer({"clientRequestId": client_id, "message": "查询数据"}, self.owner, client_id)
+        receipt = m.AiChatRequestReceipts.objects.get(client_request_id=client_id)
+        return caught.exception, receipt, provider.call_count
+
+    @staticmethod
+    def _dns_timeout():
+        from .transport import ProviderTransportError
+        return ProviderTransportError(stage="system_dns", reason="timeout", request_started=False)
+
+    def test_failure_before_send_after_confirmed_round_is_definite_not_unknown(self):
+        def second(receipt):
+            raise self._dns_timeout()  # fence never reached: no attempt row for round 2
+
+        error, receipt, calls = self._run_two_rounds("definite-r2", second)
+        self.assertEqual((error.code, error.status), ("ai_chat_not_dispatched", 503))
+        self.assertEqual((receipt.status, receipt.error_code), ("failed", "ai_chat_not_dispatched"))
+        self.assertEqual(calls, 2)
+        self.assertEqual(m.AiChatProviderDispatches.objects.filter(receipt_id=receipt.id).count(), 1)
+        record = chat._chat_request_record(receipt)
+        self.assertEqual((record["status"], record["dispatchState"]), ("failed", "not_sent"))
+        self.assertFalse(m.AiConversationMessages.objects.filter(role="assistant").exists())
+        self.assertEqual(m.AiToolAuditLogs.objects.get(
+            request_id="definite-r2", tool_name="ai_chat_provider", status="failed").error_code, "provider_dns_timeout")
+
+    def test_failure_after_round_two_attempt_recorded_stays_unknown(self):
+        def second(receipt):
+            chat.transport.commit_provider_send()  # record_attempt ran, response unconfirmed
+            raise self._dns_timeout()
+
+        error, receipt, _ = self._run_two_rounds("unknown-r2", second)
+        self.assertEqual(error.code, "ai_chat_result_unknown")
+        self.assertEqual((receipt.status, receipt.error_code), ("unknown", "ai_chat_result_unknown"))
+        self.assertEqual(m.AiChatProviderDispatches.objects.filter(receipt_id=receipt.id).count(), 2)
+        record = chat._chat_request_record(receipt)
+        self.assertEqual((record["status"], record["dispatchState"]), ("unknown", "unconfirmed"))
+
+    def test_failure_before_first_send_keeps_original_not_dispatched_behavior(self):
+        def turn(*args, **kwargs):
+            raise self._dns_timeout()
+
+        with (
+            patch.object(chat.transport, "catalog", return_value=CATALOG),
+            patch.object(chat.provider, "turn", side_effect=turn),
+        ):
+            with self.assertRaises(AiError) as caught:
+                chat.answer({"clientRequestId": "first-pre", "message": "查询数据"}, self.owner, "first-pre")
+        self.assertEqual(caught.exception.code, "provider_dns_timeout")  # original error, unchanged
+        receipt = m.AiChatRequestReceipts.objects.get(client_request_id="first-pre")
+        self.assertEqual((receipt.status, receipt.error_code), ("failed", "ai_chat_not_dispatched"))
+        record = chat._chat_request_record(receipt)
+        self.assertEqual((record["status"], record["dispatchState"]), ("failed", "not_sent"))
+
+    def test_stop_requested_branches_are_unchanged(self):
+        def stop_then_fail(receipt):
+            m.AiChatRequestReceipts.objects.filter(pk=receipt.pk).update(cancel_requested=True)
+            raise self._dns_timeout()
+
+        # Stop saved, every dispatched round returned -> stopped_after_dispatch.
+        error, receipt, _ = self._run_two_rounds("stop-confirmed", stop_then_fail)
+        self.assertEqual(error.code, "ai_chat_stopped_after_dispatch")
+        self.assertEqual(chat._chat_request_record(receipt)["status"], "stopped")
+
+        # Stop saved while round 2 was recorded but unconfirmed -> still unknown.
+        def stop_after_attempt(receipt):
+            chat.transport.commit_provider_send()
+            m.AiChatRequestReceipts.objects.filter(pk=receipt.pk).update(cancel_requested=True)
+            raise self._dns_timeout()
+
+        error, receipt, _ = self._run_two_rounds("stop-unconfirmed", stop_after_attempt)
+        self.assertEqual((error.code, error.status), ("ai_chat_result_unknown", 409))
+        self.assertEqual(receipt.status, "unknown")
+
+        # Stop saved before anything was dispatched -> cancelled.
+        def first_turn(*args, **kwargs):
+            m.AiChatRequestReceipts.objects.filter(client_request_id="stop-none").update(cancel_requested=True)
+            raise self._dns_timeout()
+
+        with (
+            patch.object(chat.transport, "catalog", return_value=CATALOG),
+            patch.object(chat.provider, "turn", side_effect=first_turn),
+        ):
+            with self.assertRaises(AiError) as caught:
+                chat.answer({"clientRequestId": "stop-none", "message": "查询数据"}, self.owner, "stop-none")
+        self.assertEqual(caught.exception.code, "ai_request_cancelled")
+
     def test_workflow_cycle_rejected_without_writes(self):
         bad = {
             "nodes": [
