@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { afterEach } from "node:test";
 import { packagesRoot, parseWorktrees, planRetention, resolveProtected, selectPackageWorktrees } from "../tools/release-package-retention.mjs";
 
 const name = (index) => `${index.toString(16).padStart(12, "0")}-aabbccdd-11223344`;
@@ -78,8 +78,15 @@ test("invalid retention input and malformed names fail closed", () => {
 const release = "20261112T000000Z-test";
 const elsewhere = path.join(os.tmpdir(), "retention-elsewhere");
 
+// Every temp tree is removed after its test, pass or fail.
+const createdBases = [];
+afterEach(async () => {
+  for (const base of createdBases.splice(0)) await rm(base, { recursive: true, force: true });
+});
+
 async function buildWorld({ packages = [1, 3], django = 1, catalogSource = 3, frontendSource = 3, frontendRaw, catalog, writeCatalog = true } = {}) {
   const base = await mkdtemp(path.join(os.tmpdir(), "retention-protect-"));
+  createdBases.push(base);
   const packagesDirectory = path.join(base, "packages");
   const roots = { djangoRoot: path.join(base, "django"), stateDirectory: path.join(base, "state"), workerRoot: path.join(base, "worker"), packagesDirectory };
   const source = (index) => path.join(packagesDirectory, name(index), "source");
@@ -184,5 +191,45 @@ test("preparation pointer: absent is null, valid is protected, malformed fails c
     JSON.stringify({ packet: path.join(packetDir, "source") }), JSON.stringify({ packet: path.join(elsewhere, "p") })]) {
     await world.writePointer(bad);
     await assert.rejects(resolveProtected(world.roots), /Preparation pointer/, bad);
+  }
+});
+
+test("four protections each hold their own package: Django, frontend source, catalog source, catalog receipt", async () => {
+  // Four distinct packages, all older than the unprotected 5 and 6; no preparation pointer to cover for any of them.
+  const world = await buildWorld({ packages: [1, 2, 3, 4, 5, 6], django: 1, frontendSource: 2, catalogSource: 3 });
+  await world.writeCatalogFile({ ...world.standard,
+    receiptPath: path.join(world.roots.packagesDirectory, name(4), "publish-aabbccddeeff", "SUCCESS.json") });
+  const guard = await resolveProtected(world.roots);
+  assert.equal(guard.installed, name(1));
+  assert.equal(guard.frontendSource, name(2));
+  assert.equal(guard.catalogSource, name(3));
+  assert.equal(guard.catalogReceipt, name(4));
+  assert.equal(guard.preparedPacket, null);
+  const packages = [pkg(1, 1), pkg(2, 2), pkg(3, 3), pkg(4, 4), pkg(5, 5), pkg(6, 6)];
+  const plan = planRetention({ packages, worktrees: [], branches: [], protectedNames: guard.names, keepRecent: 0 });
+  for (const index of [1, 2, 3, 4]) assert.ok(plan.keep.includes(name(index)), "protected: " + name(index));
+  assert.deepEqual(plan.removeDirectories.map((item) => item.name).sort(), [name(5), name(6)].sort());
+});
+
+test("root containment ignores drive/directory case and slash style", { skip: process.platform !== "win32" }, async () => {
+  const world = await buildWorld({ packages: [1, 2, 3, 4], django: 1 });
+  // Same directory, written upper-case with forward slashes; package names stay lower-case hex.
+  const variant = world.roots.packagesDirectory.toUpperCase().replaceAll("\\", "/");
+  assert.notEqual(variant, world.roots.packagesDirectory);
+  await world.writeCatalogFile({ ...world.standard, source: variant + "/" + name(3) + "/source",
+    receiptPath: variant + "/" + name(4) + "/publish-aabbccddeeff/SUCCESS.json" });
+  const manifestFile = path.join(world.roots.workerRoot, "releases", release, "deployment-manifest.json");
+  await writeFile(manifestFile, JSON.stringify({ source: { sourceBinding: { raw: JSON.stringify({ sourceRoot: variant + "/" + name(2) + "/source" }) } } }));
+  const guard = await resolveProtected(world.roots);
+  assert.equal(guard.catalogSource, name(3));
+  assert.equal(guard.catalogReceipt, name(4));
+  assert.equal(guard.frontendSource, name(2));
+});
+
+test("relative catalog receiptPath fails closed instead of being treated as outside the root", async () => {
+  const world = await buildWorld();
+  for (const receiptPath of ["publish-aabbccddeeff/SUCCESS.json", "../adoptions/ADOPTED.json"]) {
+    await world.writeCatalogFile({ ...world.standard, receiptPath });
+    await assert.rejects(resolveProtected(world.roots), /receiptPath is not an absolute path/, receiptPath);
   }
 });

@@ -95,6 +95,9 @@ export async function resolveProtected({
   if (typeof catalog.receiptPath !== "string" || !catalog.receiptPath) {
     throw new Error(`Publication catalog has no receiptPath: ${catalogFile}`);
   }
+  if (!path.isAbsolute(catalog.receiptPath)) {
+    throw new Error(`Publication catalog receiptPath is not an absolute path: ${catalog.receiptPath}`);
+  }
   let catalogReceipt = null;
   const receiptSegments = segmentsBelow(packagesDirectory, catalog.receiptPath);
   if (receiptSegments) {
