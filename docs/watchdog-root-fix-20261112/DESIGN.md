@@ -186,26 +186,52 @@
 |---|---|
 | 运行时生成 + 摘要缓存 | `tools/operations-system-watchdog.ps1`：`Invoke-WatchDriverEnsure` / `New-WatchDriver` / `Initialize-WatchDriver`（45 秒独立预算）、`Remove-WatchStaleDrivers` |
 | 生成器 CLI | `tools/watchdog-driver-generate.mjs`（退出码 0 成功、3 结构化拒绝、其余为瞬时失败）；`prepare-*.mjs` 增加 `sourcePath`/`readFiles` 以读暂存副本 |
-| 机械安全检查 | `tools/watchdog-driver-closure.ps1`：`Invoke-WatchDriverClosureCheck`（4 个 profile 的传递闭包 + 所有权函数调用白名单） |
+| 机械安全检查 | `tools/watchdog-driver-closure.ps1`：`Invoke-WatchDriverClosureCheck`（4 个 profile 按加载顺序的静态绊线扫描 + 所有权函数调用白名单；见下文定位与盲区） |
 | 拒绝缓存 | `Get-WatchDriverRejection` / `Set-WatchDriverRejection`（`rejected-<digest>.json`，固定枚举原因；瞬时失败不缓存） |
 | 告警重设计 | `Send-WatchAlert`（`-reminder<N>`、24 小时、无次数上限）、`Get-WatchMessage` 的持续提醒与失明说明 |
 | 恢复上限 | `Get-WatchDecision`：`incidentRecoveryFailures` ≥ 3 → `recovery_exhausted`（只告警） |
 | 安装 | `tools/watchdog-install.ps1`：11 文件包（5 基础 + 6 生成器套件），套件全有或全无，`nodePath` 写入 `installation.json` 并计入 planId |
 | 测试 | `tests/watchdog-driver-lifecycle.test.ps1`、`tests/watchdog-driver-closure.test.ps1`（新）；install / diagnostics / binding-alert-delivery / operations-system-watchdog 测试已更新 |
 
-### 闭包检查例外表（共 5 条，上限 25）
+### 闭包检查的定位：静态绊线，不是证明
 
-行号为 2026-11-12 当前生产源码中的位置。
+它只能挡住「已知写法」的误改，不能证明驱动副本安全。
 
-| 来源 | 函数 | 原语 | 理由 |
-|---|---|---|---|
-| transport | `Invoke-DeadlineProcess` | `.Kill()`（process-deadline.ps1:192） | 只终止本次调用自己拉起的子进程（`-Cleanup Direct` 且超时/传输失败）；控制与 wrapper-worker 两个 profile 可达 |
-| backend | `Invoke-BoundedNativeProcess` | 动态调用（django-local-service.ps1:300） | 只运行固定原生可执行文件（pg_isready、固定 Python 只读探针），生产 Status 本就执行；可达调用方：`Test-PostgresReady`(3320)、`Get-FinanceWriteAuthority`(4132)、`Show-AggregateServiceStatus`(5010) |
-| backend | `Invoke-InProcessJsonStatus` | 动态调用（:4867） | 调用脚本块参数；调用点传入字面量 `Show-ServiceStatus`/`Show-FinanceServiceStatus` 块，在调用方被扫描 |
-| backend | `Invoke-WithDjangoEnvironment` | 动态调用（:3758） | 唯一可达调用点 `Get-FinanceWriteAuthority` 传入执行单条只读授权查询的字面量块 |
-| overlay | `Invoke-ReadonlyMetadataObservation` | 动态调用（overlay 约 246 行） | 调用生成 wrapper 传入的只读状态块；wrapper 调用点为字面量块，作为入口语句被扫描 |
+**加载顺序**：按各脚本真实的 dot-source 顺序建函数表，同名函数以该 profile 下后加载的一份为准（PowerShell 语义）；先加载的被覆盖，不再扫描。所有权函数必须由 overlay 定义提供，否则 `ownership_function_missing`。扫描范围是所有会执行的顶层语句加调用传递闭包，并按各脚本门控（Worker `FunctionsOnly`、backend `TERUISI_DJANGO_SERVICE_LIBRARY_ONLY`、supervisor `$librarySupervisorMode`、控制脚本 `$Action -ne "Panel"` 分发、wrapper `DiagnosticTarget` 分支）取舍。
 
-当前生产源码实测：`ok=True`，8 处原始命中映射到上述 5 条；可达函数数 control 25 / wrapper-backend 58 / wrapper-worker 47 / wrapper-supervisor 34。
+**已覆盖的形态**：
+- 结束/启动进程：`Stop-Process`、`Start-Process`、`.Kill()`/`Terminate`、`[Diagnostics.Process]::Start`、`Invoke-Item`、taskkill/wmic/pskill 字符串常量
+- 删除/移动：`Remove-Item`、`Move-Item`、`Rename-Item`、`Clear-Content`、`.Delete()`/`.MoveTo()`、`[IO.File/Directory]::Delete|Move|Replace`
+- 写入：`Set-Content`、`Add-Content`、`Out-File`、`Tee-Object`、`>` 重定向、`[IO.File]::Write*|Append*|Create*`
+- 动态执行：`Invoke-Expression`、`Invoke-Command`、`& <非字面量>`、`. <非字面量>`、`[scriptblock]::Create`、`.InvokeScript(`、`$ExecutionContext`
+
+**已知盲区**：
+- 字符串 `.Replace(` 与文件 `Replace` 无法区分，只标记静态 `[IO.File]::Replace`
+- COM / WMI / 其他 .NET 结束进程路径未逐一列名；`New-Object System.Diagnostics.Process` 未覆盖
+- `Copy-Item`、`New-Item` 不视为写入
+- Python 等子程序内部行为不分析
+- 动态构造的命令名或经例外放行的脚本块内容，只在调用点被扫描
+
+`WriteScope` 取 `'any'`：任何写入原语都算命中，不依赖 pid 相关的豁免，因此没有「按 pid 放行」的兜底。
+
+### 闭包检查例外表（共 10 条，上限 25）
+
+每条按 `脚本|函数|原语` 钉住，并钉「命中文本（空白归一化）sha256 + 命中个数」。出现多余或改变的命中，该键的全部命中都按违规处理。行号为 2026-11-12 当前生产源码位置。
+
+| # | 来源 | 函数 | 原语 | 钉住（sha256 前缀 ×个数） | 理由 |
+|---|---|---|---|---|---|
+| 1 | transport | `Invoke-DeadlineProcess` | `.kill()`（process-deadline.ps1:192） | `9bd9e6f7…2cb0` ×1 | 只终止本次调用自己拉起的 Process 对象 |
+| 2 | transport | `Invoke-DeadlineProcess` | io-delete（:199-200） | `a8bd4f4a…cd75` ×1、`981e5176…ede4` ×1 | 只删除自己的临时文件/目录 |
+| 3 | transport | `Invoke-DeadlineProcess` | io-write（:140） | `392faf6b…6ef` ×1 | 只创建自己的临时目录 |
+| 4 | backend | `Invoke-BoundedNativeProcess` | dynamic-call（django-local-service.ps1:300） | `e75ee646…c9d7` ×1 | 脚本块由只读调用方传入 |
+| 5 | backend | `Invoke-InProcessJsonStatus` | dynamic-call（:4867） | `a66f7ab9…0357` ×1 | 调用点为字面量只读状态块 |
+| 6 | backend | `Invoke-WithDjangoEnvironment` | dynamic-call（:3758） | `a66f7ab9…0357` ×1 | 唯一调用点执行单条只读授权查询 |
+| 7 | backend | `Rotate-LauncherLog` | remove-item（:403） | `d26f0011…278e` ×1 | 只丢弃最旧的轮转启动日志 |
+| 8 | backend | `Rotate-LauncherLog` | move-item（:405、:409） | `eaedc451…c415` ×1、`54cbdcbb…b1d19` ×1 | 只轮转启动日志文件名 |
+| 9 | backend | `Write-LauncherEvent` | io-write（:424） | `a017f5b0…ccea` ×1 | 追加一行启动日志 |
+| 10 | overlay | `Invoke-ReadonlyMetadataObservation` | dynamic-call（约 :246） | `ef292c89…be88` ×1 | 调用 wrapper 传入的只读状态块 |
+
+当前生产源码实测：`ok=True`，被例外放行 18 处命中；可达函数数 control 25 / wrapper-backend 58 / wrapper-worker 47 / wrapper-supervisor 34。
 
 ### 所有权调用白名单（2026-11-12 枚举）
 
