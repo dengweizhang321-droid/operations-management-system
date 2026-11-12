@@ -1,6 +1,6 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import path from 'node:path';import {fileURLToPath} from 'node:url';import {createHash} from 'node:crypto';
-import {prepareStatusDriver} from './prepare-watchdog-status-driver.mjs';
+import {prepareStatusDriver,sourcePath} from './prepare-watchdog-status-driver.mjs';
 const hash=x=>createHash('sha256').update(x).digest('hex');
 const quote=x=>"'"+x.replaceAll("'","''")+"'";
 function once(text,from,to){if(!text.includes(from)||text.indexOf(from)!==text.lastIndexOf(from))throw Error('native_diagnostic_source_shape_changed');return text.replace(from,()=>to);}
@@ -28,7 +28,7 @@ export function readonlyBodies(backend,worker){
  return {readResolver,readWorker,proof:{backend:{originalBodySha256:hash(resolver),generatedBodySha256:hash(readResolver),revertedExact:true,edits},worker:{originalBodySha256:hash(workerStatus),generatedBodySha256:hash(readWorker),revertedExact:true,edits:[[workerFrom,workerTo]]}}};
 }
 export async function prepareNativeStatusDriver(options){
- const [backend,worker,native]=await Promise.all([readFile(options.backendFile,'utf8'),readFile(options.workerFile,'utf8'),readFile(options.nativeTemplateFile??new URL('./watchdog-native-metadata.ps1',import.meta.url),'utf8')]);
+ const [backend,worker,native]=await Promise.all([readFile(sourcePath(options,'backendFile'),'utf8'),readFile(sourcePath(options,'workerFile'),'utf8'),readFile(options.nativeTemplateFile??new URL('./watchdog-native-metadata.ps1',import.meta.url),'utf8')]);
  const bodies=readonlyBodies(backend,worker);
  const binding=await prepareStatusDriver(options);
  const output=options.outputDirectory,controlPath=path.join(output,'watchdog-status-control.ps1'),overlayPath=path.join(output,'watchdog-core-overlay.ps1');
