@@ -755,7 +755,7 @@ test('反向 2：步骤数与代数差不符，起始代数接不上链', () => 
   // 最新一代从规格表取（不写死代际名），按对象身份改。
   const edit = (patch) => ({...s, specs: s.specs.map((x) => (x === latestSpec ? {...x, ...patch} : x))});
   only(checkChain(edit({steps: []})), latestKind, 'steps');
-  only(checkChain(edit({from: 999, to: 1000})), latestKind, '999');
+  only(checkChain(edit({from: 999, to: 999 + latestSpec.steps.length})), latestKind, '999');
   const binder = {...s, specs: s.specs.map((x) => (x.recipe === 'config/main-schema-releases/inventory-0017-from148.json' ? {...x, binder: 'pi_native_candidate.py'} : x))};
   only(checkChain(binder), 'TmallWarehouse', 'binder');
 });
