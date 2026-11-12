@@ -303,9 +303,19 @@ export const aiUnifiedTasksDjangoScriptSha256='37c6dc571aeefe4954f977f5b3a64ec08
 // aiUnifiedTasksDjangoScriptSha256 above; this is only the new candidate.
 export const releaseChainTripleFixDjangoScriptSha256='dc856391affa2ae5a677bdc7ca7273c301eb604b7c1de8855d0c93be3233b005';
 export const releaseChainTripleFixWorkerScriptSha256='0e5459dd34c5dd5fa26109d3606117750bb61e11c5b66b510d13dfa889dc4516';
+// Controlled-stop exiting-process fix (codex/worker-stop-exiting-race-20261112):
+// Get-ControlledStopSweep falls back to the ledger's complete snapshot only for a
+// ledgered process whose PID/creation/name/parent are unchanged while Win32 already
+// reports empty ExecutablePath/CommandLine, and Stop-ExactWorkerSnapshot records
+// the rejected process in worker-last-controlled-stop.json. Candidate-only entry:
+// the installed bytes of the current production generation (Worker release
+// 20261111T034540Z-9142d2fcc8a8f87b) stay releaseChainTripleFixWorkerScriptSha256
+// (0e5459dd...), which is appended-to, never replaced, in the lists below. The hash
+// is over the git-stored bytes (UTF-8 BOM + CRLF, -text in .gitattributes).
+export const workerStopExitingProcessWorkerScriptSha256='ae99c2464820f23dcf6b9c73fd476e12ed5acad4aeb7daeb61fd276f97b496f4';
 export const piNativeCandidateControllerSha256=Object.freeze({
  'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256]),
- 'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256]),
+ 'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });
 // Readiness helper packaging only: exact old/new controller bytes, no new stop route.

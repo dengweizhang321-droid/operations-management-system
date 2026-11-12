@@ -10,7 +10,7 @@ import {firstMaintenancePredecessor as k,assertFirstMaintenanceContinuation,cont
 import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
 import {aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256} from '../tools/manual-maintenance-continuation.mjs';
 import {readinessCopyControllerPair,pandasRotationControllerPair} from '../tools/manual-maintenance-continuation.mjs';
-import {releaseChainTripleFixDjangoScriptSha256,releaseChainTripleFixWorkerScriptSha256} from '../tools/manual-maintenance-continuation.mjs';
+import {releaseChainTripleFixDjangoScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256,nativePiResumeAfterMaintenancePhase1Predecessor} from '../tools/manual-maintenance-continuation.mjs';
 // Execute the actual pure adapter declaration without importing release-impact's
 // TypeScript-dependent deployment analysis into this dependency-free fixture.
 async function loadProductionCommandArguments(){
@@ -169,7 +169,7 @@ test('S05a: B1 worker controller is qualified per controller; other names still 
  // entry. The B1 hash must stay first so an installed B1-era worker controller
  // remains admissible; the set is asserted exactly, so any further worker
  // controller edit still fails closed until it is re-qualified.
- assert.deepEqual([...piNativeCandidateControllerSha256['worker-local-service.ps1']],[candidate,bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['worker-local-service.ps1']],[candidate,bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256]);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}));
  assert.throws(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:'c'.repeat(64)}),/实际原生控制器代际与候选不一致：worker-local-service\.ps1/);
  // Each name only owns its own hashes: the django generation is not a worker one, nor the reverse.
@@ -181,6 +181,29 @@ test('S05a: B1 worker controller is qualified per controller; other names still 
  assert.throws(()=>assertMaintenanceControllerGeneration({name:'process-deadline.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}),/process-deadline\.ps1/);
  // An unknown controller name is never a default allow.
  assert.throws(()=>assertMaintenanceControllerGeneration({name:'foo.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}),/实际原生控制器代际与候选不一致：foo\.ps1/);
+});
+test('worker stop exiting-process fix: repository bytes are the registered candidate; adoption is per controller and fail-closed',async()=>{
+ // Static byte tripwire: the right-hand side is the registered constant, never
+ // recomputed from the file, so any further edit fails until re-qualified.
+ const source=await fs.readFile(new URL('../tools/worker-local-service.ps1',import.meta.url));
+ assert.equal(createHash('sha256').update(source).digest('hex'),workerStopExitingProcessWorkerScriptSha256);
+ const installed=releaseChainTripleFixWorkerScriptSha256;
+ const candidate=workerStopExitingProcessWorkerScriptSha256;
+ assert.match(candidate,/^[a-f0-9]{64}$/);
+ assert.notEqual(candidate,installed);
+ // The list is appended to: every earlier generation, including the bytes now installed in production, stays.
+ assert.ok(piNativeCandidateControllerSha256['worker-local-service.ps1'].includes(installed));
+ assert.ok(piNativeCandidateControllerSha256['worker-local-service.ps1'].includes(candidate));
+ // Predecessor records describe the actual installed bytes and are not rewritten.
+ assert.equal(nativePiResumeAfterMaintenancePhase1Predecessor.workerScriptSha256,installed);
+ // Forward adoption (installed 0e5459dd, ship the fix) and rollback both pass.
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}));
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:candidate,expected:installed,candidateSha:installed}));
+ // Unqualified bytes still fail closed.
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:'e'.repeat(64),candidateSha:'e'.repeat(64)}),/实际原生控制器代际与候选不一致：worker-local-service\.ps1/);
+ // The hash does not leak to other controller names.
+ for(const name of ['django-local-service.ps1','process-deadline.ps1','unknown.ps1'])
+  assert.throws(()=>assertMaintenanceControllerGeneration({name,installedSha:installed,expected:candidate,candidateSha:candidate}),/实际原生控制器代际与候选不一致：/);
 });
 const failures={
  'wrong maintenance ID':s=>s.maintenance.id='c'.repeat(32),
