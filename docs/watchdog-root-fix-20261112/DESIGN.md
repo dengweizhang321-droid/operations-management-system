@@ -214,7 +214,7 @@
 
 `WriteScope` 取 `'any'`：任何写入原语都算命中，不依赖 pid 相关的豁免，因此没有「按 pid 放行」的兜底。
 
-### 闭包检查例外表（共 10 条，上限 25）
+### 闭包检查例外表（共 11 条，上限 25）
 
 每条按 `脚本|函数|原语` 钉住，并钉「命中文本（空白归一化）sha256 + 命中个数」。出现多余或改变的命中，该键的全部命中都按违规处理。行号为 2026-11-12 当前生产源码位置。
 
@@ -230,8 +230,11 @@
 | 8 | backend | `Rotate-LauncherLog` | move-item（:405、:409） | `eaedc451…c415` ×1、`54cbdcbb…b1d19` ×1 | 只轮转启动日志文件名 |
 | 9 | backend | `Write-LauncherEvent` | io-write（:424） | `a017f5b0…ccea` ×1 | 追加一行启动日志 |
 | 10 | overlay | `Invoke-ReadonlyMetadataObservation` | dynamic-call（约 :246） | `ef292c89…be88` ×1 | 调用 wrapper 传入的只读状态块 |
+| 11 | supervisor | `Move-SupervisorStatePreviousGeneration` | move-item（django-runtime-supervisor.ps1:364） | `874defdb…5fc0` ×1，另钉调用点（见下） | 归档 `state.json`；只经 `Read-SupervisorState` 第 327 行的 Mode 闸（`ArchivePreviousStopped`）到达。唯一传 Archive 的是 `Invoke-SupervisorRun`（:832），看门狗 Status 块（:1140）传 `AllowPreviousStopped` |
 
-当前生产源码实测：`ok=True`，被例外放行 18 处命中；可达函数数 control 25 / wrapper-backend 58 / wrapper-worker 47 / wrapper-supervisor 34。
+**第 11 条的调用点约束**（例外表条目的可选 `callsite` 字段，通用实现，不特判字符串）：该 profile 闭包内所有对 `Read-SupervisorState` 的调用，`-Mode` 或第一个位置参数必须缺省，或是字面量 `Strict`/`AllowPreviousStopped`，变量、splat、`ArchivePreviousStopped` 都使例外失效、命中转为违规；`Move-SupervisorStatePreviousGeneration` 的唯一允许调用方是 `Read-SupervisorState`；`Read-SupervisorState` 内包住该调用的最内层 `if` 语句（Mode 闸）原文钉 sha256 `1e58504e…6a10`，闸被改动或去掉即失效。测试 `watchdog-driver-closure.test.ps1` 3f 覆盖四种改写、三种合法写法和去闸，各自去掉对应检查都变红。
+
+当前生产源码实测：`ok=True`，被例外放行 19 处命中（c7b1d265 后守护脚本新增第 11 条）；可达函数数 control 25 / wrapper-backend 58 / wrapper-worker 47 / wrapper-supervisor 36。`Invoke-DjangoSupervisorRelaunch`、`Invoke-DjangoSupervisorProcessCreate` 等新函数在四个 profile 里都不可达。
 
 ### 所有权调用白名单（2026-11-12 枚举）
 

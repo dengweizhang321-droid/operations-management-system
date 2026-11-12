@@ -63,8 +63,15 @@ $script:WatchOwnershipLibraryAllowlist=@(
 
 # Existing hits that are harmless on the Status path. Keyed by script id + function + primitive and
 # pinned to the normalised text of each hit with its occurrence count. Reasons mirror DESIGN.md.
-function New-WatchClosureException([string]$Script,[string]$Function,[string]$Primitive,$Pins,[string]$Reason){
-  return @{script=$Script;function=$Function;primitive=$Primitive;pins=@($Pins|ForEach-Object {@{sha256=$_[0];count=[int]$_[1]}});reason=$Reason}
+# Optional $Callsite makes the exception conditional on how the reached closure uses the hit function:
+#   target       function whose reached call sites are inspected (all of them, lower-cased compare)
+#   parameter    its parameter name; the argument (named, else first positional) must be absent or a
+#                string literal listed in `allowed`; variables, splats and other values void the exception
+#   onlyCallers  the only functions allowed to call the hit function itself
+#   guardCaller  function holding the call to the hit function; the innermost `if` around that call
+#                must keep the pinned text (sha256 of the whitespace-normalised statement)
+function New-WatchClosureException([string]$Script,[string]$Function,[string]$Primitive,$Pins,[string]$Reason,$Callsite=$null){
+  return @{script=$Script;function=$Function;primitive=$Primitive;pins=@($Pins|ForEach-Object {@{sha256=$_[0];count=[int]$_[1]}});reason=$Reason;callsite=$Callsite}
 }
 $script:WatchClosureExceptions=@(
   (New-WatchClosureException 'transport' 'Invoke-DeadlineProcess' '.kill()' @(,@('9bd9e6f70e013f0bbcc68a2e573f77a8df1be04c2479e4b042f1f7e4ec4c2cb0',1)) 'process-deadline.ps1:192 kills only the Process object it started itself (direct-exit probe), never a looked-up pid'),
@@ -76,7 +83,8 @@ $script:WatchClosureExceptions=@(
   (New-WatchClosureException 'backend' 'Rotate-LauncherLog' 'remove-item' @(,@('d26f00110b4476a5ef49e4731b4cebd3448dbe6fd5f0c5dce04123305652278e',1)) 'django-local-service.ps1:403 drops the oldest rotated launcher log (LauncherLogPath.N), not a pid/receipt file'),
   (New-WatchClosureException 'backend' 'Rotate-LauncherLog' 'move-item' @(@('eaedc45119725c11fdcff6186ecbd83d48f75bd66d60883029a6d92947596415',1),@('54cbdcbb88881fa02f3974b634e1436ba507ed4b1beb4a9d2ada7216a3cb1d19',1)) 'django-local-service.ps1:405,409 rotate launcher log files'),
   (New-WatchClosureException 'backend' 'Write-LauncherEvent' 'io-write' @(,@('a017f5b007d3beec5cdc7af93b16967f0e125b5c06adf8928b953689eaffccea',1)) 'django-local-service.ps1:424 appends one line to the launcher log'),
-  (New-WatchClosureException 'overlay' 'Invoke-ReadonlyMetadataObservation' 'dynamic-call' @(,@('ef292c89b41eeff5952c89c3a664b83d9dca67ed4a40d5a09046d98667b0be88',1)) 'overlay :246 runs the scriptblock of a read-only metadata observation (callers are overlay functions)')
+  (New-WatchClosureException 'overlay' 'Invoke-ReadonlyMetadataObservation' 'dynamic-call' @(,@('ef292c89b41eeff5952c89c3a664b83d9dca67ed4a40d5a09046d98667b0be88',1)) 'overlay :246 runs the scriptblock of a read-only metadata observation (callers are overlay functions)'),
+  (New-WatchClosureException 'supervisor' 'Move-SupervisorStatePreviousGeneration' 'move-item' @(,@('874defdb43814757434d94222cd6b21e95efd306129288b23e3be9f434c95fc0',1)) 'django-runtime-supervisor.ps1:364 archives state.json, reached only through Read-SupervisorState behind the Mode gate (:327, ArchivePreviousStopped); the sole caller passing it is Invoke-SupervisorRun (:832), the watchdog status block passes AllowPreviousStopped (:1140)' @{target='Read-SupervisorState';parameter='Mode';allowed=@('Strict','AllowPreviousStopped');onlyCallers=@('Read-SupervisorState');guardCaller='Read-SupervisorState';guardSha256='1e58504eb4de09c132d2c32cad7119dc7a833d23f0f0356aa89aa82647e46a10'})
 )
 
 function Get-WatchClosureAst([string]$Path){
@@ -199,7 +207,7 @@ function Get-WatchClosureProfileSpecs {
 }
 function Get-WatchClosureScan($Node,[string]$Script,[string]$Function,$Spec,$Table,$Asts,$Excluded){
   # Returns @{hits=@(...);calls=@(function names)} for one function body or root statement.
-  $hits=[Collections.Generic.List[object]]::new();$calls=[Collections.Generic.List[string]]::new()
+  $hits=[Collections.Generic.List[object]]::new();$calls=[Collections.Generic.List[string]]::new();$sites=[Collections.Generic.List[object]]::new()
   $add={param($primitive,$ast) $hits.Add(@{profile=$Spec.name;script=$Script;function=$Function;primitive=$primitive;line=$ast.Extent.StartLineNumber;sha=(Get-WatchClosureNodeHash $ast)})}
   $addWrite={param($primitive,$ast) if($script:WatchClosureWriteScope -ne 'pid-related' -or (Test-WatchClosureTargetsPid $ast)){&$add $primitive $ast}}
   $T=[Management.Automation.Language.CommandAst]
@@ -216,7 +224,7 @@ function Get-WatchClosureScan($Node,[string]$Script,[string]$Function,$Spec,$Tab
       continue
     }
     $lower=$name.ToLowerInvariant()
-    if($Table.ContainsKey($lower)){$calls.Add($lower)}
+    if($Table.ContainsKey($lower)){$calls.Add($lower);$sites.Add(@{name=$lower;caller=$Function;ast=$c})}
     if($lower -in $script:WatchClosureProcessCommands -or $lower -in $script:WatchClosureDeleteCommands -or $lower -in $script:WatchClosureDynamicCommands -or $lower -in $script:WatchClosureRecordCommands){&$add $lower $c}
     elseif($lower -in $script:WatchClosureWriteCommands){&$addWrite $lower $c}
     elseif($lower -ceq 'tee-object' -and @($c.CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -imatch '^v'}).Count -eq 0){&$addWrite 'tee-object' $c}
@@ -252,7 +260,45 @@ function Get-WatchClosureScan($Node,[string]$Script,[string]$Function,$Spec,$Tab
     if(Test-WatchClosureExcluded $r $Excluded){continue}
     if($r.Location.Extent.Text.Trim() -ine '$null'){&$addWrite 'redirect' $r}
   }
-  return @{hits=$hits.ToArray();calls=$calls.ToArray()}
+  return @{hits=$hits.ToArray();calls=$calls.ToArray();sites=$sites.ToArray()}
+}
+function Test-WatchClosureCallsite($Constraint,$Entry,$Table,$Sites){
+  # True only when every reached call site satisfies the exception's call-site condition.
+  $target=([string]$Constraint.target).ToLowerInvariant();$hitFunction=([string]$Entry.function).ToLowerInvariant()
+  foreach($site in $Sites){
+    if($site.name -ceq $hitFunction){
+      if(([string]$site.caller).ToLowerInvariant() -cnotin @($Constraint.onlyCallers|ForEach-Object {([string]$_).ToLowerInvariant()})){return $false}
+    }
+    if($site.name -ceq $target){
+      $elements=@($site.ast.CommandElements|Select-Object -Skip 1)
+      $value=$null;$present=$false
+      for($i=0;$i -lt $elements.Count;$i++){
+        $e=$elements[$i]
+        if($e -is [Management.Automation.Language.CommandParameterAst]){
+          if($e.ParameterName -ieq $Constraint.parameter){
+            $present=$true
+            $value=if($e.Argument){$e.Argument}elseif($i+1 -lt $elements.Count){$elements[$i+1]}else{$null}
+            break
+          }
+          # Another named parameter: its value (if separate) is not positional.
+          if(-not $e.Argument -and $i+1 -lt $elements.Count -and $elements[$i+1] -isnot [Management.Automation.Language.CommandParameterAst]){$i++}
+          continue
+        }
+        if(-not $present){$present=$true;$value=$e;break}
+      }
+      if($present){
+        if($value -isnot [Management.Automation.Language.StringConstantExpressionAst]){return $false}
+        if([string]$value.Value -cnotin @($Constraint.allowed)){return $false}
+      }
+    }
+  }
+  $caller=$Table[([string]$Constraint.guardCaller).ToLowerInvariant()]
+  if(-not $caller){return $false}
+  $sinks=@(Find-WatchClosureNodes $caller.ast.Body ([Management.Automation.Language.CommandAst])|Where-Object {$_.GetCommandName() -and $_.GetCommandName().ToLowerInvariant() -ceq $hitFunction})
+  if($sinks.Count -ne 1){return $false}
+  $if=$sinks[0];while($if -and $if -isnot [Management.Automation.Language.IfStatementAst]){$if=$if.Parent}
+  if(-not $if){return $false}
+  return ((Get-WatchClosureNodeHash $if) -ceq [string]$Constraint.guardSha256)
 }
 function Test-WatchClosureOwnership($Table,[string[]]$Names){
   # Names of unlisted commands are kept for local diagnosis only; callers report the enum code.
@@ -302,16 +348,27 @@ function Invoke-WatchDriverClosureCheck([string]$DriverDirectory,[string]$Source
       $seen=[Collections.Generic.HashSet[string]]::new();$queue=[Collections.Generic.Queue[object]]::new()
       foreach($root in $exec.roots){$queue.Enqueue($root)}
       $script:WatchClosureReached[$spec.name]=$seen
+      $sites=[Collections.Generic.List[object]]::new();$conditional=[Collections.Generic.List[object]]::new()
       while($queue.Count){
         $item=$queue.Dequeue()
         $scan=Get-WatchClosureScan $item.node $item.script $item.function $spec $table $asts $item.excluded
+        foreach($s in $scan.sites){$sites.Add($s)}
         foreach($g in @($scan.hits|Group-Object {"$($_.script)|$($_.function)|$($_.primitive)".ToLowerInvariant()})){
-          if(Test-WatchClosureException $g $Exceptions){$excepted+=$g.Count;continue}
+          if(Test-WatchClosureException $g $Exceptions){
+            $entry=@($Exceptions|Where-Object {("$($_.script)|$($_.function)|$($_.primitive)").ToLowerInvariant() -ceq $g.Name})|Select-Object -First 1
+            if($entry.callsite){$conditional.Add(@{group=$g;entry=$entry});continue}
+            $excepted+=$g.Count;continue
+          }
           foreach($h in $g.Group){$violations["$($spec.name)|$($g.Name)|$($h.line)|$($h.sha)"]=$h}
         }
         foreach($call in $scan.calls){
           if($seen.Add($call)){$entry=$table[$call];$queue.Enqueue(@{node=$entry.ast.Body;script=$entry.script;function=$entry.ast.Name;excluded=@()})}
         }
+      }
+      # Conditional exceptions hold only while every reached call site keeps their condition.
+      foreach($c in $conditional){
+        if(Test-WatchClosureCallsite $c.entry.callsite $c.entry $table $sites){$excepted+=$c.group.Count}
+        else{foreach($h in $c.group.Group){$violations["$($spec.name)|$($c.group.Name)|$($h.line)|$($h.sha)"]=$h}}
       }
     }
   }catch{

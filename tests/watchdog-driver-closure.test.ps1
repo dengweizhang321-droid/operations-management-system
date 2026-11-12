@@ -141,6 +141,42 @@ try{
   }
   Assert-Closure ((Invoke-WatchDriverClosureCheck $run.out $sources).ok) 'restoring after load-order tests did not restore a passing check'
 
+  # 3f. The Move-SupervisorStatePreviousGeneration exception is conditional on its call sites: the
+  # status wrapper may pass only Strict/AllowPreviousStopped (or nothing), the function may be called
+  # only by Read-SupervisorState, and the Mode gate around that call keeps its pinned text.
+  $wrapperPath=Join-Path $run.out 'watchdog-status-backend.ps1';$wrapperOriginal=[IO.File]::ReadAllText($wrapperPath)
+  $archiveHits={param($r) @($r.hits|Where-Object {$_.profile -ceq 'wrapper-supervisor' -and $_.function -ceq 'Move-SupervisorStatePreviousGeneration' -and $_.primitive -ceq 'move-item'}).Count}
+  Assert-Closure ($wrapperOriginal -cmatch 'Read-SupervisorState "AllowPreviousStopped"') 'the wrapper no longer reads the supervisor state with AllowPreviousStopped'
+  $archiveException=@($script:WatchClosureExceptions|Where-Object {$_.function -ceq 'Move-SupervisorStatePreviousGeneration'})
+  Assert-Closure ($archiveException.Count -eq 1 -and $archiveException[0].callsite) 'the archive exception must carry a call-site condition'
+  try{
+    foreach($case in @(
+      @{name='ArchivePreviousStopped literal';replacement='Read-SupervisorState "ArchivePreviousStopped"'},
+      @{name='variable mode';replacement='$m = "ArchivePreviousStopped"; Read-SupervisorState $m'},
+      @{name='named variable mode';replacement='Read-SupervisorState -Mode $env:X'},
+      @{name='direct caller of the archive function';replacement='Move-SupervisorStatePreviousGeneration "x"; Read-SupervisorState "AllowPreviousStopped"'}
+    )){
+      [IO.File]::WriteAllText($wrapperPath,$wrapperOriginal)
+      Edit-File $wrapperPath 'Read-SupervisorState "AllowPreviousStopped"' $case.replacement
+      $r=Invoke-WatchDriverClosureCheck $run.out $sources
+      Assert-Closure ((-not $r.ok) -and (& $archiveHits $r) -ge 1) ('the archive exception must not apply for: '+$case.name)
+    }
+    # Positive controls: a default mode, an explicit Strict and a named allowed mode stay accepted.
+    foreach($allowed in @('Read-SupervisorState','Read-SupervisorState "Strict"','Read-SupervisorState -Mode "AllowPreviousStopped"')){
+      [IO.File]::WriteAllText($wrapperPath,$wrapperOriginal)
+      Edit-File $wrapperPath 'Read-SupervisorState "AllowPreviousStopped"' $allowed
+      Assert-Closure ((Invoke-WatchDriverClosureCheck $run.out $sources).ok) ('an allowed call form was refused: '+$allowed)
+    }
+    # Removing the Mode gate inside Read-SupervisorState would make AllowPreviousStopped archive.
+    [IO.File]::WriteAllText($wrapperPath,$wrapperOriginal)
+    Edit-File $supervisorPath '(?s)if \(\$Mode -ceq "ArchivePreviousStopped"\) \{(\s*Move-SupervisorStatePreviousGeneration)' 'if ($true) {$1'
+    $gate=Invoke-WatchDriverClosureCheck $run.out $sources
+    Assert-Closure ((-not $gate.ok) -and (& $archiveHits $gate) -ge 1) 'removing the Mode gate around the archive call must void the exception'
+  }finally{
+    [IO.File]::WriteAllText($wrapperPath,$wrapperOriginal);[IO.File]::WriteAllText($supervisorPath,$supervisorOriginal)
+  }
+  Assert-Closure ((Invoke-WatchDriverClosureCheck $run.out $sources).ok) 'restoring after call-site tests did not restore a passing check'
+
   # 4. Generator rejections are structured (exit 3) and unrelated failures are not.
   $shape=New-Sources 'shape'
   [IO.File]::WriteAllText((Join-Path $shape 'supervisor.ps1'),"# not the supervisor`r`n")
