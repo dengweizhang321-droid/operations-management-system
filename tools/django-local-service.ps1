@@ -3147,6 +3147,172 @@ function Assert-DjangoSupervisorStopped([string]$Operation) {
   }
 }
 
+$DjangoSupervisorFixedRuntimeRoot = "D:\teruisi-runtime\django-sales"
+$DjangoSupervisorStopWaitSeconds = 30
+$DjangoSupervisorPollMilliseconds = 500
+
+function Get-DjangoSupervisorStartupArguments {
+  # Must stay identical to $expectedArguments in django-runtime-supervisor.ps1
+  # (Install-SupervisorStartup); tests/django-supervisor-relaunch.test.ps1 pins it.
+  $canonicalRuntime = Get-CanonicalPath $RuntimeRoot
+  $supervisorPath = Join-Path $canonicalRuntime "app\tools\django-runtime-supervisor.ps1"
+  return "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$supervisorPath`" -Action Run -RuntimeRoot `"$canonicalRuntime`" -Execute"
+}
+
+function Read-DjangoSupervisorStartupShortcut {
+  if (-not (Test-Path -LiteralPath $StartupShortcut -PathType Leaf)) { return $null }
+  $shell = New-Object -ComObject WScript.Shell
+  $shortcut = $shell.CreateShortcut($StartupShortcut)
+  return [pscustomobject]@{
+    TargetPath = [string]$shortcut.TargetPath
+    Arguments = [string]$shortcut.Arguments
+    WorkingDirectory = [string]$shortcut.WorkingDirectory
+  }
+}
+
+function Invoke-DjangoSupervisorProcessCreate([string]$CommandLine, [string]$WorkingDirectory) {
+  # WMI creates the process in the WMI service context: it inherits neither this
+  # caller's handles, TERUISI_PROCESS_DEADLINE_UNIX_MS, PSModulePath nor job object.
+  $created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create `
+    -Arguments @{ CommandLine = $CommandLine; CurrentDirectory = $WorkingDirectory } -ErrorAction Stop
+  return [pscustomobject]@{ ReturnValue = [int]$created.ReturnValue; ProcessId = [int]$created.ProcessId }
+}
+
+function Get-DjangoSupervisorReceiptState {
+  # Read-only: "alive", "absent" or "unreadable". Never removes a stale receipt.
+  if (-not (Test-Path -LiteralPath $DjangoSupervisorPidPath -PathType Leaf)) { return "absent" }
+  try {
+    $receipt = Read-JsonFile $DjangoSupervisorPidPath "Django supervisor process receipt"
+    $receiptProcessId = [int]$receipt.processId
+    $creation = ConvertTo-CanonicalCreationDate $receipt.creationDate
+    $rows = @(Get-CimInstance Win32_Process -Filter "ProcessId = $receiptProcessId" -ErrorAction Stop)
+  } catch {
+    return "unreadable"
+  }
+  if ($rows.Count -eq 0) { return "absent" }
+  if ($rows.Count -gt 1) { return "unreadable" }
+  if (-not $rows[0].CreationDate) { return "alive" }
+  if ((Get-ProcessCreation $rows[0]) -cne $creation) { return "absent" }
+  return "alive"
+}
+
+function Test-DjangoSupervisorRunning {
+  if ((Get-DjangoSupervisorReceiptState) -ceq "alive") { return $true }
+  return (@(Get-DjangoSupervisorCandidates).Count -gt 0)
+}
+
+function Get-DjangoSupervisorWaitBudgetMilliseconds([int]$MaximumMilliseconds, [int]$ReserveMilliseconds) {
+  # Never let an optional wait outlive the caller's process deadline.
+  $budget = [long]$MaximumMilliseconds
+  if ($env:TERUISI_PROCESS_DEADLINE_UNIX_MS) {
+    $deadline = 0L
+    if (-not [long]::TryParse($env:TERUISI_PROCESS_DEADLINE_UNIX_MS, [ref]$deadline) -or $deadline -le 0) { return 0 }
+    $remaining = $deadline - [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - $ReserveMilliseconds
+    if ($remaining -lt $budget) { $budget = [Math]::Max([long]0, $remaining) }
+  }
+  return [int]$budget
+}
+
+function Get-DjangoSupervisorRelaunchPlan {
+  if (-not [string]::IsNullOrWhiteSpace($SupervisorExpectedDesiredStateSha256)) {
+    return [pscustomobject]@{ Launch = $false; Reason = "fence_present" }
+  }
+  if ((Get-CanonicalPath $RuntimeRoot) -ine (Get-CanonicalPath $DjangoSupervisorFixedRuntimeRoot)) {
+    return [pscustomobject]@{ Launch = $false; Reason = "not_fixed_runtime" }
+  }
+  if ($NativeIsolation) {
+    return [pscustomobject]@{ Launch = $false; Reason = "native_isolation" }
+  }
+  if (Read-SystemMaintenance) {
+    return [pscustomobject]@{ Launch = $false; Reason = "maintenance_active" }
+  }
+  if (-not (Test-Path -LiteralPath $SupervisorDesiredStatePath -PathType Leaf)) {
+    return [pscustomobject]@{ Launch = $false; Reason = "desired_state_not_running" }
+  }
+  $desired = Read-JsonFile $SupervisorDesiredStatePath "Django supervisor desired-state"
+  if ([string]$desired.desiredState -cne "running") {
+    return [pscustomobject]@{ Launch = $false; Reason = "desired_state_not_running" }
+  }
+  # The supervisor's Invoke-SupervisorRun compares against the installed script, so must we.
+  if (-not (Test-Path -LiteralPath $InstalledScriptPath -PathType Leaf) -or
+      [string]$desired.serviceScriptSha256 -cne (Get-FileSha256 $InstalledScriptPath)) {
+    return [pscustomobject]@{ Launch = $false; Reason = "desired_state_digest_mismatch" }
+  }
+  $startup = Read-DjangoSupervisorStartupShortcut
+  if ($null -eq $startup) {
+    return [pscustomobject]@{ Launch = $false; Reason = "startup_missing" }
+  }
+  $powershell = (Get-Command "powershell.exe" -ErrorAction Stop).Source
+  $expectedArguments = Get-DjangoSupervisorStartupArguments
+  if ($startup.TargetPath -ine $powershell -or
+      $startup.Arguments -cne $expectedArguments -or
+      $startup.WorkingDirectory -ine $InstalledAppRoot) {
+    return [pscustomobject]@{ Launch = $false; Reason = "startup_not_supervisor" }
+  }
+  $receiptState = Get-DjangoSupervisorReceiptState
+  if ($receiptState -ceq "alive") {
+    return [pscustomobject]@{ Launch = $false; Reason = "supervisor_already_running" }
+  }
+  if ($receiptState -cne "absent") {
+    return [pscustomobject]@{ Launch = $false; Reason = "supervisor_receipt_unreadable" }
+  }
+  if (@(Get-DjangoSupervisorCandidates).Count -gt 0) {
+    return [pscustomobject]@{ Launch = $false; Reason = "supervisor_candidate_present" }
+  }
+  return [pscustomobject]@{
+    Launch = $true
+    Reason = "launch"
+    CommandLine = "`"$($startup.TargetPath)`" $($startup.Arguments)"
+    WorkingDirectory = $startup.WorkingDirectory
+  }
+}
+
+function Invoke-DjangoSupervisorRelaunch {
+  # Called inside the service mutex after a fully successful Start. It must never
+  # throw: a missing supervisor is an alert, not a reason to fail the Start.
+  $result = [pscustomobject]@{ Launched = $false; ProcessId = 0 }
+  try {
+    $plan = Get-DjangoSupervisorRelaunchPlan
+    if (-not $plan.Launch) {
+      Write-LauncherEvent "INFO" "supervisor_relaunch_skipped" "reason=$($plan.Reason)"
+      return $result
+    }
+    $created = Invoke-DjangoSupervisorProcessCreate $plan.CommandLine $plan.WorkingDirectory
+    if ($null -eq $created -or [int]$created.ReturnValue -ne 0 -or [int]$created.ProcessId -le 0) {
+      $code = if ($null -eq $created) { "null" } else { [string][int]$created.ReturnValue }
+      Write-LauncherEvent "ERROR" "supervisor_launch_failed" "reason=create_returned_$code"
+      return $result
+    }
+    $result.Launched = $true
+    $result.ProcessId = [int]$created.ProcessId
+    Write-LauncherEvent "INFO" "supervisor_launch_requested" "processId=$($result.ProcessId)"
+  } catch {
+    Write-LauncherEvent "ERROR" "supervisor_launch_failed" "reason=exception"
+  }
+  return $result
+}
+
+function Wait-DjangoSupervisorExitAfterStop {
+  # Runs after the mutex is released (the supervisor's own Start may be queued on
+  # it). Bounded; on timeout it only records an event and never ends the process:
+  # CompleteDrain/DeployApp keep their own Assert-DjangoSupervisorStopped gate.
+  try {
+    if (-not (Test-DjangoSupervisorRunning)) { return }
+    $budget = Get-DjangoSupervisorWaitBudgetMilliseconds ($DjangoSupervisorStopWaitSeconds * 1000) 2000
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    while ($clock.ElapsedMilliseconds -lt $budget) {
+      Start-Sleep -Milliseconds $DjangoSupervisorPollMilliseconds
+      if (-not (Test-DjangoSupervisorRunning)) {
+        Write-LauncherEvent "INFO" "supervisor_exited_after_stop" "waitedMilliseconds=$($clock.ElapsedMilliseconds)"
+        return
+      }
+    }
+    Write-LauncherEvent "WARN" "supervisor_stop_wait_timeout" "budgetMilliseconds=$budget"
+  } catch {
+    Write-LauncherEvent "WARN" "supervisor_stop_wait_failed" "reason=exception"
+  }
+}
+
 function Assert-ApplicationProcessesStopped([string]$Operation) {
   Assert-DjangoSupervisorStopped $Operation
   if (
@@ -5743,6 +5909,9 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
             $orchestratedLifecycleAclToken = New-OrchestratedLifecycleAclToken
             Set-OrchestratedLifecycleAclContext $orchestratedLifecycleAclToken
             Invoke-EnabledDjangoDomainStarts $orchestratedLifecycleAclToken
+            # Launch request only: the supervisor needs ~38 s to write its receipt, and
+            # Start must not wait for it (it would lengthen the release downtime).
+            [void](Invoke-DjangoSupervisorRelaunch)
           }
         } finally {
           if ($hadPreviousAclContext) {
@@ -5772,6 +5941,7 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
             Invoke-InstalledDjangoDomainStops $orchestratedLifecycleAclToken
             Stop-ServiceStack
           }
+          Wait-DjangoSupervisorExitAfterStop
         } finally {
           if ($hadPreviousAclContext) {
             Set-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable `

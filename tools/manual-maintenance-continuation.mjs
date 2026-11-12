@@ -303,6 +303,13 @@ export const aiUnifiedTasksDjangoScriptSha256='37c6dc571aeefe4954f977f5b3a64ec08
 // aiUnifiedTasksDjangoScriptSha256 above; this is only the new candidate.
 export const releaseChainTripleFixDjangoScriptSha256='dc856391affa2ae5a677bdc7ca7273c301eb604b7c1de8855d0c93be3233b005';
 export const releaseChainTripleFixWorkerScriptSha256='0e5459dd34c5dd5fa26109d3606117750bb61e11c5b66b510d13dfa889dc4516';
+// Django supervisor relaunch (codex/django-supervisor-relaunch-20261112): an explicit
+// Start relaunches the supervisor from the installed login startup item, and Stop waits
+// a bounded time for it to exit. Candidate-only entry appended to the list below: the
+// bytes now installed in production stay releaseChainTripleFixDjangoScriptSha256, so
+// forward adoption and rollback both remain admissible. The hash is over the git-stored
+// bytes (UTF-8 BOM + CRLF, -text in .gitattributes). Predecessor records are not touched.
+export const djangoSupervisorRelaunchDjangoScriptSha256='ff63a968e6df23ce96034f4df3ee8baa3d3e2d04f428a52245f9b8c2537ec58a';
 // Controlled-stop exiting-process fix (codex/worker-stop-exiting-race-20261112):
 // Get-ControlledStopSweep falls back to the ledger's complete snapshot only for a
 // ledgered process whose PID/creation/name/parent are unchanged while Win32 already
@@ -314,7 +321,7 @@ export const releaseChainTripleFixWorkerScriptSha256='0e5459dd34c5dd5fa26109d360
 // is over the git-stored bytes (UTF-8 BOM + CRLF, -text in .gitattributes).
 export const workerStopExitingProcessWorkerScriptSha256='ae99c2464820f23dcf6b9c73fd476e12ed5acad4aeb7daeb61fd276f97b496f4';
 export const piNativeCandidateControllerSha256=Object.freeze({
- 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256]),
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256,djangoSupervisorRelaunchDjangoScriptSha256]),
  'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });
