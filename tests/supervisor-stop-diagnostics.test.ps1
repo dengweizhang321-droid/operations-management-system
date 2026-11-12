@@ -33,6 +33,10 @@ try {
     $record=Get-Content $target -Raw | ConvertFrom-Json
     if ($script:fixtureStops -ne 1 -or $record.action -cne 'EnterMaintenance' -or $record.phase -cne 'supervisor_absent') {throw 'real stop fence diagnostic missing'}
   }
+  Write-WorkerStopDiagnostic $snapshot 'unapproved_process' ([ordered]@{ name='workerd.exe'; pid=43376; ppid=2; creationDate='x'; executablePathPresent=$false; commandLinePresent=$false; inLedger=$true })
+  $record=Get-Content (Join-Path $testRoot 'state\worker-last-controlled-stop.json') -Raw | ConvertFrom-Json
+  if ($record.phase -cne 'unapproved_process' -or $record.rejectedProcess.pid -ne 43376 -or $record.rejectedProcess.inLedger -ne $true -or $record.rejectedProcess.executablePathPresent -ne $false -or $record.supervisorPid -ne 12345) {throw 'Rejected process detail missing'}
+  $record=$null
   # Observational failure must not prevent the original controlled stop.
   $RuntimeRoot=Join-Path $testRoot 'missing'
   $diagnosticWarnings = @(Write-WorkerStopDiagnostic $snapshot 'requested' 3>&1)
