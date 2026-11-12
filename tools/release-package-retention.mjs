@@ -6,8 +6,10 @@
 // registration plus its codex/manual-main-* branch behind, so cleanup must run
 // unlock -> remove -> prune -> delete branch as one unit.
 //
-// The protected set is READ AT RUN TIME from the two production manifests and
-// never from a stored list: the installed Django app and its rollback anchor.
+// The protected set is READ AT RUN TIME from production state and never from a
+// stored list: the installed Django app, its rollback anchor, and everything the
+// publisher re-reads on start (publication catalog source/receipt, the frontend
+// live source, and the latest preparation pointer).
 import { execFile } from "node:child_process";
 import { readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
@@ -15,6 +17,8 @@ import { fileURLToPath } from "node:url";
 
 export const packagesRoot = "D:\\codex-isolated\\main-release-packages";
 const djangoRuntimeRoot = "D:\\teruisi-runtime\\django-sales";
+const defaultStateDirectory = "D:\\codex-isolated\\main-manual-release-20261016";
+const defaultWorkerRuntimeRoot = "D:\\teruisi-runtime\\teruisi-worker-sales";
 // Real names observed in production are not only "<12 hex>-<8>-<8>": retries
 // append -r2/-r3/-r4, and recovery packets use forms like
 // "47e1e89fea91-pi150-forward". Anchor on the 12-hex commit prefix and allow
@@ -42,11 +46,108 @@ async function readSourceRoot(manifestPath) {
   return name;
 }
 
-export async function resolveProtected() {
-  const installed = await readSourceRoot(path.join(djangoRuntimeRoot, "app", "deployment.json"));
+async function readJson(file, label) {
+  let raw;
+  try { raw = await readFile(file, "utf8"); }
+  catch (error) { throw new Error(`${label} unreadable (${error.code ?? error.message}): ${file}`); }
+  try { return JSON.parse(raw); }
+  catch { throw new Error(`${label} is not valid JSON: ${file}`); }
+}
+
+// Segments of target below root, or null when target is not strictly inside root.
+function segmentsBelow(root, target) {
+  const rel = path.relative(path.resolve(root), path.resolve(target));
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  return rel.split(path.sep);
+}
+
+async function directoryExists(root, name) {
+  try { return (await stat(path.join(root, name))).isDirectory(); }
+  catch (error) { if (error.code === "ENOENT") return false; throw error; }
+}
+
+// The root parameters are injection seams for tests; defaults are the production paths.
+export async function resolveProtected({
+  djangoRoot = djangoRuntimeRoot,
+  stateDirectory = defaultStateDirectory,
+  workerRoot = defaultWorkerRuntimeRoot,
+  packagesDirectory = packagesRoot,
+} = {}) {
+  const installed = await readSourceRoot(path.join(djangoRoot, "app", "deployment.json"));
   if (!installed) throw new Error("Installed Django manifest is missing; refusing to plan retention");
-  const previous = await readSourceRoot(path.join(djangoRuntimeRoot, "app.previous", "deployment.json"));
-  return { installed, previous, names: [installed, ...(previous ? [previous] : [])] };
+  const previous = await readSourceRoot(path.join(djangoRoot, "app.previous", "deployment.json"));
+
+  // Publication catalog: the publisher re-reads catalog.source and catalog.receiptPath on every start.
+  const catalogFile = path.join(stateDirectory, "PUBLISHED-MAIN.json");
+  const catalog = await readJson(catalogFile, "Publication catalog");
+  if (!catalog || typeof catalog !== "object" || typeof catalog.source !== "string" || !catalog.source) {
+    throw new Error(`Publication catalog has no source: ${catalogFile}`);
+  }
+  const sourceSegments = segmentsBelow(packagesDirectory, catalog.source);
+  if (!sourceSegments || !packageName.test(sourceSegments[0])) {
+    throw new Error(`Publication catalog source is not inside a release package: ${catalog.source}`);
+  }
+  const catalogSource = sourceSegments[0];
+  if (!await directoryExists(packagesDirectory, catalogSource)) {
+    throw new Error(`Publication catalog source package is missing from the packages root: ${catalogSource}`);
+  }
+
+  if (typeof catalog.receiptPath !== "string" || !catalog.receiptPath) {
+    throw new Error(`Publication catalog has no receiptPath: ${catalogFile}`);
+  }
+  let catalogReceipt = null;
+  const receiptSegments = segmentsBelow(packagesDirectory, catalog.receiptPath);
+  if (receiptSegments) {
+    // Normal publication shape: <package>\publish-<12 hex>\<file>. Adoption receipts live outside the root.
+    if (receiptSegments.length !== 3 || !packageName.test(receiptSegments[0]) || !/^publish-[0-9a-f]{12}$/.test(receiptSegments[1])) {
+      throw new Error(`Publication catalog receiptPath has an unexpected shape: ${catalog.receiptPath}`);
+    }
+    catalogReceipt = receiptSegments[0];
+    if (!await directoryExists(packagesDirectory, catalogReceipt)) {
+      throw new Error(`Publication catalog receipt package is missing from the packages root: ${catalogReceipt}`);
+    }
+  }
+
+  // Frontend live source, resolved from the catalog's workerRelease the way the publisher does.
+  const releaseId = catalog.workerRelease;
+  if (typeof releaseId !== "string" || !/^[0-9A-Za-z][0-9A-Za-z._-]*$/.test(releaseId)) {
+    throw new Error("Publication catalog workerRelease is missing or malformed");
+  }
+  const manifestFile = path.join(workerRoot, "releases", releaseId, "deployment-manifest.json");
+  const manifest = await readJson(manifestFile, "Frontend deployment manifest");
+  let frontendSourceRoot;
+  try { frontendSourceRoot = JSON.parse(manifest.source.sourceBinding.raw).sourceRoot; }
+  catch { throw new Error(`Frontend manifest has no parsable sourceRoot: ${manifestFile}`); }
+  if (typeof frontendSourceRoot !== "string" || !frontendSourceRoot) throw new Error(`Frontend manifest has no sourceRoot: ${manifestFile}`);
+  let frontendSource = null;
+  const frontendSegments = segmentsBelow(packagesDirectory, frontendSourceRoot);
+  if (frontendSegments) {
+    if (!packageName.test(frontendSegments[0])) throw new Error(`Frontend sourceRoot is not a release package: ${frontendSourceRoot}`);
+    frontendSource = frontendSegments[0];
+  }
+  // A package already gone is reported, not fatal: an earlier manual cleanup may have removed it.
+  const frontendSourceExists = frontendSource ? await directoryExists(packagesDirectory, frontendSource) : false;
+
+  // Preparation pointer: optional, but if present it must be sound.
+  const pointerFile = path.join(stateDirectory, "LATEST-PREPARED.json");
+  let pointerRaw = null;
+  try { pointerRaw = await readFile(pointerFile, "utf8"); }
+  catch (error) { if (error.code !== "ENOENT") throw new Error(`Preparation pointer unreadable (${error.code ?? error.message}): ${pointerFile}`); }
+  let preparedPacket = null;
+  if (pointerRaw !== null) {
+    let pointer;
+    try { pointer = JSON.parse(pointerRaw); }
+    catch { throw new Error(`Preparation pointer is not valid JSON: ${pointerFile}`); }
+    const packetSegments = typeof pointer?.packet === "string" ? segmentsBelow(packagesDirectory, pointer.packet) : null;
+    if (!packetSegments || packetSegments.length !== 1 || !packageName.test(packetSegments[0])) {
+      throw new Error(`Preparation pointer packet is not a release package: ${pointer?.packet}`);
+    }
+    preparedPacket = packetSegments[0];
+  }
+  const preparedPacketExists = preparedPacket ? await directoryExists(packagesDirectory, preparedPacket) : false;
+
+  const names = [...new Set([installed, previous, catalogSource, catalogReceipt, frontendSource, preparedPacket].filter(Boolean))];
+  return { installed, previous, catalogSource, catalogReceipt, frontendSource, frontendSourceExists, preparedPacket, preparedPacketExists, names };
 }
 
 export function parseWorktrees(porcelain) {
@@ -149,7 +250,16 @@ async function main(argv) {
     version: "teruisi-release-package-retention-v1",
     mode: dryRun ? "dry-run" : "execute",
     keepRecent,
-    protected: { installed: guard.installed, rollbackAnchor: guard.previous },
+    protected: {
+      installed: guard.installed,
+      rollbackAnchor: guard.previous,
+      catalogSource: guard.catalogSource,
+      catalogReceipt: guard.catalogReceipt,
+      frontendSource: guard.frontendSource,
+      frontendSourceDirectoryExists: guard.frontendSourceExists,
+      preparedPacket: guard.preparedPacket,
+      preparedPacketDirectoryExists: guard.preparedPacketExists,
+    },
     keep: plan.keep,
     removeDirectoryCount: plan.removeDirectories.length,
     removeDirectories: plan.removeDirectories.map((item) => item.name),
