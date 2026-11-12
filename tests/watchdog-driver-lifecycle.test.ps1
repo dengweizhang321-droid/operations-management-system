@@ -75,6 +75,44 @@ try {
   Assert-Lifecycle ($bad.Message -ceq 'invalid_diagnostic_bundle') 'a tampered driver was accepted'
   Assert-Lifecycle (Test-Path -LiteralPath $good.directory) 'a damaged driver was deleted instead of reported'
 
+  # 6b. A source that changes WHILE the generator runs: retryable diagnostic_sources_changing, nothing published, nothing cached.
+  $script:origDeadline=${function:Invoke-DeadlineProcess}
+  $script:mutateDuringGeneration=$null
+  function Invoke-DeadlineProcess([string]$Executable,$Arguments,[string]$WorkingDirectory,$Deadline,[string]$Cleanup){
+    $result=& $script:origDeadline @PSBoundParameters
+    if($script:mutateDuringGeneration){& $script:mutateDuringGeneration;$script:mutateDuringGeneration=$null}
+    $result
+  }
+  $driversDir=Join-Path $WatchdogRoot 'drivers'
+  $countDrivers={@(Get-ChildItem -LiteralPath $driversDir -Directory -Force|Where-Object {$_.Name -match '^[0-9a-f]{64}$'}).Count}
+  $countRejected={@(Get-ChildItem -LiteralPath $driversDir -File -Filter 'rejected-*.json').Count}
+
+  # 6b-i. Valid sources, changed during generation (production-file recheck after generation).
+  Reset-Sources
+  Add-Content -LiteralPath (Join-Path $srcDir 'worker.ps1') -Value "`r`n# drift before generation 6b-i"
+  $driversBefore=& $countDrivers;$rejectedBefore=& $countRejected
+  $script:mutateDuringGeneration={Add-Content -LiteralPath (Join-Path $srcDir 'backend.ps1') -Value "`r`n# changed during generation"}
+  $changing=Get-Failure {Invoke-WatchDriverEnsure}
+  Assert-Lifecycle ($changing -and $changing.Message -ceq 'diagnostic_sources_changing') 'a source changed during generation was not reported as diagnostic_sources_changing'
+  Assert-Lifecycle ((& $countDrivers) -eq $driversBefore) 'a driver was published from sources that changed during generation'
+  Assert-Lifecycle ((& $countRejected) -eq $rejectedBefore) 'a changing source wrote a rejection cache'
+
+  # 6b-ii. Structurally rejected sources that ALSO changed during generation: not cached (the verdict is on stale bytes).
+  Reset-Sources
+  Set-Content -LiteralPath (Join-Path $srcDir 'control.ps1') -Value 'Write-Output 2' -Encoding UTF8
+  $rejectedBefore=& $countRejected
+  $script:mutateDuringGeneration={Add-Content -LiteralPath (Join-Path $srcDir 'worker.ps1') -Value "`r`n# changed during rejected generation"}
+  $staleReject=Get-Failure {Invoke-WatchDriverEnsure}
+  Assert-Lifecycle ($staleReject -and $staleReject.Message -ceq 'diagnostic_sources_changing') 'a rejection on sources that moved was not downgraded to diagnostic_sources_changing'
+  Assert-Lifecycle ((& $countRejected) -eq $rejectedBefore) 'a rejection of stale bytes was cached'
+
+  # 6b-iii. The same rejection with stable sources IS cached.
+  Reset-Sources
+  Set-Content -LiteralPath (Join-Path $srcDir 'control.ps1') -Value 'Write-Output 3' -Encoding UTF8
+  $stableReject=Get-Failure {Invoke-WatchDriverEnsure}
+  Assert-Lifecycle ($stableReject -and $stableReject.Message -ceq 'diagnostic_regeneration_rejected' -and (& $countRejected) -eq ($rejectedBefore+1)) 'a rejection on stable sources was not cached'
+  Reset-Sources
+
   # 7. Containment: every path the lifecycle touched is inside the fake root.
   $escaped=@(Get-ChildItem -LiteralPath $base -Force|Where-Object {$_.Name -notin @('root','sources')})
   Assert-Lifecycle ($escaped.Count -eq 0) 'something was written beside the fake root'

@@ -367,8 +367,18 @@ function Get-WatchDriverRejection([string]$Digest) {
   if($record -and $record.version -eq 1 -and $record.digest -ceq $Digest -and [string]$record.reason -cin $WatchDriverRejectionReasons){return [string]$record.reason}
   return $null
 }
-function Set-WatchDriverRejection([string]$Root,[string]$Digest,[string]$Reason) {
+function Assert-WatchSourcesStable($Sources,$SourceHashes) {
+  # The production files must still be the bytes that were hashed, frozen and generated from.
+  foreach($name in $Sources.Keys){
+    $now=try{Get-WatchSourceHash $Sources[$name]}catch{$null}
+    if($now -cne $SourceHashes[$name]){throw (New-WatchDriverFailure 'diagnostic_sources_changing')}
+  }
+}
+function Set-WatchDriverRejection([string]$Root,[string]$Digest,[string]$Reason,$Sources,$SourceHashes) {
   # Only structured proof failures reach here: a transient failure must be retried, not cached.
+  # A rejection judged on bytes that have since moved is not a verdict on the current sources, so
+  # the sources are re-checked first and a changed set is the retryable diagnostic_sources_changing.
+  Assert-WatchSourcesStable $Sources $SourceHashes
   Write-WatchJson (Join-Path $Root "rejected-$Digest.json") @{version=1;digest=$Digest;reason=$Reason;at=[DateTimeOffset]::UtcNow.ToString('o')}
   throw (New-WatchDriverFailure 'diagnostic_regeneration_rejected' $Reason)
 }
@@ -405,7 +415,7 @@ function New-WatchDriver([string]$Root,[string]$Digest,$Sources,$SourceHashes) {
     if($capture.ExitCode -eq 3){
       $reason=switch([string]$generated.code){'source_shape_changed'{'source_shape_changed'} 'original_predicate_changed'{'original_predicate_changed'} 'unexpected_relative_dependency'{'unexpected_relative_dependency'} 'capability_marker_missing'{'capability_marker_missing'} default{$null}}
       if(-not $reason){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'generator_output_invalid')}
-      Set-WatchDriverRejection $Root $Digest $reason
+      Set-WatchDriverRejection $Root $Digest $reason $Sources $SourceHashes
     }
     if($capture.ExitCode -ne 0){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'generator_failed')}
     if(-not $generated -or $generated.ok -ne $true){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'generator_output_invalid')}
@@ -414,12 +424,12 @@ function New-WatchDriver([string]$Root,[string]$Digest,$Sources,$SourceHashes) {
     if((@($names) -join '|') -cne ((@($WatchDriverFiles)|Sort-Object) -join '|')){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'generator_output_invalid')}
     # 3. Mechanical checks of what was generated.
     foreach($name in @($WatchDriverFiles|Where-Object {$_ -like '*.ps1'})){
-      if(-not (Test-WatchScriptParses (Join-Path $driverDirectory $name))){Set-WatchDriverRejection $Root $Digest 'generated_script_unparsable'}
+      if(-not (Test-WatchScriptParses (Join-Path $driverDirectory $name))){Set-WatchDriverRejection $Root $Digest 'generated_script_unparsable' $Sources $SourceHashes}
     }
     $check=Invoke-WatchDriverClosureCheck $driverDirectory (Join-Path $staging 'sources')
     if(-not $check.ok){
       $reason=@($check.reasons|Where-Object {$_ -cin $WatchDriverRejectionReasons}|Select-Object -First 1)
-      Set-WatchDriverRejection $Root $Digest $(if($reason.Count){[string]$reason[0]}else{'closure_analysis_failed'})
+      Set-WatchDriverRejection $Root $Digest $(if($reason.Count){[string]$reason[0]}else{'closure_analysis_failed'}) $Sources $SourceHashes
     }
     $binding=Read-WatchJson (Join-Path $driverDirectory 'driver-binding.json')
     foreach($name in $Sources.Keys){if([string]$binding.assetHashes.$name -cne $SourceHashes[$name]){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'binding_mismatch')}}
