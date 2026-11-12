@@ -17,6 +17,8 @@ try {
   # The actual snapshot runs, with every external operation replaced before it is called.
   $script:case='healthy';$script:control=Fixture-Control
   function Get-Admission {@{mode='running';fence='a'*64}}
+  # The snapshot ensures a generated driver first; here that is a fixture so no source is read.
+  function Initialize-WatchDriver {@{directory=(Join-Path $root 'drivers\fixture');regenerated=$false}}
   function Resolve-WatchStatusControl {@{path=$ControlPath;mode='fixture';reason='isolated'}}
   function Invoke-WatchScript($Path,$Arguments,[int]$Seconds=60){
     if($Path -eq $ControlPath){

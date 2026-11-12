@@ -10,9 +10,14 @@ function replaceOnce(text,from,to){if(!text.includes(from)||text.indexOf(from)!=
 // ensureOnce skips an injection when its exact marker line is already present, so re-mirroring stays idempotent
 // instead of producing duplicate hashtable keys that fail to parse.
 function ensureOnce(text,from,to,marker){return text.includes(marker)?text:replaceOnce(text,from,to);}
-export async function prepareStatusDriver({outputDirectory,controlFile,backendFile,workerFile,transportFile,coreTemplateFile,controlTemplateFile}){
-  const original=await readFile(controlFile), backend=await readFile(backendFile), worker=await readFile(workerFile), transport=await readFile(transportFile);
-  const core=await readFile(coreTemplateFile,'utf8'),controller=await readFile(controlTemplateFile,'utf8');
+// Optional options.readFiles maps an option name to the path whose BYTES are read, while the
+// option itself stays the path written into the generated driver. The automatic regeneration
+// path reads frozen copies but binds the driver to the production paths.
+export const sourcePath=(options,name)=>options.readFiles?.[name]??options[name];
+export async function prepareStatusDriver(options){
+  const {outputDirectory,controlFile,backendFile,workerFile,transportFile}=options;
+  const original=await readFile(sourcePath(options,'controlFile')), backend=await readFile(sourcePath(options,'backendFile')), worker=await readFile(sourcePath(options,'workerFile')), transport=await readFile(sourcePath(options,'transportFile'));
+  const core=await readFile(sourcePath(options,'coreTemplateFile'),'utf8'),controller=await readFile(sourcePath(options,'controlTemplateFile'),'utf8');
   const overlay=segment(core,'function Get-CoreStatusReadinessProbe(','function Show-FinanceServiceStatus');
   const coreDiagnostic=segment(controller,'function Get-CoreReadinessDiagnostic(','function Get-DjangoAggregateState');
   let mirror=original.toString('utf8').replace(/^\ufeff/,'');

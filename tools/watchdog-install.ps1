@@ -26,9 +26,13 @@ function Assert-WatchBundle([string]$Directory,$Expected){
   $manifest=Read-WatchJson (Join-Path $Directory 'bundle.json')
   if(-not $manifest -or $manifest.version -ne 1 -or $manifest.bundleId -cne $Expected.bundleId){throw 'invalid_watchdog_bundle'}
   $names=if($Expected.files -is [Collections.IDictionary]){@($Expected.files.Keys)}else{@($Expected.files.PSObject.Properties.Name)}
-  if($names.Count -notin @(5,9) -or @($manifest.files.PSObject.Properties).Count -ne $names.Count){throw 'invalid_watchdog_bundle_files'}
+  # 5/9 files: earlier layouts (with or without a pre-generated driver). 11 files: current layout,
+  # which carries the generator suite and no pre-generated driver (the driver is made at run time).
+  if($names.Count -notin @(5,9,11) -or @($manifest.files.PSObject.Properties).Count -ne $names.Count){throw 'invalid_watchdog_bundle_files'}
+  $suiteNames=@('prepare-watchdog-status-driver.mjs','prepare-watchdog-native-status-driver.mjs','prepare-watchdog-supervisor-status-driver.mjs','watchdog-native-metadata.ps1','watchdog-driver-generate.mjs','watchdog-driver-closure.ps1')
+  if(($names.Count -eq 11) -ne (@($names|Where-Object {$_ -cin $suiteNames}).Count -eq $suiteNames.Count)){throw 'invalid_watchdog_bundle_files'}
   foreach($name in $names){
-    if($name -notin @('operations-system-watchdog.ps1','process-deadline.ps1','watchdog-install.ps1','watchdog-launcher\NoConsoleLauncher.cs','Watchdog.NoConsole.exe','watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json')){throw 'invalid_watchdog_bundle_files'}
+    if($name -notin (@('operations-system-watchdog.ps1','process-deadline.ps1','watchdog-install.ps1','watchdog-launcher\NoConsoleLauncher.cs','Watchdog.NoConsole.exe','watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json')+$suiteNames)){throw 'invalid_watchdog_bundle_files'}
     $hash=$Expected.files.$name
     if($manifest.files.$name -cne $hash -or (Get-WatchAssetHash (Join-Path $Directory $name)) -cne $hash){throw 'watchdog_bundle_hash_mismatch'}
   }
@@ -78,6 +82,18 @@ function Get-WatchInstallContext([string]$SourceDirectory,[string]$LauncherPath=
   $driverCount=@($driverFiles|Where-Object {Test-Path -LiteralPath (Join-Path $SourceDirectory $_)}).Count
   if($driverCount -notin @(0,4)){throw 'incomplete_watchdog_diagnostic_driver'}
   if($driverCount){foreach($name in $driverFiles){$files[$name]=Get-WatchAssetHash (Join-Path $SourceDirectory $name)}}
+  # Generator suite: all or none. With it the driver is generated at run time, so a pre-generated
+  # driver must not ship beside it. Node is resolved here once and recorded; it is not hash-pinned,
+  # so upgrading node never blinds the monitor.
+  $suiteFiles=@('prepare-watchdog-status-driver.mjs','prepare-watchdog-native-status-driver.mjs','prepare-watchdog-supervisor-status-driver.mjs','watchdog-native-metadata.ps1','watchdog-driver-generate.mjs','watchdog-driver-closure.ps1')
+  $suiteCount=@($suiteFiles|Where-Object {Test-Path -LiteralPath (Join-Path $SourceDirectory $_)}).Count
+  if($suiteCount -notin @(0,$suiteFiles.Count)){throw 'incomplete_watchdog_generator_suite'}
+  $nodePath=''
+  if($suiteCount){
+    if($driverCount){throw 'incomplete_watchdog_generator_suite'}
+    foreach($name in $suiteFiles){$files[$name]=Get-WatchAssetHash (Join-Path $SourceDirectory $name)}
+    try{$nodePath=Resolve-WatchNodePath (Get-WatchNodeCandidatePath)}catch{throw 'watchdog_node_missing'}
+  }
   if(-not $LauncherPath){
     if(-not $old -or $old.launcherSourceSha256 -cne $files['watchdog-launcher\NoConsoleLauncher.cs']){throw 'prepared_launcher_required'}
     $LauncherPath=$oldLauncher;$LauncherSha256=$old.launcherSha256
@@ -87,8 +103,8 @@ function Get-WatchInstallContext([string]$SourceDirectory,[string]$LauncherPath=
   $binding=($files.Keys|ForEach-Object {$_+'='+$files[$_]}) -join "`n"
   $bundleId=Get-WatchTextHash $binding
   $oldXmlHash=if($oldXml){Get-WatchTextHash $oldXml}else{'absent'}
-  $planId=Get-WatchTextHash ($root+'|'+$PowerShellPath+'|'+$bundleId+'|'+$oldHash+'|'+$oldXmlHash)
-  return @{root=$root;source=$SourceDirectory;launcherSource=$LauncherPath;bundleId=$bundleId;files=$files;planId=$planId;old=$old;oldTask=$task;oldXml=$oldXml;oldBytes=$oldBytes;oldHash=$oldHash;oldXmlHash=$oldXmlHash;configPath=$configPath}
+  $planId=Get-WatchTextHash ($root+'|'+$PowerShellPath+'|'+$bundleId+'|'+$oldHash+'|'+$oldXmlHash+$(if($nodePath){'|'+$nodePath}else{''}))
+  return @{nodePath=$nodePath;root=$root;source=$SourceDirectory;launcherSource=$LauncherPath;bundleId=$bundleId;files=$files;planId=$planId;old=$old;oldTask=$task;oldXml=$oldXml;oldBytes=$oldBytes;oldHash=$oldHash;oldXmlHash=$oldXmlHash;configPath=$configPath}
 }
 function Get-WatchInstallPlan {
   $context=Get-WatchInstallContext $PSScriptRoot $PreparedLauncherPath $PreparedLauncherSha256
@@ -164,7 +180,10 @@ function Install-WatchdogSafely([string]$SourceDirectory){
     # lease as Check. An immutable path also protects a not-yet-parsed child.
     $c=Get-WatchInstallContext $SourceDirectory $PreparedLauncherPath $PreparedLauncherSha256
     if($ApprovedInstallPlanId -cnotmatch '^[0-9a-f]{64}$' -or $ApprovedInstallPlanId -cne $c.planId){throw 'watchdog_install_plan_changed'}
-    $health=Get-WatchSnapshot
+    # The installed predecessor's installation.json may predate nodePath: admission resolves node
+    # from the node this install itself just validated, never from the old record.
+    $previousNodeOverride=$script:WatchNodePathOverride
+    try{$script:WatchNodePathOverride=$c.nodePath;$health=Get-WatchSnapshot}finally{$script:WatchNodePathOverride=$previousNodeOverride}
     if(-not $health.healthy){
       # Drift deadlock: fixing pinned-source drift needs an install, but drift itself keeps
       # health false. The exact asset-set match below is what stops this being a blanket bypass.
@@ -260,6 +279,7 @@ function Install-WatchdogSafely([string]$SourceDirectory){
     $arguments='"'+$PowerShellPath+'" "'+$target+'"'
     $action=New-ScheduledTaskAction -Execute $launcher -WorkingDirectory $c.root -Argument $arguments
     $config=@{version=$WatchdogVersion;layout='immutable-v1';bundleId=$c.bundleId;files=$c.files;scriptSha256=$c.files['operations-system-watchdog.ps1'];transportSha256=$c.files['process-deadline.ps1'];launcherSourceSha256=$c.files['watchdog-launcher\NoConsoleLauncher.cs'];launcherSha256=$c.files['Watchdog.NoConsole.exe'];installedAt=[DateTimeOffset]::UtcNow.ToString('o')}
+    if($c.nodePath){$config.nodePath=$c.nodePath}
     $transaction=Join-Path $c.root ('install-transactions\'+[guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $transaction -Force|Out-Null
     if($c.oldBytes){[IO.File]::WriteAllBytes((Join-Path $transaction 'installation.before.json'),$c.oldBytes)}
