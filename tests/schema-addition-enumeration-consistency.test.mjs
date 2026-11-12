@@ -43,6 +43,8 @@ const MIN = {
   gateDbPairs: 15,
   localPairs: 15,
   backupInstalled: 10,
+  backupReturnPairs: 13,
+  backupEquals: 3,
   localChain: 15,
   localMarkers: 15,
   localCopy: 140,
@@ -193,9 +195,16 @@ export function codeFilesOf(s, stem) {
   if (!text) return null;
   const m = text.match(/^CODE_FILES = [\s\S]*?"[)]/m);
   if (!m) return null;
-  const files = [...m[0].matchAll(/"((?:tools|config)[/][^"]+)"/g)].map((x) => x[1]);
+  const files = [...m[0].matchAll(/"([A-Za-z0-9_.-]+[/][^"]+)"/g)].map((x) => x[1]);
   return files.length ? files : null;
 }
+
+// CODE_FILES 里各路径前缀进入应用包的方式（依据 django-local-service.ps1 Prepare-Application）：
+// - tools/、config/、automation/：逐文件列在复制清单里（automation/n8n/pi-business 六个文件见该函数的清单），纳入规则。
+// - backend/：Copy-ApplicationTree 整目录递归复制（跳过 tests、__pycache__ 等），不需逐文件检查。
+// 其它前缀（例如 tests/）没有已知的入包方式，遇到必须报错要求人工判断，不能默认放过。
+export const PER_FILE_PREFIXES = ['tools', 'config', 'automation'];
+export const WHOLE_TREE_PREFIXES = ['backend'];
 
 // ---------------------------------------------------------------- 提取器
 
@@ -223,7 +232,7 @@ function extractLocal(s) {
   const markers = new Set([...chainRegion.matchAll(/'([a-z0-9-]+-addition-active[.]json)'/g)].map((m) => m[1]));
   // 复制清单用完整相对路径（tools/x、config/x）。
   const copyRegion = region(s.local, 'function Prepare-Application', 'django-local-service.ps1');
-  const copy = new Set([...copyRegion.matchAll(new RegExp(Q + '((?:tools|config)[/][^' + Q + ']+)' + Q, 'g'))].map((m) => m[1]));
+  const copy = new Set([...copyRegion.matchAll(new RegExp(Q + '((?:tools|config|automation)[/][^' + Q + ']+)' + Q, 'g'))].map((m) => m[1]));
   // 有序「标记 -> 模块」对。每个 $xGate = Join-Path $candidateRoot 'tools\x_addition.py' 定义一个变量；
   // 标记归属于它前面「最后一次被引用的闸变量」（BI 的 $biAdditionGate 定义在链顶部，但在自己的 if 条件里被引用）。
   const gateVars = new Map([...chainRegion.matchAll(/[$]([A-Za-z0-9]+) = Join-Path [$]candidateRoot 'tools[/]([A-Za-z0-9_]+)_addition[.]py'/g)].map((m) => [m[1], m[2]]));
@@ -289,13 +298,20 @@ function extractBackup(s) {
   // 末尾 `return 159 if x_installed else 158 if ... else 140` 链。
   const returnLine = body.split(NL).find((l) => /^[ ]*return [0-9]+ if /.test(l));
   assert.ok(returnLine, 'postgres_no_key_backup.py: verify_receipt_generation 里找不到 return N if ... 链');
-  const returnChain = returnLine.trim().slice('return '.length).split(' else ').map((part) => Number(part.split(' ')[0]));
+  const returnParts = returnLine.trim().slice('return '.length).split(' else ');
+  const returnChain = returnParts.map((part) => Number(part.split(' ')[0]));
   assert.ok(returnChain.every((n) => Number.isInteger(n)), 'postgres_no_key_backup.py: return 链解析出非整数 ' + JSON.stringify(returnChain));
+  // `N if <x>_installed` 配对（末项是无条件兜底，没有变量）。
+  const returnPairs = returnParts.map((part) => part.match(/^([0-9]+) if ([a-z_]+)$/)).filter(Boolean).map((m) => ({n: Number(m[1]), variable: m[2]}));
+  // 相等判定：`<x>_installed = receipts == generationN`（只表示「恰好是这一代」）。
+  const equals = [...body.matchAll(/^[ ]*([a-z_]+) = receipts == generation([0-9]+)$/gm)].map((m) => ({variable: m[1], gen: Number(m[2]), line: lineOf(body, m.index)}));
   atLeast('postgres_no_key_backup.py generation 定义', generations.size, MIN.backupGenerations);
   atLeast('postgres_no_key_backup.py catalog 导入', catalogs.size, MIN.backupCatalogs);
   atLeast('postgres_no_key_backup.py 判定元组', tuples.length, MIN.backupInstalled);
   atLeast('postgres_no_key_backup.py return 链', returnChain.length, MIN.backupInstalled);
-  return {generations, catalogs, tuples, returnChain};
+  atLeast('postgres_no_key_backup.py return 链配对', returnPairs.length, MIN.backupReturnPairs);
+  atLeast('postgres_no_key_backup.py 相等判定', equals.length, MIN.backupEquals);
+  return {generations, catalogs, tuples, returnChain, returnPairs, equals};
 }
 
 function extractPublish(s) {
@@ -418,6 +434,12 @@ export function checkLocalService(s) {
       continue;
     }
     for (const file of files) {
+      const prefix = file.split('/')[0];
+      if (WHOLE_TREE_PREFIXES.includes(prefix)) continue;
+      if (!PER_FILE_PREFIXES.includes(prefix)) {
+        v.push(kind + ': ' + file + '（' + stem + '_addition.py 的 CODE_FILES）前缀 ' + prefix + '/ 不在已知入包方式里（逐文件：' + PER_FILE_PREFIXES.join('/') + '；整目录：' + WHOLE_TREE_PREFIXES.join('/') + '）。补：读 Prepare-Application 确认该前缀怎样进包，再登记到 PER_FILE_PREFIXES/WHOLE_TREE_PREFIXES');
+        continue;
+      }
       if (!copy.has(file)) v.push(kind + ': ' + file + '（' + stem + '_addition.py 的 CODE_FILES）不在 django-local-service.ps1 Prepare-Application 复制清单。补：加进清单，否则准备好的应用目录缺文件、摘要算不出');
     }
   }
@@ -464,7 +486,7 @@ export function checkDigest(s) {
 /** 关系 5b：postgres_no_key_backup.py 认得每个终止代数，并导入每代 catalog。 */
 export function checkBackup(s) {
   const v = [];
-  const {generations, catalogs, tuples, returnChain} = extractBackup(s);
+  const {generations, catalogs, tuples, returnChain, returnPairs, equals} = extractBackup(s);
   const tos = [...new Set(s.specs.map((x) => x.to))].sort((a, b) => a - b);
   const kindsAt = (to) => s.specs.filter((x) => x.to === to).map((x) => x.kind).join('/');
   for (const to of tos) {
@@ -494,6 +516,29 @@ export function checkBackup(s) {
   }
   if (!returnChain.every((n, i) => i === 0 || returnChain[i - 1] > n)) {
     v.push('tools/postgres_no_key_backup.py 末尾 return 链不是严格递减：' + JSON.stringify(returnChain));
+  }
+  // 规则 C：`<x>_installed = receipts == generationN` 只认「恰好是 N」。N 若是 finite[] 的终止代数，它必须是最新一代：
+  // 否则更新一代上线后该判定变假（应改成 `receipts in (...)` 元组）。146/147 这类不是 finite[] 终止代数的不受约束。
+  const latestTo = tos[tos.length - 1];
+  for (const e of equals) {
+    if (tos.includes(e.gen) && e.gen !== latestTo) {
+      v.push('generation' + e.gen + '（' + kindsAt(e.gen) + '）: tools/postgres_no_key_backup.py 第 ' + e.line + ' 行 ' + e.variable + ' 用 == generation' + e.gen + '，但最新一代是 generation' + latestTo + '。补：改成 receipts in (generation' + e.gen + ', ..., generation' + latestTo + ') 元组（否则新一代上线后备份失败）');
+    }
+  }
+  // 规则 D：return 链里与 N 配对的变量，其定义的最小代数必须正好是 N（元组取最小元素，== 判定取其代数）。
+  const minGenOf = (variable) => {
+    const mins = [...tuples.filter((t) => t.label === variable).map((t) => Math.min(...t.gens)), ...equals.filter((e) => e.variable === variable).map((e) => e.gen)];
+    return mins.length ? Math.min(...mins) : null;
+  };
+  for (const to of tos) {
+    const pair = returnPairs.find((p) => p.n === to);
+    if (!pair) continue; // 缺项由规则 B 报
+    const min = minGenOf(pair.variable);
+    if (min === null) {
+      v.push('generation' + to + '（' + kindsAt(to) + '）: tools/postgres_no_key_backup.py return 链里 ' + to + ' 配的 ' + pair.variable + ' 找不到定义（写法超出提取器）');
+    } else if (min !== to) {
+      v.push('generation' + to + '（' + kindsAt(to) + '）: tools/postgres_no_key_backup.py return 链里 ' + to + ' 配的是 ' + pair.variable + '，它定义的最小代数是 ' + min + '。补：换成最小代数恰为 ' + to + ' 的那个 *_installed');
+    }
   }
   for (const kind of kindsOf(s)) {
     if (!catalogs.has(stemOfKind(s, kind) + '_catalog')) {
@@ -827,6 +872,40 @@ test('反向 5c：备份判定元组与 return 链必须纳入最新代', () => 
   only(checkBackup({...s, backup: dropped}), 'generation159', '判定元组');
   // 只从 return 链里去掉最新代。
   hit(checkBackup({...s, backup: replaceNth(s.backup, 'return 159 if unified_tasks_installed else ', 'return ')}), 'generation159', 'return 链');
+});
+
+test('反向 5d：备份 == 判定必须是最新一代；return 链配对的判定变量必须匹配', () => {
+  const eqLatest = '    unified_tasks_installed = receipts == generation159';
+  const tupleLine = '    feedback_candidates_installed = receipts in (generation158, generation159)';
+  // 最新代的 == 判定改成上一代。
+  // 会同时触发规则 C（== 判定不是最新代）和规则 D（return 链 159 配的变量最小代数是 158），两条都要报。
+  const edited = checkBackup({...s, backup: replaceNth(s.backup, eqLatest, eqLatest.replace('generation159', 'generation158'))});
+  assert.equal(edited.length, 2, JSON.stringify(edited));
+  hit(edited, 'generation158', '== generation158', '最新一代是 generation159');
+  hit(edited, 'generation159', 'return 链', '最小代数是 158');
+  // 一条元组判定改成 == 且 N 不是最新代（审查者的注入）。
+  hit(checkBackup({...s, backup: replaceNth(s.backup, tupleLine, '    feedback_candidates_installed = receipts == generation158')}), 'generation158', '== generation158');
+  // 146/147 不是 finite[] 终止代数，不受约束（当前主干即如此，无违规）。
+  assert.deepEqual(checkBackup(s), []);
+  // return 链：156 配的变量换成相邻一代的判定。
+  only(checkBackup({...s, backup: replaceNth(s.backup, '156 if workflow_automation_installed', '156 if sales_preflight_installed')}), 'generation156', 'sales_preflight_installed', '最小代数是 154');
+  // 配对变量没有定义：不能默认通过。
+  only(checkBackup({...s, backup: replaceNth(s.backup, '156 if workflow_automation_installed', '156 if ghost_installed')}), 'generation156', 'ghost_installed', '找不到定义');
+});
+
+test('反向 4c：automation/ 逐文件复制清单缺项；未知前缀必须报错；backend/ 整目录不逐文件检查', () => {
+  const quoted = (name) => Q + name + Q;
+  const file = 'automation/n8n/pi-business/tmall-masitu-pi-business.candidate.workflow.json';
+  const broken = checkLocalService({...s, local: s.local.split(quoted(file)).join(quoted('x_' + file))});
+  assert.ok(broken.length === 1 && broken[0].startsWith('PiBusiness') && broken[0].includes(file) && broken[0].includes('复制清单'), JSON.stringify(broken));
+  // 未知前缀：给 pi_business 的 CODE_FILES 追加 docs/ 文件。
+  const text = s.additions.pi_business;
+  const withDocs = {...s, additions: {...s.additions, pi_business: text.replace('tmall-masitu-pi-business.candidate.workflow.json")))', 'tmall-masitu-pi-business.candidate.workflow.json", "docs/x.md")))')}};
+  assert.notEqual(withDocs.additions.pi_business, text);
+  only(checkLocalService(withDocs), 'PiBusiness', 'docs/x.md', '入包方式');
+  // backend/ 不该因不在复制清单而报错（当前主干 pi_business 列了 backend/ 文件且无违规）。
+  assert.ok(codeFilesOf(s, 'pi_business').some((x) => x.startsWith('backend/')));
+  assert.deepEqual(checkLocalService(s), []);
 });
 
 test('反向 3b：$biApplicationName 链每个 finite[] 代际都有分支', () => {
