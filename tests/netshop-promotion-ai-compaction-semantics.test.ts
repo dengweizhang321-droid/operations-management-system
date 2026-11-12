@@ -14,7 +14,8 @@ registerHooks({ resolve(specifier, context, nextResolve) {
 } });
 const { aiToolRegistry } = await import("../lib/ai/tool-registry");
 const { NETSHOP_PROMOTION_INSIGHTS_TOOL_NAME: listName } = await import("../lib/ai/netshop-promotion-insights-tool");
-const { expandDateRanges } = await import("../lib/ai/netshop-ai-compaction");
+const { restoreCoverageGaps, expandRangeStrings } = await import("../lib/ai/netshop-ai-compaction");
+const sortedGaps = (map: Plain) => Object.entries(restoreCoverageGaps(map)).sort(([a], [b]) => (a < b ? -1 : 1));
 const { compactPromotionInsightsForAi, promotionCompactionLadder } = await import("../lib/ai/netshop-promotion-compaction");
 const { decodePromotionInsightsForQuery } = await import("../lib/netshop/promotion-insights-contract");
 const listEntry = aiToolRegistry.find(e => e.name === listName)!;
@@ -108,7 +109,11 @@ test("promotion contributions: first N in the owner's ranked order as ranking ro
       assert.deepEqual(Object.keys(r).sort(), ["id", "metrics", "objectKind", "rankBasis", "rowKey", "shopKey", "title"]);
       for (const f of ["rowKey", "id", "shopKey", "objectKind", "title"] as const) assert.equal(r[f], src[f]);
       assert.deepEqual(Object.keys(r.metrics), ["spend", "attributedPayment", "roas"]);
-      for (const m of ["spend", "attributedPayment", "roas"] as const) assert.deepEqual(r.metrics[m], { value: src.metrics[m].value, unit: src.metrics[m].unit });
+      // value/unit/status/basis always; aggregation when the source has one; reasonCode only when non-null; no source refs.
+      for (const m of ["spend", "attributedPayment", "roas"] as const) {
+        const s = src.metrics[m] as Plain;
+        assert.deepEqual(r.metrics[m], { value: s.value, unit: s.unit, status: s.status, basis: s.basis, ...(s.aggregation !== undefined ? { aggregation: s.aggregation } : {}), ...(s.reasonCode != null ? { reasonCode: s.reasonCode } : {}) });
+      }
       assert.equal(r.rankBasis.metric, metric);
       const prev = src.changes[metric].previous;
       assert.equal(r.rankBasis.previous.value, prev.value); assert.equal(r.rankBasis.previous.unit, prev.unit); assert.equal(r.rankBasis.previous.status, prev.status); assert.equal(r.rankBasis.previous.basis, prev.basis);
@@ -185,21 +190,18 @@ test("promotion coverage gap dates become lossless ranges: no entry lost, expans
   (p.sections.coverage as Plain)["gap-b"] = gap();
   (p.context.coverageBySource as Plain)["gap-ctx"] = gap();
   const out = direct(p, 1);
-  const pairs: Array<[Plain, Plain, string]> = [[out.sections.coverage, p.sections.coverage as Plain, "gap-a"], [out.sections.coverage, p.sections.coverage as Plain, "gap-b"], [out.context.coverageBySource, p.context.coverageBySource as Plain, "gap-ctx"]];
-  for (const [keptMap, origMap, key] of pairs) {
-    const kept = keptMap[key]; const orig = origMap[key];
-    assert.ok(kept, `${key} kept`);
-    assert.equal(kept.missingByShop.length, orig.missingByShop.length);
-    kept.missingByShop.forEach((entry: Plain, i: number) => {
-      assert.equal(entry.shopKey, orig.missingByShop[i].shopKey); assert.equal(Object.hasOwn(entry, "dates"), false);
-      assert.deepEqual(expandDateRanges(entry.missingRanges), orig.missingByShop[i].dates);
-      assert.equal(entry.missingRanges.reduce((n: number, r: Plain) => n + r.days, 0), orig.missingByShop[i].dates.length);
-    });
-  }
-  assert.deepEqual(out.sections.coverage["gap-a"].missingByShop[0].missingRanges, [
-    { startDate: "2026-08-01", endDate: "2026-08-03", days: 3 }, { startDate: "2026-08-07", endDate: "2026-08-07", days: 1 },
-    { startDate: "2026-08-09", endDate: "2026-08-10", days: 2 }, { startDate: "2026-09-30", endDate: "2026-10-01", days: 2 },
-  ]);
+  // Lossless: ranges expand and groups restore to exactly the original gap entries.
+  const gapsOf = (map: Plain) => Object.entries<Plain>(map).filter(([, c]) => c.complete === false).sort(([a], [b]) => (a < b ? -1 : 1));
+  assert.deepEqual(sortedGaps(out.sections.coverage), gapsOf(p.sections.coverage as Plain));
+  assert.deepEqual(sortedGaps(out.context.coverageBySource), gapsOf(p.context.coverageBySource as Plain));
+  const kept = (out.sections.coverage._groupedByValue ?? []).find((g: Plain) => g.refs.includes("gap-a"))?.value ?? out.sections.coverage["gap-a"];
+  assert.deepEqual(kept.missingByShop[0].missingRanges, ["2026-08-01~2026-08-03", "2026-08-07", "2026-08-09~2026-08-10", "2026-09-30~2026-10-01"]);
+  assert.deepEqual(expandRangeStrings(kept.missingByShop[0].missingRanges), dates);
+  assert.equal(Object.hasOwn(kept.missingByShop[0], "dates"), false);
+  // gap-a and gap-b are identical entries, so they are grouped (refs list both).
+  const group = out.sections.coverage._groupedByValue.find((g: Plain) => g.refs.includes("gap-a"));
+  assert.deepEqual([...group.refs].sort(), ["gap-a", "gap-b"]);
+  assert.ok(out.aiCompaction.sections.some((s: Plain) => s.path === "sections.coverage" && s.rule === "coverage_gaps_grouped_by_value"));
   assert.ok(out.aiCompaction.sections.some((s: Plain) => s.path === "sections.coverage.*.missingByShop[].dates" && s.rule === "missing_dates_as_ranges"));
   assert.match(out.aiCompaction.note, /missingRanges/);
 });
@@ -245,7 +247,7 @@ test("promotion heavy scene with 30 extra gap entries: every gap entry survives 
   const gapKeys = Object.entries<Plain>(p.sections.coverage as Plain).filter(([, c]) => c.complete === false).map(([k]) => k);
   assert.ok(gapKeys.length >= 30);
   const out = direct(p, promotionCompactionLadder.length - 1);
-  for (const k of gapKeys) assert.ok(out.sections.coverage[k], `gap ${k} kept`);
+  assert.deepEqual(sortedGaps(out.sections.coverage).map(([k]) => k), [...gapKeys].sort());
   console.log("promotion heavy +30 gaps, heaviest level envelope", envelope(out));
 });
 
@@ -293,7 +295,7 @@ test("promotion view schema: enum + default overview; pageSize has no single def
   assert.equal(listProps.pageSize.maximum, 20);
 });
 
-test("promotion views (heavy scene, 4 shops, non-zero, +30 gaps): every view within 36000; requested pageSize follows the view default (list=3, since 5 rows exceed 40000 with 30 extra gaps)", async () => {
+test("promotion views (heavy scene, 4 shops, non-zero, +30 gaps): every view within 40000; requested pageSize follows the view default (list=3, since 5 rows exceed 40000 with 30 extra gaps)", async () => {
   const sizes: Record<string, number> = {};
   for (const [view, pageSize] of [["overview", "1"], ["rankings", "1"], ["list", "3"]] as const) {
     const { data, requests } = await runPromotionView(view, undefined, Number(pageSize), 30);
@@ -302,7 +304,8 @@ test("promotion views (heavy scene, 4 shops, non-zero, +30 gaps): every view wit
     assert.equal(requests[0].has("view"), false, "view must not be sent to Django");
     sizes[view] = envelope(data);
     console.log("promotion view", view, sizes[view], JSON.stringify(data.aiCompaction?.sections.map((m: Plain) => `${m.path}:${m.rule}`)));
-    assert.ok(sizes[view] <= 36000, `${view} ${sizes[view]}`);
+    // rankings rows now carry status/basis/aggregation (all three metrics), so this 2-shop +30-gap scene is 37119; the hard limit stays 40000.
+    assert.ok(sizes[view] <= 40000, `${view} ${sizes[view]}`);
     assert.equal(data.aiView.view, view);
   }
   console.log("promotion view sizes (heavy, +30 gaps, defaults)", JSON.stringify(sizes));
@@ -316,7 +319,7 @@ test("promotion views carry exactly their sections; rankings keep 10 rows per di
   assert.ok(over.data.aiView.omitted.some((o: Plain) => o.path === "sections.items" && /list/.test(o.howToGet)));
 
   const rank = await runPromotionView("rankings", undefined, 1, 30);
-  assert.deepEqual(Object.keys(rank.data.sections).filter(k => !["coverage", "limitations", "dataQuality"].includes(k)), ["contributions"]);
+  assert.deepEqual(Object.keys(rank.data.sections).filter(k => !["coverage", "limitations", "dataQuality", "objectKind", "listScope"].includes(k)), ["contributions"]);
   for (const [key, rows] of Object.entries<Plain[]>(rank.data.sections.contributions.previous)) {
     assert.equal(rows.length, 10, key);
     assert.deepEqual(rows.map(r => r.rowKey), (rank.source.sections.contributions.previous as Plain)[key].slice(0, 10).map((r: Plain) => r.rowKey));
@@ -343,11 +346,7 @@ test("promotion views keep tokens, dates, scope, dataQuality, limitations and ev
     assert.deepEqual(data.sections.limitations, source.sections.limitations);
     const gaps = Object.entries<Plain>(source.sections.coverage as Plain).filter(([, c]) => c.complete === false);
     assert.ok(gaps.length >= 30);
-    for (const [k, c] of gaps) {
-      const kept = data.sections.coverage[k];
-      assert.ok(kept, `${view} gap ${k}`);
-      for (const shop of kept.missingByShop ?? []) assert.deepEqual(shop.dates ?? expandDateRanges(shop.missingRanges), c.missingByShop.find((s: Plain) => s.shopKey === shop.shopKey).dates);
-    }
+    assert.deepEqual(sortedGaps(data.sections.coverage).filter(([, c]) => (c as Plain).complete === false), [...gaps].sort(([a], [b]) => (a < b ? -1 : 1)), `${view} gaps lossless`);
   }
 });
 

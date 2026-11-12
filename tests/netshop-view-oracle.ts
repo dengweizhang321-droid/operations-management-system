@@ -14,9 +14,9 @@ const PRODUCT_KEEP: Record<View, string[]> = {
   list: ["items", "pagination", "dataQuality", "metadata"],
 };
 const PROMOTION_KEEP: Record<View, string[]> = {
-  overview: ["summary", "comparisons", "changes", "attribution", "matchedRange", "shops", "trend", "diagnostic", "objectCapabilities", "sourceMatrix", "coverage", "limitations", "dataQuality"],
-  rankings: ["contributions", "coverage", "limitations", "dataQuality"],
-  list: ["items", "pagination", "listScope", "coverage", "limitations", "dataQuality"],
+  overview: ["summary", "comparisons", "changes", "attribution", "matchedRange", "shops", "trend", "diagnostic", "objectCapabilities", "sourceMatrix", "coverage", "limitations", "dataQuality", "objectKind", "listScope"],
+  rankings: ["contributions", "coverage", "limitations", "dataQuality", "objectKind", "listScope"],
+  list: ["items", "pagination", "listScope", "coverage", "limitations", "dataQuality", "objectKind"],
 };
 
 function project(full: Plain, view: View, keep: string[], adjust: (sections: Plain) => void): Plain {

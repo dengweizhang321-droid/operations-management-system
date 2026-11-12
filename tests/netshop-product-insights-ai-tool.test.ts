@@ -287,3 +287,22 @@ test("central timeout aborts transport, suppresses late data and terminates late
   assert.equal(second.ok, false); if (!second.ok) assert.equal(second.error.code, "tool_runtime_terminated");
   assert.equal(count, 1);
 });
+
+test("sectionToken without an explicit pageSize is refused before any request; the same pageSize continues and aiView reports the pageSize used", async () => {
+  const { pageSize: _omitted, ...withoutPageSize } = args;
+  for (const view of [undefined, "overview", "rankings", "list"]) {
+    await assert.rejects(entry.handler({ ...withoutPageSize, sectionToken: payload.sectionToken, ...(view ? { view } : {}) }, execution), (error: unknown) => errorIs("invalid_arguments")(error) && /pageSize/.test((error as Error).message) && /sectionToken/.test((error as Error).message));
+  }
+  assert.equal(calls.length, 0, "no Django request may be made");
+  // Same pageSize as the token was issued with (3): continues, in any view; aiView names the pageSize actually used.
+  for (const view of ["overview", "rankings", "list"]) {
+    const data = await entry.handler({ ...args, view, sectionToken: payload.sectionToken }, execution) as Record<string, any>;
+    assert.equal(data.aiView.pageSize, 3);
+    assert.equal(calls.at(-1)!.url.searchParams.get("pageSize"), "3");
+    assert.equal(calls.at(-1)!.url.searchParams.get("sectionToken"), payload.sectionToken);
+  }
+  // Without a token the per-view default applies and is reported.
+  Object.assign(payload.tableScope, { pageSize: 10 }); Object.assign(payload.sections.pagination, { pageSize: 10 });
+  const first = await entry.handler({ ...withoutPageSize, view: "rankings" }, execution) as Record<string, any>;
+  assert.equal(first.aiView.pageSize, 10);
+});

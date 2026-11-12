@@ -16,7 +16,7 @@ const { NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME: name } = await import("../lib/ai/net
 const { compactProductInsightsForAi, productCompactionLadder } = await import("../lib/ai/netshop-product-compaction");
 const { syntheticInsightsContext } = await import("../lib/netshop/insights-fixtures");
 const { compareMetrics } = await import("../lib/netshop/insights-contract");
-const { expandDateRanges } = await import("../lib/ai/netshop-ai-compaction");
+const { restoreCoverageGaps } = await import("../lib/ai/netshop-ai-compaction");
 const { productMetricKeys } = await import("../app/netshop/products/contract");
 const entry = aiToolRegistry.find(e => e.name === name)!;
 const principal: AppPrincipal = { email: "synthetic-product-semantics@example.test", displayName: "Synthetic", role: "analyst", scope: null };
@@ -182,12 +182,11 @@ test("product coverage gap dates become lossless ranges and no gap entry is lost
   p.context.coverageBySource["extra-gap"] = { expectedShopDatePairs: 9, coveredShopDatePairs: 2, complete: false, truncated: false, missingByShop: [{ shopKey: "京东\u001f合成店A", dates }] };
   const gapKeys = Object.entries<Plain>(p.context.coverageBySource).filter(([, c]) => c.complete === false).map(([k]) => k);
   const out = direct(p, 1);
-  for (const k of gapKeys) {
-    const kept = out.context.coverageBySource[k]; const orig = p.context.coverageBySource[k];
-    assert.ok(kept, `${k} kept`);
-    kept.missingByShop.forEach((e: Plain, i: number) => assert.deepEqual(expandDateRanges(e.missingRanges), orig.missingByShop[i].dates));
-  }
-  assert.deepEqual(out.context.coverageBySource["extra-gap"].missingByShop[0].missingRanges.map((r: Plain) => [r.startDate, r.endDate, r.days]), [["2026-08-01", "2026-08-02", 2], ["2026-08-04", "2026-08-06", 3], ["2026-09-30", "2026-10-01", 2]]);
+  const restored = restoreCoverageGaps(out.context.coverageBySource);
+  assert.deepEqual(Object.keys(restored).sort(), [...gapKeys].sort());
+  for (const k of gapKeys) assert.deepEqual(restored[k], p.context.coverageBySource[k], `${k} lossless`);
+  const extra = out.context.coverageBySource["extra-gap"] ?? out.context.coverageBySource._groupedByValue.find((g: Plain) => g.refs.includes("extra-gap")).value;
+  assert.deepEqual(extra.missingByShop[0].missingRanges, ["2026-08-01~2026-08-02", "2026-08-04~2026-08-06", "2026-09-30~2026-10-01"]);
   assert.match(out.aiCompaction.note, /missingRanges/);
 });
 
@@ -275,11 +274,9 @@ test("product views keep tokens, dates, scope, quality and limitations and the c
     assert.deepEqual(data.sections.dataQuality, src.sections.dataQuality);
     assert.ok(data.sections.metadata.limitations);
     const gaps = Object.entries<Plain>(src.context.coverageBySource ?? {}).filter(([, c]) => c.complete === false);
-    for (const [k, c] of gaps) {
-      const kept = data.context.coverageBySource[k];
-      assert.ok(kept, `${view} gap ${k}`);
-      for (const shop of kept.missingByShop ?? []) assert.deepEqual(shop.dates ?? expandDateRanges(shop.missingRanges), c.missingByShop.find((s: Plain) => s.shopKey === shop.shopKey).dates);
-    }
+    // An uncompacted (fitting) view still carries complete entries; only the gap entries are compared.
+    const keptGaps = Object.entries(restoreCoverageGaps(data.context.coverageBySource) as Record<string, Plain>).filter(([, c]) => c.complete === false);
+    assert.deepEqual(Object.fromEntries(keptGaps), Object.fromEntries(gaps), `${view} gaps lossless`);
   }
 });
 

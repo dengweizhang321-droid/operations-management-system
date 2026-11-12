@@ -25,16 +25,17 @@ export const NETSHOP_PROMOTION_RANKING_ROWS_PER_DIRECTION = 10;
 
 /** What each view carries; `capabilities` is the pseudo key for context.capabilities. Tokens, effective dates, coverage and limitations are always kept. */
 export const NETSHOP_PROMOTION_VIEW_PLAN: AiViewPlan = {
-  always: ["coverage", "limitations", "dataQuality"],
+  // listScope carries productFocus (未确认/多义映射时“不能据此判断无投放”，对象行被清空)，所以每个视图都保留；objectKind仅9字符。
+  always: ["coverage", "limitations", "dataQuality", "objectKind", "listScope"],
   keep: {
     overview: ["summary", "comparisons", "changes", "attribution", "matchedRange", "shops", "trend", "diagnostic", "objectCapabilities", "sourceMatrix", "capabilities"],
     rankings: ["contributions"],
-    list: ["items", "pagination", "listScope"],
+    list: ["items", "pagination"],
   },
   reasons: {
     summary: "整期汇总属于总览", comparisons: "环比/同比比较属于总览", changes: "变化量属于总览", attribution: "归因口径属于总览", matchedRange: "匹配期间属于总览",
     shops: "分店铺汇总属于总览", trend: "趋势属于总览", diagnostic: "诊断能力属于总览", objectCapabilities: "对象能力清单属于总览", sourceMatrix: "来源矩阵属于总览",
-    contributions: "贡献排行行属于排名视图", items: "当前页对象行属于列表视图", pagination: "分页回执随当前页对象行属于列表视图", listScope: "列表范围随当前页对象行属于列表视图",
+    contributions: "贡献排行行属于排名视图", items: "当前页对象行属于列表视图", pagination: "分页回执随当前页对象行属于列表视图",
   },
 };
 
@@ -54,8 +55,8 @@ export const netshopPromotionInsightsInputSchema = {
   type: "object", properties: { ...sharedProperties,
     q: { type: "string", maxLength: 120, default: "", description: "仅搜索对象列表；全期汇总和完整贡献集合不随搜索变化。" },
     page: { type: "integer", minimum: 1, maximum: 10000, default: 1 },
-    view: { type: "string", enum: [...NETSHOP_AI_VIEWS], default: "overview", description: "overview(默认)=整体/环比同比/周报；rankings=涨跌最大/Top N排名行(四个方向各前10行)；list=当前页对象行、分页与列表范围。不同视图省略的内容见返回的aiView.omitted。view只决定返回哪些已校验内容，不发送给后端。" },
-    pageSize: { type: "integer", minimum: 1, maximum: 20, description: "对象列表当前页行数，仅list视图使用；省略时按view取默认（schema无法按view给默认值）：overview=1、rankings=1（均不含当前页行）、list=3（重场景下页行每多一行约多5K字符，调大到约5行即可能超预算被拒绝）。rankings的排名行数固定每方向10行，不受pageSize影响。调大更易超过40000字符被拒绝。" },
+    view: { type: "string", enum: [...NETSHOP_AI_VIEWS], default: "overview", description: "overview(默认)=整体/环比同比/周报；rankings=涨跌最大/Top N排名行(四个方向最多各前10行，超预算时更少，见aiCompaction)；list=当前页对象行、分页(listScope各视图都保留)。每次提问本工具最多3次，按问题选视图，不要无谓地取三个视图。不同视图省略的内容见返回的aiView.omitted。view只决定返回哪些已校验内容，不发送给后端。" },
+    pageSize: { type: "integer", minimum: 1, maximum: 20, description: "对象列表当前页行数，仅list视图使用；省略时按view取默认（schema无法按view给默认值）：overview=1、rankings=1（均不含当前页行）、list=3（重场景下页行每多一行约多5K字符，调大到约5行即可能超预算被拒绝）。rankings的排名行数每方向最多10行（超预算时更少），不受pageSize影响。调大更易超过40000字符被拒绝。" },
     sort: { type: "string", enum: [...PROMOTION_SORTS], default: "spend_desc" },
   }, required: ["platform", "startDate", "endDate"], additionalProperties: false,
 } satisfies JsonSchema;

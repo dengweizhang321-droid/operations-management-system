@@ -16,8 +16,9 @@ export const NETSHOP_PRODUCT_INSIGHTS_AI_MAX_CHARACTERS = 40_000;
 /**
  * AI-side default page size per view (JSON schema cannot express per-view defaults, so the schema carries none and the
  * description states them). overview drops every row-bearing section, so 1; rankings: pageSize is the number of growth and
- * watchlist ranking rows (product_insights.py page/pageSize), 10; list: current-page rows, 5. The owning reader still allows up to 20.
+ * watchlist ranking rows (product_insights.py page/pageSize), 10; list: current-page rows, 4. The owning reader still allows up to 20.
  */
+export const PRODUCT_SECTION_TOKEN_PAGE_SIZE_MESSAGE = "sectionToken绑定q/category/sort/pageSize：续读须传与取得该令牌时相同的pageSize（见上次结果的aiView.pageSize）；换视图且改pageSize时不要带sectionToken";
 export const NETSHOP_PRODUCT_INSIGHTS_AI_DEFAULT_PAGE_SIZES: Record<NetshopAiView, number> = { overview: 1, rankings: 10, list: 4 };
 
 /** What each view carries; `watchlist` is the pseudo key for sections.efficiency.watchlist. Coverage-bearing context, tokens and dataQuality are always kept. */
@@ -45,7 +46,7 @@ export const netshopProductInsightsInputSchema = {
     view: { type: "string", enum: [...NETSHOP_AI_VIEWS], default: "overview", description: "overview(默认)=整体/环比同比/周报；rankings=涨跌最大/Top N排名行；list=当前页商品行及分页。不同视图省略的内容见返回的aiView.omitted。view只决定返回哪些已校验内容，不发送给后端。" },
     pageSize: { type: "integer", minimum: 1, maximum: 20, description: "行数；省略时按view取默认（schema无法按view给默认值）：overview=1（总览不含行）、rankings=10（即增长贡献与低转化关注清单各取的排名行数）、list=4（当前页商品行数；14分类重场景下5行约39.5K，故默认4）。调大更易超过40000字符被拒绝。" },
     sort: { type: "string", enum: [...productSorts], default: "payment_desc" },
-    sectionToken: { type: "string", pattern: "^[a-f0-9]{64}$", description: "同一商品列表范围及排序分页的所属令牌；不得与其他类型令牌替换。" },
+    sectionToken: { type: "string", pattern: "^[a-f0-9]{64}$", description: "同一商品列表范围及排序分页的所属令牌；不得与其他类型令牌替换。令牌绑定q/category/sort/pageSize，带令牌时必须显式传与取得该令牌时相同的pageSize（结果aiView.pageSize即此值），否则直接拒绝且不发请求；换视图且改pageSize时不要带sectionToken。" },
   },
   required: [...netshopInsightsContextInputSchema.required],
   additionalProperties: false,
@@ -62,6 +63,9 @@ export async function getNetshopProductInsightsForAi(args: Record<string, unknow
   const query = new URLSearchParams();
   try {
     validateToolArguments(args, netshopProductInsightsInputSchema);
+    // The owner's sectionToken is bound to pageSize (product_insights.py _section_token); the AI default pageSize differs per view,
+    // so a token without an explicit pageSize would 409 whenever the view changed. Refuse before any request.
+    if (args.sectionToken !== undefined && args.pageSize === undefined) throw new RegistryToolError("invalid_arguments", PRODUCT_SECTION_TOKEN_PAGE_SIZE_MESSAGE);
     requireSupportedInsightScope(context.principal);
     for (const platform of args.platforms as string[]) query.append("platform", platform);
     const shops = (args.shops ?? []) as Array<{ platform: string; shopName: string }>;
@@ -133,6 +137,8 @@ export async function getNetshopProductInsightsForAi(args: Record<string, unknow
     }
     return sections;
   });
+  // The pageSize actually sent, so a follow-up call with sectionToken can repeat it.
+  (projected.aiView as { pageSize?: number }).pageSize = Number(query.get("pageSize"));
   const fitted = fitNetshopAiResult(NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME, projected, NETSHOP_PRODUCT_INSIGHTS_AI_MAX_CHARACTERS, productCompactionLadder.map(level => (source: Record<string, unknown>) => compactProductInsightsForAi(source, level)));
   if (fitted === null) throw new RegistryToolError("tool_result_too_large", `商品表现精简后仍超过40000字符信封预算，请缩小店铺或日期范围、改用其他视图（${viewHint(NETSHOP_AI_VIEWS.filter(item => item !== view))}）或减小pageSize；覆盖缺口未被裁去`);
   return fitted;

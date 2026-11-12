@@ -1,4 +1,4 @@
-import { briefMetric, datesToRanges, NetshopAiCompaction, selectTopBy, SOURCE_REFS_OMITTED_RULE } from "./netshop-ai-compaction";
+import { briefMetric, compactDates, NetshopAiCompaction, selectTopBy, SOURCE_REFS_OMITTED_RULE } from "./netshop-ai-compaction";
 
 /**
  * Promotion list view for the model. Input is a DTO the real decoder accepted.
@@ -53,7 +53,7 @@ const KEY_METRICS = ["spend", "attributedPayment", "roas"] as const;
 const PAY_KEYS = ["spend", "attributedPayment"] as const;
 const RANK_METRIC: Record<string, "spend" | "attributedPayment"> = { spendIncrease: "spend", spendDecrease: "spend", attributedPaymentIncrease: "attributedPayment", attributedPaymentDecrease: "attributedPayment" };
 
-export const PROMOTION_RANK_ROW_RULE = "ranking_rows(rowKey,id,shopKey,objectKind,title,spend/attributedPayment/roas value+unit,rankBasis=previous change)";
+export const PROMOTION_RANK_ROW_RULE = "ranking_rows(rowKey,id,shopKey,objectKind,title,spend/attributedPayment/roas value+unit+status+basis(+aggregation,reasonCode),rankBasis=previous change)";
 export const PROMOTION_PAGE_SLIM_RULE = "page_rows_slimmed(-observation,-mapping.advertisedSkuId/triggerSkuId/followSkuId,-metric.sourceIds,-metric.coverageRef)";
 
 export function compactPromotionInsightsForAi(data: Record<string, unknown>, level: PromotionCompactionLevel): Record<string, unknown> {
@@ -68,7 +68,7 @@ export function compactPromotionInsightsForAi(data: Record<string, unknown>, lev
     const metric = RANK_METRIC[listName];
     return {
       ...pick(row, ["rowKey", "id", "shopKey", "objectKind", "title"]),
-      metrics: Object.fromEntries(KEY_METRICS.map(key => [key, { value: row.metrics?.[key]?.value ?? null, unit: row.metrics?.[key]?.unit }])),
+      metrics: Object.fromEntries(KEY_METRICS.map(key => [key, briefMetric(row.metrics?.[key])])),
       rankBasis: { metric, previous: briefMetric(row.changes?.[metric]?.previous) },
     };
   };
@@ -85,7 +85,8 @@ export function compactPromotionInsightsForAi(data: Record<string, unknown>, lev
   if (contributions) out.contributions = { ...contributions, previous: keptLists };
 
   // Matched-range dates become inclusive ranges; each shop row's copy is dropped only when identical.
-  const rangesOf = (matched: Plain) => (matched.shopDates as Array<{ shopKey: string; dates: string[] }>).map(({ shopKey, dates }) => ({ shopKey, dateRanges: datesToRanges(dates) }));
+  // Compact range strings only when shorter than the plain date list; otherwise the dates stay as they are.
+  const rangesOf = (matched: Plain) => (matched.shopDates as Array<{ shopKey: string; dates: string[] }>).map(({ shopKey, dates }) => ({ shopKey, ...compactDates(dates, "dateRanges") }));
   const summaryMatched = sections.matchedRange as Plain | null;
   const summaryDates = new Map<string, string>(summaryMatched ? (summaryMatched.shopDates as Array<{ shopKey: string; dates: string[] }>).map(entry => [entry.shopKey, JSON.stringify(entry.dates)]) : []);
   let shopDatesOmitted = 0;

@@ -191,3 +191,30 @@ test("actual schema parameters satisfy A query parser and cannot expose list foc
   const q = queryFor(argsFor(payload)); assert.equal(validatePromotionQuery(q).context.dimension, "sku");
   for (const key of ["q", "page", "pageSize", "focusDate", "objectStartDate", "objectEndDate"]) assert.equal(Object.hasOwn(detailEntry.inputSchema.properties, key), false);
 });
+
+test("unmapped / ambiguous product focus: listScope.productFocus (message + reasonCode) reaches the model in every view, so an empty ranking is not read as 'no spend'", async () => {
+  for (const name of ["product-focus-unmapped", "product-focus-ambiguous"]) {
+    payload = await fixture(name); owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
+    const source = payload as PromotionInsightsResponse; const focus = (source.sections.listScope as any).productFocus;
+    assert.ok(focus && focus.reasonCode && /不能据此判断无投放/.test(focus.message), name);
+    const identity = focus.identity; const productIdentity = [identity.platform, identity.shopName, identity.dimension, identity.id];
+    for (const view of ["overview", "rankings", "list"]) {
+      const data = await listEntry.handler({ ...argsFor(source), productIdentity, view }, context) as any;
+      assert.equal(data.sections.listScope.productFocus.message, focus.message, `${name} ${view}`);
+      assert.equal(data.sections.listScope.productFocus.reasonCode, focus.reasonCode, `${name} ${view}`);
+      assert.equal(data.sections.objectKind, "product", `${name} ${view} objectKind`);
+      assert.equal(data.aiView.omitted.some((o: { path: string }) => o.path === "sections.listScope" || o.path === "sections.objectKind"), false);
+    }
+  }
+});
+
+test("rankings rows carry status/basis for every metric and reasonCode when non-null (roas null at zero spend keeps its reason); compaction function only, decoder bypassed", async () => {
+  const { compactPromotionInsightsForAi, promotionCompactionLadder } = await import("../lib/ai/netshop-promotion-compaction");
+  const data = structuredClone(await fixture("misaligned")) as any;
+  const row = structuredClone(data.sections.items[0]) as any; row.rowKey = "b".repeat(64);
+  row.metrics.roas = { ...row.metrics.roas, value: null, status: "unavailable", reasonCode: "zero_spend" };
+  data.sections.contributions.previous.spendIncrease = [row];
+  const out = (compactPromotionInsightsForAi(data, promotionCompactionLadder[1]) as any).sections.contributions.previous.spendIncrease[0];
+  assert.deepEqual(out.metrics.roas, { value: null, unit: row.metrics.roas.unit, status: "unavailable", basis: row.metrics.roas.basis, aggregation: row.metrics.roas.aggregation, reasonCode: "zero_spend" });
+  for (const key of ["spend", "attributedPayment"]) { assert.equal(out.metrics[key].status, row.metrics[key].status); assert.equal(out.metrics[key].basis, row.metrics[key].basis); assert.equal("reasonCode" in out.metrics[key], row.metrics[key].reasonCode != null); }
+});

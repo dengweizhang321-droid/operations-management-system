@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import test, { afterEach, beforeEach } from "node:test";
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { MetricValue } from "../lib/netshop/insights-contract";
-import { expandDateRanges } from "../lib/ai/netshop-ai-compaction";
+import { restoreCoverageGaps } from "../lib/ai/netshop-ai-compaction";
 import { completeProductSectionsFixture } from "./netshop-products-test-fixture";
 import { assertView, expectedProductView } from "./netshop-view-oracle";
 
@@ -114,13 +114,10 @@ test("product coverage gaps survive compaction whole; only complete context entr
   const data = lightestFitting(payload);
   const gaps = Object.entries(payload.context.coverageBySource).filter(([, c]) => !c.complete);
   assert.ok(gaps.length >= 1);
-  for (const [ref, gap] of gaps) {
-    const kept = data.context.coverageBySource[ref]; assert.ok(kept, ref);
-    const { missingByShop: keptShops, ...keptRest } = kept; const { missingByShop: srcShops, ...srcRest } = gap as any;
-    assert.deepEqual(keptRest, srcRest);
-    (srcShops ?? []).forEach((e: any, i: number) => { const { dates, ...rest } = e; const { missingRanges, ...kRest } = keptShops[i]; assert.deepEqual(kRest, rest); assert.deepEqual(expandDateRanges(missingRanges), dates); });
-  }
-  for (const value of Object.values<any>(data.context.coverageBySource)) assert.equal(value.complete, false);
+  // Lossless: grouping and range strings undone, the restored map equals exactly the source's gap entries.
+  const restored = restoreCoverageGaps(data.context.coverageBySource);
+  assert.deepEqual(restored, Object.fromEntries(gaps));
+  for (const value of Object.values<any>(restored)) assert.equal(value.complete, false);
   assert.deepEqual(data.context.calendar, payload.context.calendar);
   assert.deepEqual(data.context.capabilities, payload.context.capabilities);
 });

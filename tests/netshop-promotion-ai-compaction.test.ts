@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { registerHooks } from "node:module";
 import test, { afterEach, beforeEach } from "node:test";
-import { datesToRanges } from "../lib/ai/netshop-ai-compaction";
+import { restoreCoverageGaps } from "../lib/ai/netshop-ai-compaction";
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { PromotionInsightsResponse, PromotionObjectRow } from "../lib/netshop/promotion-insights-contract";
 
@@ -77,8 +77,9 @@ async function productionScale(): Promise<PromotionInsightsResponse> {
   base.sections.coverage["promotion:trend:synthetic-gap"] = { expectedShopDatePairs: 1, coveredShopDatePairs: 0, complete: false, missingByShop: [{ shopKey, dates: [date] }], truncated: false };
   return base;
 }
-// AI view stores missing dates losslessly as missingRanges; compare in that form.
-function asRanges(c: any) { return { ...c, missingByShop: (c.missingByShop ?? []).map(({ dates, ...rest }: any) => (dates ? { ...rest, missingRanges: datesToRanges(dates) } : rest)) }; }
+// The AI view rewrites missing dates (ranges only when shorter) and groups identical gap entries; both undo losslessly.
+// Grouping may reorder keys, so entries are compared sorted by key.
+const restoredGaps = (map: Record<string, unknown>) => Object.entries(restoreCoverageGaps(map)).sort(([a], [b]) => (a < b ? -1 : 1));
 function gapped(p: PromotionInsightsResponse) {
   return {
     section: Object.entries(p.sections.coverage).filter(([, c]) => !c.complete),
@@ -136,17 +137,16 @@ test("compaction never loses a coverage gap: every incomplete entry survives who
   const data = lightestFitting(payload) as unknown as PromotionInsightsResponse;
   const before = gapped(payload);
   assert.ok(before.section.length >= 1 && before.context.length >= 1);
-  for (const [ref, gap] of before.section) assert.deepEqual(data.sections.coverage[ref], asRanges(gap));
-  for (const [ref, gap] of before.context) assert.deepEqual(data.context.coverageBySource[ref], asRanges(gap));
-  assert.deepEqual(gapped(data), { section: before.section.map(([k, c]) => [k, asRanges(c)]), context: before.context.map(([k, c]) => [k, asRanges(c)]) });
-  for (const value of Object.values(data.sections.coverage)) assert.ok(!value.complete);
+  assert.deepEqual(restoredGaps(data.sections.coverage as Record<string, unknown>), [...before.section].sort(([a], [b]) => (a < b ? -1 : 1)));
+  assert.deepEqual(restoredGaps(data.context.coverageBySource as Record<string, unknown>), [...before.context].sort(([a], [b]) => (a < b ? -1 : 1)));
+  for (const [, value] of restoredGaps(data.sections.coverage as Record<string, unknown>)) assert.ok(!(value as any).complete);
 });
 
 test("an incomplete entry is never folded even when it looks otherwise normal (missing dates, truncated shape)", async () => {
   const shopKey = payload.context.effectiveScope.shopKeys[0], date = payload.context.periods.current.startDate;
   payload.sections.coverage["promotion:object:aaaaaaaaaaaaaaaa:current"] = { expectedShopDatePairs: 2, coveredShopDatePairs: 1, complete: false, missingByShop: [{ shopKey, dates: [date] }], truncated: false };
   const data = lightestFitting(payload) as unknown as PromotionInsightsResponse;
-  assert.deepEqual(data.sections.coverage["promotion:object:aaaaaaaaaaaaaaaa:current"], asRanges(payload.sections.coverage["promotion:object:aaaaaaaaaaaaaaaa:current"]));
+  assert.deepEqual(restoreCoverageGaps(data.sections.coverage as Record<string, unknown>)["promotion:object:aaaaaaaaaaaaaaaa:current"], payload.sections.coverage["promotion:object:aaaaaaaaaaaaaaaa:current"]);
 });
 
 test("decoder rejection still wins: a corrupted oversized response is refused with the original error code, never compacted", async () => {
