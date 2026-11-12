@@ -645,8 +645,9 @@ const kindsDesc = [...new Set([...s.specs].sort((a, b) => b.to - a.to).map((x) =
 const latestSpec = [...s.specs].sort((a, b) => b.to - a.to)[0];
 const latestKind = latestSpec.kind;
 const prevTo = Math.max(...s.specs.filter((x) => x.to < latestSpec.to).map((x) => x.to));
+// 取完整定义：`==` 写法到行尾；`in (` 写法到匹配的右括号（可折成多行，口径与 extractBackup 的元组正则一致）。
 const backupDefOf = (variable) => {
-  const m = s.backup.match(new RegExp('^[ ]*' + variable + ' = receipts (?:==|in) .*$', 'm'));
+  const m = s.backup.match(new RegExp('^[ ]*' + variable + ' = receipts (?:==.*$|in [(][^)]*[)])', 'm'));
   assert.ok(m, '反向用例找不到 ' + variable + ' 的定义行');
   return m[0];
 };
@@ -902,8 +903,11 @@ test('反向 5c：备份判定元组与 return 链必须纳入最新代', () => 
   // 最新一代的代数从规格表取，判定行从备份文件里现读（不写死 159）。
   const latest = 'generation' + latestSpec.to;
   const line = backupDefOf('tmall_installed');
-  assert.ok(line.includes(', ' + latest), 'tmall_installed 元组里应已有 ' + latest);
-  const dropped = replaceNth(s.backup, line, line.replace(', ' + latest, ''));
+  assert.ok(new RegExp('\\b' + latest + '\\b').test(line), 'tmall_installed 元组里应已有 ' + latest);
+  // 对折行与尾逗号都稳健：连同前后至多一个逗号和空白一起删，并断言确实删掉了。
+  const withoutLatest = line.replace(new RegExp(',?\\s*' + latest + '\\b,?'), '');
+  assert.ok(!new RegExp('\\b' + latest + '\\b').test(withoutLatest), '去掉 ' + latest + ' 失败');
+  const dropped = replaceNth(s.backup, line, withoutLatest);
   only(checkBackup({...s, backup: dropped}), latest, '判定元组');
   // 只从 return 链里去掉最新代。
   const lead = 'return ' + latestSpec.to + ' if ' + pairVarOf(latestSpec.to) + ' else ';
