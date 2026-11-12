@@ -688,7 +688,7 @@ export default function Home() {
             open={aiPanelOpen} fullPage={active === "ai" && activeModuleView === "assistant"}
             onClose={closeAiPanel} prompt={aiContextPrompt} promptModule={aiPageContext?.module} promptId={aiPromptId}
           />}
-          {!isAiChat && <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>}
+          {!isAiChat && <footer className="page-footer"><span>电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>}
         </div>
       </AppShell>
 

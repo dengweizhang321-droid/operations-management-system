@@ -190,7 +190,7 @@ async function authenticate(request: Request): Promise<Response | AppPrincipal> 
   const digest = await sha256Hex(supplied);
   return {
     email: `mcp-${digest.slice(0, 24)}@service.teruisi.local`,
-    displayName: "TERUISI MCP service principal",
+    displayName: "MCP service principal",
     role: "admin",
     scope: null,
   };

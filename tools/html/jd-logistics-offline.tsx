@@ -162,7 +162,7 @@ function start(data: Snapshot) {
         {workflow ? <section className="panel offline-workflow"><h2>京东物流四源工作流说明</h2><p>此处仅展示流程，不表示已经执行。</p><div className="offline-steps">{[["A", "冻结来源与日期", "核对事业部、来源能力、采集范围及执行所有者"], ["B", "下载、校验、导入", "库存流水 / 店铺商品 / 实时库存 / 分仓快照"], ["C", "精确批次回查", "核对原文件、内容摘要、行数及当前有效批次"], ["D", "缺货提醒", "按固定30日可用库存可售天数判断，结果未知不重发"]].map(([n, title, note]) => <article key={n}><strong>{n}</strong><h3>{title}</h3><p>{note}</p></article>)}</div></section>
           : imported ? <><JdLogisticsView key={`import:${route.importView}`} currentUser={user} fixedTab="batches" fileSnapshot={real} presentation={route.importView === "history" ? "records" : "import"} />{real && <p className="offline-note">此文件没有查询正式系统导入批次；源文件行数不代表已导入成功。</p>}</>
             : <InboundMonitor key="inbound" currentUser={user} fileSnapshot={real} fileCycleDays={real ? cycleDays : undefined} fileCycleOptions={real && !data.arbitraryCycles && data.replenishmentPreviews ? Object.keys(data.replenishmentPreviews).map(Number) : undefined} onFileCycleChange={real ? value => { if (!cycleSupported(value) || value === cycleDays) return; setCycleDays(value); const url = new URL(location.href); url.searchParams.set("jdReplenishmentDays", String(value)); url.searchParams.set("jdPage", "1"); history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`); window.dispatchEvent(new PopStateEvent("popstate")); } : undefined} />}
-        <footer className="offline-footer">TERUISI 京东入仓监控 · 2026-10-15 · 缺货依据：可用库存 ÷ 近30日销售出库件数 × 30</footer>
+        <footer className="offline-footer">京东入仓监控 · 2026-10-15 · 缺货依据：可用库存 ÷ 近30日销售出库件数 × 30</footer>
       </main>
     </div>;
   }

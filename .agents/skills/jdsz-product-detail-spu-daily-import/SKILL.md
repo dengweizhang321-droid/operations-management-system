@@ -1,6 +1,6 @@
 ---
 name: jdsz-product-detail-spu-daily-import
-description: Download, validate, and import JD Business Intelligence product-detail SPU daily data into the TERUISI operations system. Use when asked to fill the current-month missing SPU date range, select SPU and custom dates on jdsz.jd.com, create or reuse a safe download, save and verify the XLSX in D:\谷歌浏览器, connect or use the /api/netshop/import endpoint, prevent aggregate-row or Chinese-encoding corruption, or verify the spu_daily batch after import.
+description: Download, validate, and import JD Business Intelligence product-detail SPU daily data into the operations management system. Use when asked to fill the current-month missing SPU date range, select SPU and custom dates on jdsz.jd.com, create or reuse a safe download, save and verify the XLSX in D:\谷歌浏览器, connect or use the /api/netshop/import endpoint, prevent aggregate-row or Chinese-encoding corruption, or verify the spu_daily batch after import.
 ---
 
 # 京东商智 SPU 日数据下载与导入

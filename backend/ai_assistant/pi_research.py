@@ -168,7 +168,7 @@ class SafePublicFetcher:
                 connection = http.client.HTTPConnection(parts.hostname, parts.port, timeout=self.timeout)
                 connection.sock = sock
                 connection.request("GET", parts.path + ("?" + parts.query if parts.query else ""), headers={
-                    "Accept": "application/dns-json" if _dns_json else "*/*", "Accept-Encoding": "identity", "User-Agent": "TERUISI-PublicResearch/1.0",
+                    "Accept": "application/dns-json" if _dns_json else "*/*", "Accept-Encoding": "identity", "User-Agent": "OperationsSystem-PublicResearch/1.0",
                     "Connection": "close"})
                 response = connection.getresponse()
                 if response.status in {301, 302, 303, 307, 308}:
