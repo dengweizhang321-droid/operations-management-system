@@ -10,4 +10,6 @@
 | [一键本机演示预览](isolated-preview.md) | `isolated-preview.md` |
 | [n8n 无控制台启动](n8n-no-console-startup.md) | `n8n-no-console-startup.md` |
 | [按影响分级的发布批次与等待时间](release-batch-workflow.md) | `release-batch-workflow.md` |
+| [发布交付工作单模板](release-delivery-templates.md) | `release-delivery-templates.md` |
 | [启动与发布诊断复核及优化](startup-release-optimization.md) | `startup-release-optimization.md` |
+| [发布门禁执行细则](发布门禁执行细则.md) | `发布门禁执行细则.md` |
