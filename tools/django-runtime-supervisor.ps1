@@ -334,12 +334,14 @@ function Read-SupervisorState(
 
 function Test-SupervisorPreviousGenerationCleanStop([object]$State) {
   # Exactly what Invoke-SupervisorCycle writes before the supervisor exits on
-  # desired-state stopped. A running/unhealthy/restarting generation never
-  # matches, so it cannot be silently adopted by a different script.
+  # desired-state stopped: either at the top of a cycle, or when the stop lands
+  # in the re-check right before a restart. Both write the same fields and only
+  # differ in code. A running/unhealthy/restarting generation never matches, so
+  # it cannot be silently adopted by a different script.
   return (
     [string]$State.desiredState -ceq "stopped" -and
     [string]$State.health -ceq "stopped" -and
-    [string]$State.code -ceq "desired_state_stopped" -and
+    [string]$State.code -cin @("desired_state_stopped", "desired_state_stopped_before_restart") -and
     $State.recoverable -is [bool] -and
     -not [bool]$State.recoverable -and
     [int]$State.consecutiveFailures -eq 0
@@ -805,7 +807,7 @@ function Invoke-SupervisorRun {
   $desired = Get-SupervisorDesiredState
   if ([string]$desired.desiredState -cne "running" -or
       [string]$desired.serviceScriptSha256 -cne (Get-FileSha256 $ServiceScriptPath)) {
-    throw "Django supervisor desired-state 不是当前 operator 的 running；拒绝自动启动服务"
+    Stop-SupervisorRefused "Django supervisor desired-state 不是当前 operator 的 running；拒绝自动启动服务"
   }
   $name = "Local\TERUISI-DjangoRuntimeSupervisor-" + (
     Get-Sha256Text (Get-SupervisorCanonicalPath $SupervisorRequest.RuntimeRoot)
@@ -819,9 +821,9 @@ function Invoke-SupervisorRun {
     } catch [Threading.AbandonedMutexException] {
       $acquired = $true
     }
-    if (-not $acquired) { throw "另一个 Django supervisor 已在运行" }
+    if (-not $acquired) { Stop-SupervisorRefused "另一个 Django supervisor 已在运行" }
     if ($null -ne (Resolve-SupervisorProcess)) {
-      throw "已有经过身份验证的 Django supervisor 进程"
+      Stop-SupervisorRefused "已有经过身份验证的 Django supervisor 进程"
     }
     $snapshot = Write-SupervisorProcessReceipt
     $script:SupervisorStage = "state_upgrade"
@@ -829,6 +831,12 @@ function Invoke-SupervisorRun {
     # archived next to state.json and a fresh state starts from the new script.
     Read-SupervisorState "ArchivePreviousStopped" | Out-Null
     $script:SupervisorStage = "cycle"
+    # Startup is complete (receipt written, state upgraded): an older fatal
+    # diagnostic no longer describes this process. Best effort; failing to
+    # remove it must not stop the supervisor.
+    try {
+      Remove-Item -LiteralPath (Join-Path $SupervisorMonitorDirectory "supervisor-fatal.json") -Force -ErrorAction Stop
+    } catch {}
     while ($true) {
       try {
         $cycle = Invoke-SupervisorCycle
@@ -878,13 +886,24 @@ function Write-SupervisorFatalDiagnostic([string]$Message) {
   } catch {}
 }
 
+function Stop-SupervisorRefused([string]$Message) {
+  # A normal refusal (desired state not running, another supervisor holds the
+  # lock or already runs): the process exits non-zero as before, but this is
+  # not a fault and must not overwrite a real fault diagnostic left earlier.
+  $script:SupervisorRefused = $true
+  throw $Message
+}
+
 function Invoke-SupervisorRunGuarded {
   $script:SupervisorStage = "startup"
+  $script:SupervisorRefused = $false
   try {
     Invoke-SupervisorRun | Out-Null
     return 0
   } catch {
-    Write-SupervisorFatalDiagnostic ([string]$_.Exception.Message)
+    if (-not $script:SupervisorRefused) {
+      Write-SupervisorFatalDiagnostic ([string]$_.Exception.Message)
+    }
     [Console]::Error.WriteLine((Protect-LogText ([string]$_.Exception.Message)))
     return 1
   }
