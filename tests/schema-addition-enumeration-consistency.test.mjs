@@ -38,6 +38,11 @@ const MIN = {
   recipeFiles: 11,
   biLists: 5,
   biPairs: 14,
+  biAppNames: 14,
+  gateVerifyPairs: 15,
+  gateDbPairs: 15,
+  localPairs: 15,
+  backupInstalled: 10,
   localChain: 15,
   localMarkers: 15,
   localCopy: 140,
@@ -51,21 +56,12 @@ const MIN = {
   publishList: 6,
 };
 
-// 关系 6（Pi 运行账本权限清单）的显式例外表：kind -> 原因与证据位置。
+// 关系 6（Pi 运行账本权限清单）的显式例外表：kind -> 原因与证据位置（必须是非空文字）。
 // 当前为空：没有已知的合法例外。只有读懂 aiRolesChanged 与 ProvisionRoles 后确认
 // 某代 ai_assistant 迁移确实不需要重算授权，才允许在这里登记，并写清证据。
+// 例外必须对应一个迁移在 backend/ai_assistant/migrations/ 的代际，且该代际确实不在名单里；
+// 否则（名单已补上、不是 ai_assistant 代际、已无此规格）checkProvisionList 报错要求删除。
 export const PROVISION_LIST_EXCEPTIONS = {};
-
-// 关系 4a（candidate 在 Prepare-Application 复制清单）的显式历史例外：kind -> 原因与证据位置。
-// 例外失效（清单里已有该文件）或对应规格已不存在时本测试会报错，要求删除例外。
-export const COPY_LIST_CANDIDATE_EXCEPTIONS = {
-  JdProductMonitoring:
-    '实测事实（a264880f）：tools/jd_product_monitoring_addition.py 全文不引用 jd_product_monitoring_candidate，' +
-    '其 CODE_FILES 也不列它；而 tools/tmall_warehouse_addition.py 第 35 行起每代都把自己的 candidate 列入 CODE_FILES。' +
-    '该 candidate 由 5663930f 与 finite[] 条目同次引入，当时复制清单没有扩展。' +
-    '按 main-schema-release.mjs invokeBinder，binder 从冻结来源目录调用、不经已安装的 app，' +
-    '所以按「历史遗留」登记为例外；这是基于以上证据的推断，并非代码里的明文规则，请验收时确认。',
-};
 
 function normalize(text) {
   const plain = text.startsWith(BOM) ? text.slice(1) : text;
@@ -162,10 +158,10 @@ function snapshot() {
     for (const name of [spec.binder, stemOf(spec) + '_addition.py', stemOf(spec) + '_catalog.py']) candidates.add('tools/' + name);
   }
   const exists = new Set([...candidates].filter((p) => fs.existsSync(path.join(root, p))));
+  // 全部 tools/*_addition.py（含不在 finite[] 里的更早代际），按去掉后缀的名称索引。
   const additions = {};
-  for (const spec of specs) {
-    const file = 'tools/' + stemOf(spec) + '_addition.py';
-    if (exists.has(file)) additions[stemOf(spec)] = readRepo(file);
+  for (const name of fs.readdirSync(path.join(root, 'tools')).filter((n) => n.endsWith('_addition.py'))) {
+    additions[name.replace('_addition.py', '')] = readRepo('tools/' + name);
   }
   return {
     specs,
@@ -186,6 +182,21 @@ const kindsOf = (s) => [...new Set(s.specs.map((x) => x.kind))];
 const stemOfKind = (s, kind) => stemOf(s.specs.find((x) => x.kind === kind));
 const activeOf = (s, stem) => (s.additions[stem] ?? '').match(/^ACTIVE = .([a-z0-9-]+[.]json)./m)?.[1];
 
+/**
+ * 该代 *_addition.py 的 CODE_FILES 里「直接写出」的 tools/ 与 config/ 路径。
+ * 多数代是 tuple(dict.fromkeys((*parent.CODE_FILES, "...", ...))) 继承上一代再追加；
+ * 这里只取本代自己写出的字面量，继承来的部分由上一代自己的条目负责
+ * （不在 finite[] 里的更早代际不在本规则范围内）。取不到则返回 null，调用方必须报错。
+ */
+export function codeFilesOf(s, stem) {
+  const text = s.additions[stem];
+  if (!text) return null;
+  const m = text.match(/^CODE_FILES = [\s\S]*?"[)]/m);
+  if (!m) return null;
+  const files = [...m[0].matchAll(/"((?:tools|config)[/][^"]+)"/g)].map((x) => x[1]);
+  return files.length ? files : null;
+}
+
 // ---------------------------------------------------------------- 提取器
 
 function extractBi(s) {
@@ -197,21 +208,36 @@ function extractBi(s) {
   const gateLine = s.biAdopt.split(NL).find((l) => l.includes('$biGateName='));
   assert.ok(gateLine, 'bi-app-adopt.ps1: 找不到 $biGateName= 映射行');
   const pairs = [...gateLine.matchAll(/AdditionKind -ceq '([A-Za-z0-9_]+)'[)][{]'tools[/]([a-z0-9_]+[.]py)'[}]/g)].map((m) => ({kind: m[1], file: m[2]}));
+  const nameLine = s.biAdopt.split(NL).find((l) => l.includes('$biApplicationName=if('));
+  assert.ok(nameLine, 'bi-app-adopt.ps1: 找不到 $biApplicationName= 映射行');
+  const appNames = [...nameLine.matchAll(/AdditionKind -ceq '([A-Za-z0-9_]+)'[)][{]'(teruisi_[a-z0-9_]+)'[}]/g)].map((m) => ({kind: m[1], name: m[2]}));
   atLeast('bi-app-adopt.ps1 名单', lists.length, MIN.biLists);
   atLeast('bi-app-adopt.ps1 kind->addition 映射', pairs.length, MIN.biPairs);
-  return {lists, pairs};
+  atLeast('bi-app-adopt.ps1 $biApplicationName 映射', appNames.length, MIN.biAppNames);
+  return {lists, pairs, appNames};
 }
 
 function extractLocal(s) {
   const chainRegion = region(s.local, 'function Assert-NoUnapprovedProtectedAiMigration', 'django-local-service.ps1');
   const chain = new Set([...chainRegion.matchAll(/Join-Path [$]candidateRoot 'tools[/]([A-Za-z0-9_]+_addition)[.]py'/g)].map((m) => m[1]));
   const markers = new Set([...chainRegion.matchAll(/'([a-z0-9-]+-addition-active[.]json)'/g)].map((m) => m[1]));
+  // 复制清单用完整相对路径（tools/x、config/x）。
   const copyRegion = region(s.local, 'function Prepare-Application', 'django-local-service.ps1');
-  const copy = new Set([...copyRegion.matchAll(new RegExp(Q + 'tools[/]([^' + Q + ']+)' + Q, 'g'))].map((m) => m[1]));
+  const copy = new Set([...copyRegion.matchAll(new RegExp(Q + '((?:tools|config)[/][^' + Q + ']+)' + Q, 'g'))].map((m) => m[1]));
+  // 有序「标记 -> 模块」对。每个 $xGate = Join-Path $candidateRoot 'tools\x_addition.py' 定义一个变量；
+  // 标记归属于它前面「最后一次被引用的闸变量」（BI 的 $biAdditionGate 定义在链顶部，但在自己的 if 条件里被引用）。
+  const gateVars = new Map([...chainRegion.matchAll(/[$]([A-Za-z0-9]+) = Join-Path [$]candidateRoot 'tools[/]([A-Za-z0-9_]+)_addition[.]py'/g)].map((m) => [m[1], m[2]]));
+  const refs = [...chainRegion.matchAll(/[$]([A-Za-z0-9]+)/g)].filter((m) => gateVars.has(m[1])).map((m) => ({pos: m.index, module: gateVars.get(m[1])}));
+  const pairs = [...chainRegion.matchAll(/'([a-z0-9-]+-addition-active[.]json)'/g)].map((m) => {
+    const owner = refs.filter((x) => x.pos < m.index).pop();
+    assert.ok(owner, 'django-local-service.ps1: 标记 ' + m[1] + ' 前面没有引用任何 *_addition.py 闸变量（提取失效）');
+    return {marker: m[1], module: owner.module};
+  });
   atLeast('django-local-service.ps1 闸链', chain.size, MIN.localChain);
   atLeast('django-local-service.ps1 active 标记', markers.size, MIN.localMarkers);
+  atLeast('django-local-service.ps1 标记-模块对', pairs.length, MIN.localPairs);
   atLeast('django-local-service.ps1 复制清单', copy.size, MIN.localCopy);
-  return {chain, markers, copy};
+  return {chain, markers, copy, pairs};
 }
 
 function extractGate(s) {
@@ -219,12 +245,18 @@ function extractGate(s) {
   const db = region(s.gate, 'def verify_database_complete(', 'integration_release_gate.py');
   const names = (text, fn) => new Set([...text.matchAll(new RegExp('from ([A-Za-z0-9_]+_addition) import ' + fn, 'g'))].map((m) => m[1]));
   const markers = (text) => new Set([...text.matchAll(new RegExp(Q + '([a-z0-9-]+-addition-active[.]json)' + Q, 'g'))].map((m) => m[1]));
+  // 有序「标记 -> 模块」对：每条分支是「标记存在就用该模块」，第一个命中的分支返回，所以顺序就是优先级。
+  const pairsOf = (text, fn) => [...text.matchAll(new RegExp(Q + '([a-z0-9-]+-addition-active[.]json)' + Q + '[^' + NL + ']*' + NL + '[ ]*from ([A-Za-z0-9_]+)_addition import ' + fn, 'g'))].map((m) => ({marker: m[1], module: m[2]}));
   const result = {
     verify: names(verify, 'verify_active'),
     verifyMarkers: markers(verify),
+    verifyPairs: pairsOf(verify, 'verify_active'),
     db: names(db, 'complete_database'),
     dbMarkers: markers(db),
+    dbPairs: pairsOf(db, 'complete_database'),
   };
+  atLeast('integration_release_gate.py verify_release 标记-模块对', result.verifyPairs.length, MIN.gateVerifyPairs);
+  atLeast('integration_release_gate.py verify_database_complete 标记-模块对', result.dbPairs.length, MIN.gateDbPairs);
   atLeast('integration_release_gate.py verify_release 链', result.verify.size, MIN.gateVerify);
   atLeast('integration_release_gate.py verify_release 标记', result.verifyMarkers.size, MIN.gateVerifyMarkers);
   atLeast('integration_release_gate.py verify_database_complete 链', result.db.size, MIN.gateDb);
@@ -251,9 +283,19 @@ function extractBackup(s) {
   const body = region(s.backup, 'def verify_receipt_generation(', 'postgres_no_key_backup.py');
   const generations = new Set([...body.matchAll(/^[ ]*generation([0-9]+) = sorted[(]/gm)].map((m) => Number(m[1])));
   const catalogs = new Set([...body.matchAll(/from ([a-z0-9_]+_catalog) import/g)].map((m) => m[1]));
+  // 判定元组：`<x>_installed = receipts in (generationA, ...)` 与 `if receipts in (...)`。
+  const numbersOf = (list) => [...list.matchAll(/(?:generation|parent)([0-9]+)/g)].map((m) => Number(m[1]));
+  const tuples = [...body.matchAll(/^[ ]*(if receipts|[a-z_]+ = receipts) in [(]([^)]*)[)]/gm)].map((m) => ({label: m[1].replace(' = receipts', '').replace('if receipts', 'if receipts in (...)'), line: lineOf(body, m.index), gens: numbersOf(m[2])}));
+  // 末尾 `return 159 if x_installed else 158 if ... else 140` 链。
+  const returnLine = body.split(NL).find((l) => /^[ ]*return [0-9]+ if /.test(l));
+  assert.ok(returnLine, 'postgres_no_key_backup.py: verify_receipt_generation 里找不到 return N if ... 链');
+  const returnChain = returnLine.trim().slice('return '.length).split(' else ').map((part) => Number(part.split(' ')[0]));
+  assert.ok(returnChain.every((n) => Number.isInteger(n)), 'postgres_no_key_backup.py: return 链解析出非整数 ' + JSON.stringify(returnChain));
   atLeast('postgres_no_key_backup.py generation 定义', generations.size, MIN.backupGenerations);
   atLeast('postgres_no_key_backup.py catalog 导入', catalogs.size, MIN.backupCatalogs);
-  return {generations, catalogs};
+  atLeast('postgres_no_key_backup.py 判定元组', tuples.length, MIN.backupInstalled);
+  atLeast('postgres_no_key_backup.py return 链', returnChain.length, MIN.backupInstalled);
+  return {generations, catalogs, tuples, returnChain};
 }
 
 function extractPublish(s) {
@@ -339,8 +381,11 @@ export function checkChain(s) {
 /** 关系 3：bi-app-adopt.ps1 的每份名单包含全部 kind，且 kind->addition 映射正确。 */
 export function checkBiAdopt(s) {
   const v = [];
-  const {lists, pairs} = extractBi(s);
+  const {lists, pairs, appNames} = extractBi(s);
   for (const kind of kindsOf(s)) {
+    if (!appNames.some((x) => x.kind === kind)) {
+      v.push(kind + ': 缺在 tools/bi-app-adopt.ps1 的 $biApplicationName 映射。补：加 elseif 分支（漏写会落到默认值 teruisi_bi_goal_append，只影响连接应用名标签）。');
+    }
     for (const list of lists) {
       if (!list.items.includes(kind)) {
         v.push(kind + ': 缺在 tools/bi-app-adopt.ps1 第 ' + list.line + ' 行的名单。补：把 ' + kind + ' 加进该名单（ValidateSet 与各 -cin 名单都要）');
@@ -355,14 +400,9 @@ export function checkBiAdopt(s) {
 }
 
 /** 关系 4a：django-local-service.ps1 的闸链与复制清单。 */
-export function checkLocalService(s, candidateExceptions = COPY_LIST_CANDIDATE_EXCEPTIONS) {
+export function checkLocalService(s) {
   const v = [];
   const {chain, markers, copy} = extractLocal(s);
-  for (const kind of Object.keys(candidateExceptions)) {
-    const stem = kindsOf(s).includes(kind) ? stemOfKind(s, kind) : null;
-    if (!stem) v.push(kind + ': COPY_LIST_CANDIDATE_EXCEPTIONS 里的例外已不对应任何规格，请删除');
-    else if (copy.has(stem + '_candidate.py')) v.push(kind + ': tools/' + stem + '_candidate.py 已在复制清单，例外已失效，请从 COPY_LIST_CANDIDATE_EXCEPTIONS 删除');
-  }
   for (const kind of kindsOf(s)) {
     const stem = stemOfKind(s, kind);
     if (!chain.has(stem + '_addition')) {
@@ -371,12 +411,14 @@ export function checkLocalService(s, candidateExceptions = COPY_LIST_CANDIDATE_E
     const active = activeOf(s, stem);
     if (!active) v.push(kind + ': tools/' + stem + '_addition.py 里没读到 ACTIVE 标记文件名');
     else if (!markers.has(active)) v.push(kind + ': 标记文件 ' + active + ' 不在 django-local-service.ps1 闸链。补：闸链用它判定该代是否生效');
-    for (const suffix of ['_addition.py', '_candidate.py']) {
-      if (suffix === '_candidate.py' && candidateExceptions[kind]) continue;
-      if (!copy.has(stem + suffix)) v.push(kind + ': tools/' + stem + suffix + ' 不在 django-local-service.ps1 Prepare-Application 复制清单。补：加进清单，否则发布包缺文件');
+    // 真正的约束：摘要计算读的是准备好的应用目录，所以该代 CODE_FILES 写出的 tools/ 与 config/ 文件都必须在复制清单。
+    const files = codeFilesOf(s, stem);
+    if (!files) {
+      v.push(kind + ': 读不到 tools/' + stem + '_addition.py 的 CODE_FILES 字面量（提取失效或写法变了，请先修提取器）');
+      continue;
     }
-    if (s.exists.has('tools/' + stem + '_catalog.py') && !copy.has(stem + '_catalog.py')) {
-      v.push(kind + ': tools/' + stem + '_catalog.py 不在 django-local-service.ps1 Prepare-Application 复制清单。补：加进清单');
+    for (const file of files) {
+      if (!copy.has(file)) v.push(kind + ': ' + file + '（' + stem + '_addition.py 的 CODE_FILES）不在 django-local-service.ps1 Prepare-Application 复制清单。补：加进清单，否则准备好的应用目录缺文件、摘要算不出');
     }
   }
   return v;
@@ -422,11 +464,36 @@ export function checkDigest(s) {
 /** 关系 5b：postgres_no_key_backup.py 认得每个终止代数，并导入每代 catalog。 */
 export function checkBackup(s) {
   const v = [];
-  const {generations, catalogs} = extractBackup(s);
-  for (const to of [...new Set(s.specs.map((x) => x.to))].sort((a, b) => a - b)) {
+  const {generations, catalogs, tuples, returnChain} = extractBackup(s);
+  const tos = [...new Set(s.specs.map((x) => x.to))].sort((a, b) => a - b);
+  const kindsAt = (to) => s.specs.filter((x) => x.to === to).map((x) => x.kind).join('/');
+  for (const to of tos) {
     if (!generations.has(to)) {
-      v.push('generation' + to + '（' + s.specs.filter((x) => x.to === to).map((x) => x.kind).join('/') + '）: 缺在 tools/postgres_no_key_backup.py 的 verify_receipt_generation。补：加 generation' + to + ' 定义并纳入各 *_installed 判定');
+      v.push('generation' + to + '（' + kindsAt(to) + '）: 缺在 tools/postgres_no_key_backup.py 的 verify_receipt_generation。补：加 generation' + to + ' 定义并纳入各 *_installed 判定');
     }
+  }
+  // 规则 A（由代码形状得出）：每个 `receipts in (...)` 元组表示「从最早那一代起的全部后续代」，所以元组必须包含
+  // 所有 ≥ 其最小元素的 finite[] 终止代数。某代上线后若有元组没列它，备份会报
+  // no-key backup migration catalogue is not a reviewed generation。
+  for (const t of tuples) {
+    const floor = Math.min(...t.gens);
+    for (const to of tos.filter((x) => x >= floor && generations.has(x))) {
+      if (!t.gens.includes(to)) {
+        v.push('generation' + to + '（' + kindsAt(to) + '）: 缺在 tools/postgres_no_key_backup.py 第 ' + t.line + ' 行判定元组（' + t.label + '）。补：把 generation' + to + ' 加进该元组（元组需包含最早代之后的全部代数）');
+      }
+    }
+  }
+  // 规则 B：末尾 return 链必须包含每个 finite[] 终止代数，且首项是最新一代、严格递减。
+  for (const to of tos) {
+    if (!returnChain.includes(to)) {
+      v.push('generation' + to + '（' + kindsAt(to) + '）: 缺在 tools/postgres_no_key_backup.py 末尾 return 链。补：加 `' + to + ' if <x>_installed else`');
+    }
+  }
+  if (returnChain[0] !== tos[tos.length - 1]) {
+    v.push('tools/postgres_no_key_backup.py 末尾 return 链首项是 ' + returnChain[0] + '，应为最新一代 ' + tos[tos.length - 1] + '（链是「第一个成立的返回」，最新代必须排最前）');
+  }
+  if (!returnChain.every((n, i) => i === 0 || returnChain[i - 1] > n)) {
+    v.push('tools/postgres_no_key_backup.py 末尾 return 链不是严格递减：' + JSON.stringify(returnChain));
   }
   for (const kind of kindsOf(s)) {
     if (!catalogs.has(stemOfKind(s, kind) + '_catalog')) {
@@ -448,17 +515,74 @@ export function checkProvisionList(s, exceptions = PROVISION_LIST_EXCEPTIONS) {
   const aiKinds = kindsOf(s).filter((kind) => s.specs.some((x) => x.kind === kind && x.migrations.some((m) => m.startsWith('backend/ai_assistant/migrations/'))));
   atLeast('ai_assistant 代际', aiKinds.length, 6);
   for (const kind of aiKinds) {
-    if (!list.includes(kind) && !exceptions[kind]) {
+    if (!list.includes(kind) && !(kind in exceptions)) {
       v.push(kind + ': 迁移在 backend/ai_assistant/migrations/，但不在 tools/publish-prepared-main.mjs 的「配置Pi运行账本权限」名单。补：加进名单（否则授权不会重算，writer 可能 503）；若确不需要，在测试的 PROVISION_LIST_EXCEPTIONS 登记原因与证据');
     }
   }
-  for (const kind of Object.keys(exceptions)) {
+  // 例外失效检测：必须是 ai_assistant 代际、确实不在名单里、并带原因文字，否则要求删除。
+  for (const [kind, reason] of Object.entries(exceptions)) {
     if (!kindsOf(s).includes(kind)) v.push(kind + ': PROVISION_LIST_EXCEPTIONS 里的例外已不对应任何规格，请删除');
+    else if (!aiKinds.includes(kind)) v.push(kind + ': PROVISION_LIST_EXCEPTIONS 里的例外不是 ai_assistant 迁移代际（本来就不在检查范围），请删除');
+    else if (list.includes(kind)) v.push(kind + ': 已在 tools/publish-prepared-main.mjs 的名单里，PROVISION_LIST_EXCEPTIONS 的例外已失效，请删除');
+    else if (typeof reason !== 'string' || reason.trim() === '') v.push(kind + ': PROVISION_LIST_EXCEPTIONS 的例外没有原因文字，必须写明原因与证据位置');
   }
   return v;
 }
 
-const RELATIONS = {checkRecipes, checkFiles, checkChain, checkBiAdopt, checkLocalService, checkGate, checkDigest, checkBackup, checkProvisionList};
+/**
+ * 关系 7：三条「第一个存在的标记命中就返回」的分支链（integration_release_gate.py 的 verify_release、
+ * verify_database_complete，django-local-service.ps1 的 Assert-NoUnapprovedProtectedAiMigration）的顺序与配对。
+ * 标记文件永久累积，所以最新一代必须排在最前。
+ * - 每对里标记文件名等于该模块自己声明的 ACTIVE。
+ * - finite[] 各代按终止代数从大到小排列；不属于 finite[] 的更早代际必须全部排在它们之后（不臆造它们的代数）。
+ * - 三条链里所有代际的相对顺序一致。
+ */
+export function checkChainOrder(s) {
+  const v = [];
+  const g = extractGate(s);
+  const l = extractLocal(s);
+  const chains = [
+    {name: 'integration_release_gate.py verify_release', pairs: g.verifyPairs},
+    {name: 'integration_release_gate.py verify_database_complete', pairs: g.dbPairs},
+    {name: 'django-local-service.ps1 Assert-NoUnapprovedProtectedAiMigration', pairs: l.pairs},
+  ];
+  const toOf = new Map(kindsOf(s).map((kind) => [stemOfKind(s, kind), s.specs.find((x) => x.kind === kind).to]));
+  const kindOfStem = new Map(kindsOf(s).map((kind) => [stemOfKind(s, kind), kind]));
+  for (const chain of chains) {
+    chain.pairs.forEach((p, i) => {
+      const active = activeOf(s, p.module);
+      if (!active) v.push(chain.name + ' 第 ' + (i + 1) + ' 分支：读不到 tools/' + p.module + '_addition.py 的 ACTIVE 标记文件名');
+      else if (active !== p.marker) v.push(chain.name + ' 第 ' + (i + 1) + ' 分支：标记 ' + p.marker + ' 配的是模块 ' + p.module + '_addition，但该模块自己的 ACTIVE 是 ' + active + '。补：标记与模块要成对');
+    });
+    let previous = null;
+    let sawOlder = null;
+    for (const p of chain.pairs) {
+      const to = toOf.get(p.module);
+      if (to === undefined) {
+        if (!sawOlder) sawOlder = p.module;
+        continue;
+      }
+      if (sawOlder) {
+        v.push(chain.name + ': finite[] 代际 ' + kindOfStem.get(p.module) + '（' + p.module + '）排在不属于 finite[] 的更早代际 ' + sawOlder + ' 之后。补：最新代排最前（第一个存在的标记命中就返回）');
+      }
+      if (previous && previous.to <= to) {
+        v.push(chain.name + ': ' + kindOfStem.get(p.module) + '（终止代数 ' + to + '）排在 ' + kindOfStem.get(previous.module) + '（终止代数 ' + previous.to + '）之后，顺序应从大到小。补：把代数更大的分支排到前面（第一个存在的标记命中就返回）');
+      }
+      previous = {module: p.module, to};
+    }
+  }
+  const base = chains[0].pairs.map((p) => p.module);
+  for (const chain of chains.slice(1)) {
+    const mine = chain.pairs.map((p) => p.module);
+    if (!same(mine, base)) {
+      const at = mine.findIndex((m, i) => m !== base[i]);
+      v.push(chain.name + ' 的代际顺序与 ' + chains[0].name + ' 不一致（首个差异在第 ' + ((at < 0 ? Math.min(mine.length, base.length) : at) + 1) + ' 项：' + mine[at] + ' vs ' + base[at] + '）');
+    }
+  }
+  return v;
+}
+
+const RELATIONS = {checkRecipes, checkFiles, checkChain, checkBiAdopt, checkLocalService, checkGate, checkDigest, checkBackup, checkProvisionList, checkChainOrder};
 
 // ---------------------------------------------------------------- 测试
 
@@ -528,6 +652,10 @@ test('parseFinite 遇到未识别的新条目写法必须失败', () => {
   assert.throws(() => parseFinite(broken, release), /超出了提取器/);
 });
 
+function hit(violations, ...needles) {
+  assert.ok(violations.some((x) => needles.every((n) => x.includes(n))), '期望至少一条违规同时包含 ' + JSON.stringify(needles) + '，实际: ' + JSON.stringify(violations));
+}
+
 function only(violations, ...needles) {
   assert.equal(violations.length, 1, '期望恰好 1 条违规，实际: ' + JSON.stringify(violations));
   for (const needle of needles) assert.ok(violations[0].includes(needle), '违规信息缺少 ' + needle + ': ' + violations[0]);
@@ -578,14 +706,85 @@ test('反向 3：bi-app-adopt.ps1 名单漏项（首尾两份）与映射缺失/
 test('反向 4a：闸链、active 标记、复制清单缺项', () => {
   only(checkLocalService({...s, local: replaceNth(s.local, "'tools/pi_agent_addition.py'", "'tools/pi_agent_additionX.py'")}), 'PiAgent', '闸链');
   only(checkLocalService({...s, local: replaceNth(s.local, "'pi-agent-addition-active.json'", "'xx-addition-active.json'")}), 'PiAgent', 'pi-agent-addition-active.json');
-  const quoted = (name) => Q + 'tools/' + name + Q;
-  for (const name of ['pi_agent_addition.py', 'pi_agent_candidate.py', 'pi_agent_catalog.py']) {
-    only(checkLocalService({...s, local: replaceNth(s.local, quoted(name), quoted('x_' + name))}), 'PiAgent', name);
+  // 复制清单：该代 CODE_FILES 写出的 tools/ 与 config/ 文件都必须在清单里。
+  const quoted = (name) => Q + name + Q;
+  for (const name of ['tools/pi_agent_addition.py', 'tools/pi_agent_candidate.py', 'tools/main-schema-release.mjs', 'config/integration-migration-policy-v3.json']) {
+    const violations = checkLocalService({...s, local: s.local.split(quoted(name)).join(quoted('x_' + name))});
+    assert.ok(violations.length >= 1 && violations.every((x) => x.includes(name) && x.includes('复制清单')), name + ' 从复制清单改坏后应只报该文件，实际: ' + JSON.stringify(violations));
+    assert.ok(violations.some((x) => x.startsWith('PiAgent')), name + ' 应报到 PiAgent');
   }
-  // 历史例外表：没有例外时 JdProductMonitoring 的 candidate 会报出；例外失效或指向不存在的 kind 也要报。
-  only(checkLocalService(s, {}), 'JdProductMonitoring', 'jd_product_monitoring_candidate.py');
-  only(checkLocalService(s, {...COPY_LIST_CANDIDATE_EXCEPTIONS, PiAgent: 'x'}), 'PiAgent', '例外已失效');
-  only(checkLocalService(s, {...COPY_LIST_CANDIDATE_EXCEPTIONS, Ghost: 'x'}), 'Ghost');
+  // pi_agent_catalog 只在 PiAgent/PiWorkspace 的 CODE_FILES 里，不在任何模块自己的名字下：删掉后两个模块都报。
+  const catalog = checkLocalService({...s, local: s.local.split(quoted('tools/pi_agent_catalog.py')).join(quoted('tools/x_pi_agent_catalog.py'))});
+  assert.deepEqual(catalog.map((x) => x.split(':')[0]).sort(), ['PiAgent', 'PiWorkspace']);
+  // 提取器失效也要报：CODE_FILES 读不到时不能默认通过。
+  const blind = {...s, additions: {...s.additions, pi_agent: s.additions.pi_agent.replace('CODE_FILES = ', 'CODE_LIST = ')}};
+  only(checkLocalService(blind), 'PiAgent', 'CODE_FILES');
+});
+
+test('codeFilesOf 在真实文件上取到完整字面量', () => {
+  // 继承型（dict.fromkeys + parent）与纯元组型（JdMonitorPreferences）各验一个。
+  assert.ok(codeFilesOf(s, 'pi_agent').includes('tools/django-ai.ps1'), 'pi_agent 的跨行字面量没取全');
+  assert.ok(codeFilesOf(s, 'pi_agent').includes('tools/pi_agent_candidate.py'));
+  assert.ok(codeFilesOf(s, 'tmall_warehouse').includes('config/integration-migration-policy-v4-netshop-presence.json'));
+  assert.ok(codeFilesOf(s, 'jd_monitor_preferences').includes('tools/jd_monitor_preferences_catalog.py'));
+  for (const kind of kindsOf(s)) assert.ok(codeFilesOf(s, stemOfKind(s, kind)), kind + ' 的 CODE_FILES 取不到');
+});
+
+test('反向 7：分支链顺序、标记-模块配对、跨链一致（纯函数，文本副本）', () => {
+  // 把 text 中从 startA 到 startB、从 startB 到 startC 的相邻两段对调（startA/B/C 是各段的起始文本）。
+  const swapAdjacent = (text, startA, startB, startC, from = 0) => {
+    const a = text.indexOf(startA, from);
+    const b = text.indexOf(startB, a);
+    const c = text.indexOf(startC, b);
+    assert.ok(a >= 0 && b > a && c > b, '反向用例找不到起止点: ' + startA);
+    return text.slice(0, a) + text.slice(b, c) + text.slice(a, b) + text.slice(c);
+  };
+  const lineStartOf = (text, needle, from = 0) => {
+    const at = text.indexOf(needle, from);
+    assert.ok(at >= 0, '反向用例找不到 ' + needle);
+    return text.slice(text.lastIndexOf(NL, at) + 1, at) + needle;
+  };
+  // py 链：每个分支是「if ... marker.exists():」+「from X import fn」两行，以 if 行起始。
+  const gateSwap = (region, before, after, third) => {
+    const base = s.gate.indexOf(region);
+    const startOf = (name) => lineStartOf(s.gate, Q + name + '-addition-active.json' + Q, base);
+    return swapAdjacent(s.gate, startOf(before), startOf(after), startOf(third), base);
+  };
+  // 相邻对调：第 1、2 代（AiUnifiedTasks / AiTaskFeedbackCandidates）在 verify_release。
+  const verifyOrder = gateSwap('def verify_release(', 'ai-unified-tasks', 'ai-task-feedback-candidates', 'workflow-automation');
+  hit(checkChainOrder({...s, gate: verifyOrder}), 'verify_release', 'ai_task_feedback_candidates');
+  const dbOrder = gateSwap('def verify_database_complete(', 'ai-unified-tasks', 'ai-task-feedback-candidates', 'workflow-automation');
+  hit(checkChainOrder({...s, gate: dbOrder}), 'verify_database_complete', 'ai_task_feedback_candidates');
+  // ps1 闸链：同样把前两代的整段对调（变量定义随段走，配对不变，只破坐顺序）。
+  const localSwap = swapAdjacent(s.local, '$aiUnifiedTasksGate = Join-Path', '$aiTaskFeedbackCandidatesGate = Join-Path', '$workflowAutomationGate = Join-Path');
+  assert.notEqual(localSwap, s.local);
+  hit(checkChainOrder({...s, local: localSwap}), 'Assert-NoUnapprovedProtectedAiMigration', 'ai_task_feedback_candidates');
+  // 最新代整个挪到 bi_app 之后（链尾）：会同时触发「比 finite[] 更早代际在前」和跨链不一致。
+  const latest = (() => {
+    const base = s.gate.indexOf('def verify_release(');
+    const a = s.gate.lastIndexOf(NL, s.gate.indexOf(Q + 'ai-unified-tasks-addition-active.json' + Q, base)) + 1;
+    const b = s.gate.lastIndexOf(NL, s.gate.indexOf(Q + 'ai-task-feedback-candidates-addition-active.json' + Q, base)) + 1;
+    const e = s.gate.indexOf(NL, s.gate.indexOf('from bi_app_addition import verify_active', base)) + 1;
+    return s.gate.slice(0, a) + s.gate.slice(b, e) + s.gate.slice(a, b) + s.gate.slice(e);
+  })();
+  const moved = checkChainOrder({...s, gate: latest});
+  assert.ok(moved.some((x) => x.includes('verify_release') && x.includes('AiUnifiedTasks')), '最新代挪到链尾应被抓到: ' + JSON.stringify(moved));
+  assert.ok(moved.some((x) => x.includes('不一致')), '跨链顺序不一致应被抓到: ' + JSON.stringify(moved));
+  // 标记与模块配对对调（形式上顺序不变）。
+  const pa = Q + 'pi-agent-addition-active.json' + Q;
+  const pw = Q + 'pi-workspace-addition-active.json' + Q;
+  const crossed = s.gate.replace(pa, '@@A').replace(pw, pa).replace('@@A', pw);
+  const crossedViolations = checkChainOrder({...s, gate: crossed});
+  assert.ok(crossedViolations.length >= 1 && crossedViolations.every((x) => x.includes('verify_release') && x.includes('成对')), JSON.stringify(crossedViolations));
+  // 更早代际排到 finite[] 之前（ai_schedule 上移到最前）。
+  const gateText = s.gate;
+  const base = gateText.indexOf('def verify_release(');
+  const sa = gateText.lastIndexOf(NL, gateText.indexOf(Q + 'ai-schedule-addition-active.json' + Q, base)) + 1;
+  const se = gateText.lastIndexOf(NL, gateText.indexOf(Q + 'jackyun-audit-addition-active.json' + Q, base)) + 1;
+  const firstBranch = gateText.lastIndexOf(NL, gateText.indexOf(Q + 'ai-unified-tasks-addition-active.json' + Q, base)) + 1;
+  const older = gateText.slice(0, firstBranch) + gateText.slice(sa, se) + gateText.slice(firstBranch, sa) + gateText.slice(se);
+  const olderViolations = checkChainOrder({...s, gate: older});
+  assert.ok(olderViolations.some((x) => x.includes('ai_schedule') && x.includes('更早代际')), JSON.stringify(olderViolations));
 });
 
 test('反向 4b：integration_release_gate.py 两条分支链与标记缺项', () => {
@@ -615,5 +814,22 @@ test('反向 6：ai_assistant 代际不在 Pi 运行账本权限名单；例外�
   only(checkProvisionList({...s, publish: text}), 'PiNative', 'PROVISION_LIST_EXCEPTIONS');
   assert.deepEqual(checkProvisionList({...s, publish: text}, {PiNative: '测试用例：假设性豁免'}), []);
   only(checkProvisionList(s, {Ghost: 'x'}), 'Ghost');
-  assert.deepEqual(PROVISION_LIST_EXCEPTIONS, {}, '主干当前不应有例外；新增例外须在评审中写明原因与证据位置');
+  // 例外失效检测：名单里已有、不是 ai_assistant 代际、没有原因文字，都要报。
+  only(checkProvisionList(s, {PiNative: '无意义例外'}), 'PiNative', '已失效');
+  only(checkProvisionList(s, {TmallWarehouse: '无意义例外'}), 'TmallWarehouse', '不是 ai_assistant');
+  only(checkProvisionList({...s, publish: text}, {PiNative: ''}), 'PiNative', '原因文字');
+});
+
+test('反向 5c：备份判定元组与 return 链必须纳入最新代', () => {
+  // 只从某一个判定元组里去掉最新代（tmall_installed 那行）。
+  const line = 'tmall_installed = receipts in (generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159)';
+  const dropped = replaceNth(s.backup, line, line.replace(', generation159', ''));
+  only(checkBackup({...s, backup: dropped}), 'generation159', '判定元组');
+  // 只从 return 链里去掉最新代。
+  hit(checkBackup({...s, backup: replaceNth(s.backup, 'return 159 if unified_tasks_installed else ', 'return ')}), 'generation159', 'return 链');
+});
+
+test('反向 3b：$biApplicationName 链每个 finite[] 代际都有分支', () => {
+  const branch = "elseif($biRequest.AdditionKind -ceq 'PiNative'){'teruisi_pi_native_schema_append'}";
+  only(checkBiAdopt({...s, biAdopt: removeNth(s.biAdopt, branch)}), 'PiNative', 'biApplicationName');
 });
