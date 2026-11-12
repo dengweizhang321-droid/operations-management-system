@@ -1,39 +1,49 @@
 # Library only. Mechanical safety check for a freshly generated read-only watchdog driver.
 # Dot-sourced by operations-system-watchdog.ps1; defines functions and constants, no side effects.
 #
-# The driver must observe, never change, the production services. The generator's own proof
-# already guarantees the rewritten ownership functions equal the production originals minus a
-# fixed set of delete branches. This file adds the two checks the proof cannot give:
+# THIS IS A STATIC TRIPWIRE, NOT A PROOF. It parses every script the driver loads and refuses a
+# driver whose reachable code contains a primitive that ends a process, deletes/moves/rewrites a
+# file, or executes dynamically built code. It does not know which branch runs, so every existing
+# hit that is harmless on the Status path is listed in $script:WatchClosureExceptions, pinned to the
+# exact text of the hit (whitespace-normalised sha256) and to how many times it occurs in that
+# function: an extra or changed occurrence is a violation. Known blind spots are listed in
+# docs/watchdog-root-fix-20261112/DESIGN.md (e.g. a process ended through COM/WMI/.NET objects the
+# rules below do not name, or a file written through an object method not named below).
 #
-#  1. Transitive closure: every function reachable from the driver entry points (control copy
-#     Status branch, the three DiagnosticTarget branches of the backend wrapper, plus the
-#     top-level statements each loaded library really runs in that mode) is scanned, with the
-#     PowerShell parser, for primitives that end a process or delete/rewrite a process record.
-#     Static analysis does not know which branch runs, so a hit that exists in a branch the
-#     Status path cannot reach must be listed in $script:WatchClosureExceptions with a reason.
-#     The same list covers dynamic calls the parser cannot resolve.
-#  2. Call list: the three ownership-decision functions may only call overlay functions,
-#     read-only builtins, or the reviewed library functions listed below. A new name means the
-#     decision logic started calling code nobody reviewed, which needs a human.
+# What it does:
+#  1. Load order: the function table of each profile is built by following the real dot-source
+#     sequence from the entry script (control copy, or backend wrapper plus the chosen
+#     DiagnosticTarget branch), including dot-sources inside the libraries themselves, so a name
+#     defined twice resolves to the definition loaded last.
+#  2. Closure: from every statement the loaded scripts execute in that mode (all of the control
+#     copy's Status dispatch, including its try/catch/finally; only the other switch branches are
+#     left out) it follows command calls through the function table and scans each function.
+#  3. Ownership call list: the three ownership-decision functions may only call overlay functions,
+#     read-only builtins, or the reviewed library functions listed below.
 #
-# Every exception and allow-list entry is recorded with its reason in
-# docs/watchdog-root-fix-20261112/DESIGN.md. Output of the check is fixed-enum codes only.
+# Output is fixed-enum codes only.
 
-$script:WatchClosureForbiddenCommands=@(
-  'stop-process','taskkill','taskkill.exe','stop-service','kill','spps','invoke-cimmethod','remove-ciminstance',
-  'remove-previousbootprocessrecordifsafe','remove-ownsupervisorreceipt','invoke-expression','iex'
-)
-# Commands that rewrite or delete files: forbidden only when aimed at a process record.
-$script:WatchClosureFileCommands=@(
-  'remove-item','ri','rm','rmdir','del','erase','rd','move-item','mi','mv','move','rename-item','ren','rni',
-  'set-content','sc','add-content','ac','clear-content','clc','out-file','copy-item','cpi','cp','copy','new-item','ni','set-itemproperty','sp'
-)
-$script:WatchClosurePidTarget='(?i)(\$(?:script:|global:)?\w*pidpath\b|\.pid\.json|pid\.json)'
-$script:WatchClosureStaticFileMembers='^(?i:Delete|Move|Replace|Write\w*|Create\w*|Append\w*)$'
-$script:WatchClosureKillMembers=@('kill','terminate')
+$script:WatchClosureProcessCommands=@('stop-process','spps','stop-service','kill','start-process','saps','start','invoke-item','ii')
+$script:WatchClosureDeleteCommands=@('remove-item','ri','rm','rmdir','del','erase','rd','move-item','mi','mv','move','rename-item','ren','rni','clear-content','clc')
+$script:WatchClosureWriteCommands=@('set-content','sc','add-content','ac','out-file')
+$script:WatchClosureDynamicCommands=@('invoke-expression','iex','invoke-command','icm')
+$script:WatchClosureRecordCommands=@('remove-previousbootprocessrecordifsafe','remove-ownsupervisorreceipt')
+$script:WatchClosureToolString='(?i)taskkill|\bwmic(\.exe)?\b|\bpskill(\.exe)?\b'
+# 'any': a write-class primitive is a hit whatever it writes. 'pid-related': only when the target
+# (or its one-step variable source, pipeline upstream, splat table) mentions pid/receipt.
+$script:WatchClosureWriteScope='any'
+$script:WatchClosurePidWords='(?i)pid|receipt'
 # Variables whose dot-source is a load the driver itself declares: variable -> script id.
 $script:WatchClosureLoadVariables=@{diagnosticbackend='backend';diagnosticworker='worker';diagnosticsupervisor='supervisor';diagnostictransport='transport';servicescriptpath='backend'}
-$script:WatchClosureLoadFiles=@{'native-isolation.ps1'=@('isolation','backendIsolation');'process-deadline.ps1'=@('transport');'watchdog-core-overlay.ps1'=@('overlay')}
+# Dot-sources of the form . (Join-Path $PSScriptRoot 'x'): the directory a script lives in decides
+# which copy of x it gets.
+$script:WatchClosureHome=@{
+  control=@{'native-isolation.ps1'='isolation';'process-deadline.ps1'='transport'}
+  wrapper=@{'watchdog-core-overlay.ps1'='overlay'}
+  worker=@{'native-isolation.ps1'='isolation';'process-deadline.ps1'='transport'}
+  backend=@{'native-isolation.ps1'='backendIsolation'}
+  supervisor=@{'native-isolation.ps1'='backendIsolation'}
+}
 
 # Ownership-decision functions (names as defined in the overlay) and what they may call.
 # Each is checked in the profile whose loaded libraries it really calls into.
@@ -51,14 +61,22 @@ $script:WatchOwnershipLibraryAllowlist=@(
   'assert-supervisorexactpropertyset','get-supervisorcanonicalpath'
 )
 
-# Existing hits the Status path cannot reach or that only touch the process this call spawned.
-# Keyed by script id + function + primitive. Reasons are mirrored in DESIGN.md.
+# Existing hits that are harmless on the Status path. Keyed by script id + function + primitive and
+# pinned to the normalised text of each hit with its occurrence count. Reasons mirror DESIGN.md.
+function New-WatchClosureException([string]$Script,[string]$Function,[string]$Primitive,$Pins,[string]$Reason){
+  return @{script=$Script;function=$Function;primitive=$Primitive;pins=@($Pins|ForEach-Object {@{sha256=$_[0];count=[int]$_[1]}});reason=$Reason}
+}
 $script:WatchClosureExceptions=@(
-  @{script='transport';function='Invoke-DeadlineProcess';primitive='.Kill()';reason='kills only the child this very call spawned, and only when -Cleanup Direct and the deadline or transport failed; the handle comes from [Teruisi.DeadlineProcess]::Start in the same function (process-deadline.ps1:192)'},
-  @{script='backend';function='Invoke-BoundedNativeProcess';primitive='dynamic-call';reason='runs a fixed native executable (pg_isready, the pinned Python for read-only status probes) that the production Status path already runs; none of the reachable callers passes a process-ending tool (django-local-service.ps1:300, callers Test-PostgresReady, Get-FinanceWriteAuthority, Show-AggregateServiceStatus)'},
-  @{script='backend';function='Invoke-InProcessJsonStatus';primitive='dynamic-call';reason='invokes a script block parameter; the only reachable call sites pass literal Show-ServiceStatus/Show-FinanceServiceStatus blocks, which are scanned as part of the caller (django-local-service.ps1:4867)'},
-  @{script='backend';function='Invoke-WithDjangoEnvironment';primitive='dynamic-call';reason='invokes a script block parameter; the only reachable call site (Get-FinanceWriteAuthority) passes a literal block that runs one read-only authority query, and that block is scanned as part of the caller (django-local-service.ps1:3758)'},
-  @{script='overlay';function='Invoke-ReadonlyMetadataObservation';primitive='dynamic-call';reason='invokes the read-status script block handed in by the generated wrapper; the wrapper call sites are literal blocks scanned as wrapper entry statements (overlay line 246)'}
+  (New-WatchClosureException 'transport' 'Invoke-DeadlineProcess' '.kill()' @(,@('9bd9e6f70e013f0bbcc68a2e573f77a8df1be04c2479e4b042f1f7e4ec4c2cb0',1)) 'process-deadline.ps1:192 kills only the Process object it started itself (direct-exit probe), never a looked-up pid'),
+  (New-WatchClosureException 'transport' 'Invoke-DeadlineProcess' 'io-delete' @(@('a8bd4f4a40dda2c5dd3f618a1e8540b254b153b163a48c930a84c7514471cd75',1),@('981e51765bcb6e089334a0aa60697e5cbcce5a8da31c6bde42f2cba42790ede4',1)) 'process-deadline.ps1:199-200 removes the probe stdout/stderr scratch files and directory it created'),
+  (New-WatchClosureException 'transport' 'Invoke-DeadlineProcess' 'io-write' @(,@('392faf6bc9f5fc69da5ff75cea1182ca3c36f7018872cdd070675105e98a96ef',1)) 'process-deadline.ps1:140 creates its own scratch directory'),
+  (New-WatchClosureException 'backend' 'Invoke-BoundedNativeProcess' 'dynamic-call' @(,@('e75ee64698b36b1cc310898df3ed105f7310c402c488044b91cf963bdc45c9d7',1)) 'django-local-service.ps1:300 runs a scriptblock passed by its callers (Test-PostgresReady, Get-FinanceWriteAuthority, Show-AggregateServiceStatus), all read-only probes'),
+  (New-WatchClosureException 'backend' 'Invoke-InProcessJsonStatus' 'dynamic-call' @(,@('a66f7ab990955a3983114e79a96cd179b116132e1f363c223b1278c5eecd0357',1)) 'django-local-service.ps1:4867 invokes the status scriptblock handed in by the read-only status action'),
+  (New-WatchClosureException 'backend' 'Invoke-WithDjangoEnvironment' 'dynamic-call' @(,@('a66f7ab990955a3983114e79a96cd179b116132e1f363c223b1278c5eecd0357',1)) 'django-local-service.ps1:3758 invokes the scriptblock handed in after setting the process-local Django environment'),
+  (New-WatchClosureException 'backend' 'Rotate-LauncherLog' 'remove-item' @(,@('d26f00110b4476a5ef49e4731b4cebd3448dbe6fd5f0c5dce04123305652278e',1)) 'django-local-service.ps1:403 drops the oldest rotated launcher log (LauncherLogPath.N), not a pid/receipt file'),
+  (New-WatchClosureException 'backend' 'Rotate-LauncherLog' 'move-item' @(@('eaedc45119725c11fdcff6186ecbd83d48f75bd66d60883029a6d92947596415',1),@('54cbdcbb88881fa02f3974b634e1436ba507ed4b1beb4a9d2ada7216a3cb1d19',1)) 'django-local-service.ps1:405,409 rotate launcher log files'),
+  (New-WatchClosureException 'backend' 'Write-LauncherEvent' 'io-write' @(,@('a017f5b007d3beec5cdc7af93b16967f0e125b5c06adf8928b953689eaffccea',1)) 'django-local-service.ps1:424 appends one line to the launcher log'),
+  (New-WatchClosureException 'overlay' 'Invoke-ReadonlyMetadataObservation' 'dynamic-call' @(,@('ef292c89b41eeff5952c89c3a664b83d9dca67ed4a40d5a09046d98667b0be88',1)) 'overlay :246 runs the scriptblock of a read-only metadata observation (callers are overlay functions)')
 )
 
 function Get-WatchClosureAst([string]$Path){
@@ -70,107 +88,169 @@ function Get-WatchClosureAst([string]$Path){
 function Find-WatchClosureNodes($Node,[type]$Type){
   return @($Node.FindAll([Func[Management.Automation.Language.Ast,bool]]{param($n) $n -is $Type},$true))
 }
-function Get-WatchClosureTopLevel($Ast,[string]$Id){
-  # The statements dot-sourcing the script really runs in library mode. Function definitions are
-  # in the function table; action dispatch behind a library-mode gate is excluded.
-  $result=[Collections.Generic.List[object]]::new()
-  foreach($statement in @($Ast.EndBlock.Statements)){
-    if($statement -is [Management.Automation.Language.FunctionDefinitionAst]){continue}
-    if($statement -is [Management.Automation.Language.IfStatementAst]){
-      $condition=$statement.Clauses[0].Item1.Extent.Text
-      if($Id -ceq 'worker' -and $condition -cmatch '^\$FunctionsOnly$' -and $statement.Extent.Text -cmatch '^if\s*\(\s*\$FunctionsOnly\s*\)\s*\{\s*return\s*\}$'){break}
+function Get-WatchClosureNodeHash($Node){
+  $text=([regex]::Replace($Node.Extent.Text,'\s+',' ')).Trim()
+  $sha=[Security.Cryptography.SHA256]::Create()
+  try{return ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($text)))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}
+}
+function Test-WatchClosureExcluded($Node,$Excluded){
+  foreach($e in @($Excluded)){if($Node.Extent.StartOffset -ge $e.start -and $Node.Extent.EndOffset -le $e.end){return $true}}
+  return $false
+}
+function Test-WatchClosureTargetsPid($Node){
+  # Only used when WriteScope is 'pid-related'. Target text, pipeline upstream, one-step variable
+  # sources and splat tables are examined.
+  $texts=[Collections.Generic.List[string]]::new()
+  if($Node -is [Management.Automation.Language.CommandAst]){
+    foreach($e in @($Node.CommandElements|Select-Object -Skip 1)){$texts.Add($e.Extent.Text)}
+    if($Node.Parent -is [Management.Automation.Language.PipelineAst]){
+      foreach($el in $Node.Parent.PipelineElements){if([object]::ReferenceEquals($el,$Node)){break};$texts.Add($el.Extent.Text)}
+    }
+  }elseif($Node -is [Management.Automation.Language.FileRedirectionAst]){$texts.Add($Node.Location.Extent.Text)}
+  elseif($Node -is [Management.Automation.Language.InvokeMemberExpressionAst]){foreach($a in @($Node.Arguments)){$texts.Add($a.Extent.Text)};$texts.Add($Node.Expression.Extent.Text)}
+  $scope=$Node.Parent
+  while($scope -and $scope -isnot [Management.Automation.Language.FunctionDefinitionAst] -and $scope -isnot [Management.Automation.Language.ScriptBlockAst]){$scope=$scope.Parent}
+  while($scope -is [Management.Automation.Language.ScriptBlockAst] -and $scope.Parent){$scope=$scope.Parent;while($scope -and $scope -isnot [Management.Automation.Language.FunctionDefinitionAst] -and $scope -isnot [Management.Automation.Language.ScriptBlockAst]){$scope=$scope.Parent}}
+  $names=[regex]::Matches(($texts -join "`n"),'[\$@]\{?(\w+)\}?')|ForEach-Object {$_.Groups[1].Value}
+  if($scope){
+    foreach($assign in (Find-WatchClosureNodes $scope ([Management.Automation.Language.AssignmentStatementAst]))){
+      $left=$assign.Left.Extent.Text.TrimStart('$').Trim('{','}')
+      if($left -in $names){$texts.Add($assign.Right.Extent.Text)}
+    }
+  }
+  return (($texts -join "`n") -match $script:WatchClosurePidWords)
+}
+function Resolve-WatchClosureLoad($Command,[string]$Id){
+  $first=$Command.CommandElements[0]
+  if($first -is [Management.Automation.Language.ParenExpressionAst] -and $first.Extent.Text -cmatch '^\(\s*Join-Path\s+\$PSScriptRoot\s+["''](?<file>[^"'']+)["'']\s*\)$'){
+    $map=$script:WatchClosureHome[$Id]
+    if($map){return $map[$Matches['file'].ToLowerInvariant()]}
+    return $null
+  }
+  if($first -is [Management.Automation.Language.VariableExpressionAst]){return $script:WatchClosureLoadVariables[$first.VariablePath.UserPath.ToLowerInvariant()]}
+  return $null
+}
+function Get-WatchClosureExecuted($Ast,[string]$Id,[string]$Entry){
+  # The statements dot-sourcing script $Id really runs in the driver's mode, in order. Functions are
+  # kept (they define names at their position); library-mode-gated action dispatch is left out.
+  $out=[Collections.Generic.List[object]]::new()
+  foreach($s in @($Ast.EndBlock.Statements)){
+    if($s -is [Management.Automation.Language.FunctionDefinitionAst]){$out.Add(@{node=$s;label='<function>';excluded=@()});continue}
+    if($s -is [Management.Automation.Language.IfStatementAst]){
+      $condition=$s.Clauses[0].Item1.Extent.Text
+      if($Id -ceq 'worker' -and $condition -cmatch '^\$FunctionsOnly$' -and $s.Extent.Text -cmatch '^if\s*\(\s*\$FunctionsOnly\s*\)\s*\{\s*return\s*\}$'){break}
       if($Id -ceq 'worker' -and $condition -cmatch '-not\s+\$FunctionsOnly'){continue}
       if($Id -ceq 'backend' -and $condition -cmatch 'TERUISI_DJANGO_SERVICE_LIBRARY_ONLY\s+-ne\s+"1"'){continue}
       if($Id -ceq 'supervisor' -and $condition -cmatch '\$librarySupervisorMode'){continue}
-    }
-    $result.Add($statement)
-  }
-  return ,$result.ToArray()
-}
-function Get-WatchClosureEntryRoots($Spec,$Asts){
-  $roots=[Collections.Generic.List[object]]::new()
-  foreach($id in @($Spec.scripts)){
-    if($id -in @('control','wrapper')){continue}
-    foreach($s in (Get-WatchClosureTopLevel $Asts[$id] $id)){$roots.Add(@{node=$s;script=$id;function='<top-level>'})}
-  }
-  if($Spec.entry -ceq 'control'){
-    foreach($s in @($Asts.control.EndBlock.Statements)){
-      if($s -is [Management.Automation.Language.FunctionDefinitionAst]){continue}
-      if($s -is [Management.Automation.Language.IfStatementAst] -and $s.Clauses[0].Item1.Extent.Text -cmatch '^\$Action\s+-ne\s+"Panel"$'){
+      if($Id -ceq 'control' -and $condition -cmatch '^\$Action\s+-ne\s+"Panel"$'){
+        # The whole dispatcher, try/catch/finally included, minus the switch branches other than Status.
         $switch=@(Find-WatchClosureNodes $s ([Management.Automation.Language.SwitchStatementAst]))|Select-Object -First 1
         if(-not $switch){throw 'closure_entry_missing'}
         $status=@($switch.Clauses|Where-Object {$_.Item1.Extent.Text.Trim('"',"'") -ceq 'Status'})
         if($status.Count -ne 1){throw 'closure_entry_missing'}
-        $roots.Add(@{node=$status[0].Item2;script='control';function='<status-branch>'})
-        break
+        $excluded=@($switch.Clauses|Where-Object {$_.Item1.Extent.Text.Trim('"',"'") -cne 'Status'}|ForEach-Object {@{start=$_.Item2.Extent.StartOffset;end=$_.Item2.Extent.EndOffset}})
+        if($switch.Default){$excluded+=@(@{start=$switch.Default.Extent.StartOffset;end=$switch.Default.Extent.EndOffset})}
+        $out.Add(@{node=$s;label='<status-dispatch>';excluded=$excluded})
+        break # everything after it is the interactive panel
       }
-      $roots.Add(@{node=$s;script='control';function='<top-level>'})
+      if($Id -ceq 'wrapper' -and $condition -cmatch "^\`$DiagnosticTarget\s+-eq\s+'Supervisor'$"){
+        if($s.Clauses.Count -ne 2 -or -not $s.ElseClause){throw 'closure_entry_missing'}
+        $body=switch($Entry){
+          'wrapper-supervisor'{$s.Clauses[0].Item2}
+          'wrapper-worker'{$s.Clauses[1].Item2}
+          'wrapper-backend'{$s.ElseClause}
+          default{throw 'closure_entry_missing'}
+        }
+        $out.Add(@{node=$body;label='<'+$Entry+'>';excluded=@()})
+        continue
+      }
     }
-    return ,$roots.ToArray()
+    $out.Add(@{node=$s;label='<top-level>';excluded=@()})
   }
-  $branchIf=$null
-  foreach($s in @($Asts.wrapper.EndBlock.Statements)){
-    if($s -is [Management.Automation.Language.FunctionDefinitionAst]){continue}
-    if($s -is [Management.Automation.Language.IfStatementAst] -and $s.Clauses[0].Item1.Extent.Text -cmatch "^\`$DiagnosticTarget\s+-eq\s+'Supervisor'$"){$branchIf=$s;continue}
-    $roots.Add(@{node=$s;script='wrapper';function='<top-level>'})
+  return ,$out.ToArray()
+}
+function Add-WatchClosureScript($State,[string]$Id,[int]$Depth){
+  # Executes script $Id: defines its functions in order, records its statements as scan roots and
+  # follows each dot-source where it occurs, so the last definition of a name wins as in PowerShell.
+  if($Depth -gt 6){throw 'closure_entry_missing'}
+  $State.order.Add($Id)
+  foreach($item in (Get-WatchClosureExecuted $State.asts[$Id] $Id $State.entry)){
+    if($item.node -is [Management.Automation.Language.FunctionDefinitionAst]){$State.table[$item.node.Name.ToLowerInvariant()]=@{ast=$item.node;script=$Id};continue}
+    if($State.keys.Add("$Id|$($item.node.Extent.StartOffset)")){$State.roots.Add(@{node=$item.node;script=$Id;function=$item.label;excluded=$item.excluded})}
+    $dots=@(Find-WatchClosureNodes $item.node ([Management.Automation.Language.CommandAst])|Where-Object {$_.InvocationOperator -eq [Management.Automation.Language.TokenKind]::Dot -and -not (Test-WatchClosureExcluded $_ $item.excluded)}|Sort-Object {$_.Extent.StartOffset})
+    foreach($d in $dots){
+      $target=Resolve-WatchClosureLoad $d $Id
+      if($target -and $State.asts.ContainsKey($target)){Add-WatchClosureScript $State $target ($Depth+1)}
+    }
   }
-  if(-not $branchIf -or $branchIf.Clauses.Count -ne 2 -or -not $branchIf.ElseClause){throw 'closure_entry_missing'}
-  $body=switch($Spec.entry){
-    'wrapper-supervisor'{$branchIf.Clauses[0].Item2}
-    'wrapper-worker'{$branchIf.Clauses[1].Item2}
-    'wrapper-backend'{$branchIf.ElseClause}
-    default{throw 'closure_entry_missing'}
-  }
-  $roots.Add(@{node=$body;script='wrapper';function='<'+$Spec.entry+'>'})
-  return ,$roots.ToArray()
+}
+function Get-WatchClosureExecution($Spec,$Asts){
+  $state=@{asts=$Asts;entry=$Spec.entry;table=@{};roots=[Collections.Generic.List[object]]::new();keys=[Collections.Generic.HashSet[string]]::new();order=[Collections.Generic.List[string]]::new()}
+  Add-WatchClosureScript $state $Spec.root 0
+  return @{table=$state.table;roots=$state.roots.ToArray();order=$state.order.ToArray()}
 }
 function Get-WatchClosureProfileSpecs {
   return @(
-    @{name='control';entry='control';scripts=@('isolation','transport','control')},
-    @{name='wrapper-backend';entry='wrapper-backend';scripts=@('transport','backendIsolation','backend','overlay','wrapper')},
-    @{name='wrapper-worker';entry='wrapper-worker';scripts=@('transport','isolation','worker','overlay','wrapper')},
-    @{name='wrapper-supervisor';entry='wrapper-supervisor';scripts=@('transport','backendIsolation','backend','supervisor','overlay','wrapper')}
+    @{name='control';entry='control';root='control'},
+    @{name='wrapper-backend';entry='wrapper-backend';root='wrapper'},
+    @{name='wrapper-worker';entry='wrapper-worker';root='wrapper'},
+    @{name='wrapper-supervisor';entry='wrapper-supervisor';root='wrapper'}
   )
 }
-function Get-WatchClosureScan($Node,[string]$Script,[string]$Function,$Spec,$Table){
+function Get-WatchClosureScan($Node,[string]$Script,[string]$Function,$Spec,$Table,$Asts,$Excluded){
   # Returns @{hits=@(...);calls=@(function names)} for one function body or root statement.
   $hits=[Collections.Generic.List[object]]::new();$calls=[Collections.Generic.List[string]]::new()
-  $add={param($primitive,$extent) $hits.Add(@{profile=$Spec.name;script=$Script;function=$Function;primitive=$primitive;line=$extent.StartLineNumber})}
-  foreach($c in (Find-WatchClosureNodes $Node ([Management.Automation.Language.CommandAst]))){
-    $name=$c.GetCommandName()
-    $first=$c.CommandElements[0]
+  $add={param($primitive,$ast) $hits.Add(@{profile=$Spec.name;script=$Script;function=$Function;primitive=$primitive;line=$ast.Extent.StartLineNumber;sha=(Get-WatchClosureNodeHash $ast)})}
+  $addWrite={param($primitive,$ast) if($script:WatchClosureWriteScope -ne 'pid-related' -or (Test-WatchClosureTargetsPid $ast)){&$add $primitive $ast}}
+  $T=[Management.Automation.Language.CommandAst]
+  foreach($c in (Find-WatchClosureNodes $Node $T)){
+    if(Test-WatchClosureExcluded $c $Excluded){continue}
+    $name=$c.GetCommandName();$first=$c.CommandElements[0]
     if($c.InvocationOperator -eq [Management.Automation.Language.TokenKind]::Dot){
-      $resolved=$false
-      if($first -is [Management.Automation.Language.ParenExpressionAst] -and $first.Extent.Text -cmatch '^\(\s*Join-Path\s+\$PSScriptRoot\s+["''](?<file>[^"'']+)["'']\s*\)$'){
-        $file=$Matches['file'].ToLowerInvariant()
-        $resolved=$script:WatchClosureLoadFiles.ContainsKey($file) -and @($script:WatchClosureLoadFiles[$file]|Where-Object {$_ -in $Spec.scripts}).Count -gt 0
-      }elseif($first -is [Management.Automation.Language.VariableExpressionAst]){
-        $id=$script:WatchClosureLoadVariables[$first.VariablePath.UserPath.ToLowerInvariant()]
-        $resolved=($null -ne $id) -and ($id -in $Spec.scripts)
-      }
-      if(-not $resolved){&$add 'dynamic-call' $c.Extent}
+      $target=Resolve-WatchClosureLoad $c $Script
+      if(-not ($target -and $Asts.ContainsKey($target))){&$add 'dynamic-call' $c}
       continue
     }
     if($null -eq $name){
-      if($first -isnot [Management.Automation.Language.ScriptBlockExpressionAst]){&$add 'dynamic-call' $c.Extent}
+      if($first -isnot [Management.Automation.Language.ScriptBlockExpressionAst]){&$add 'dynamic-call' $c}
       continue
     }
     $lower=$name.ToLowerInvariant()
     if($Table.ContainsKey($lower)){$calls.Add($lower)}
-    if($lower -in $script:WatchClosureForbiddenCommands){&$add $lower $c.Extent}
-    if($lower -in $script:WatchClosureFileCommands){
-      $targets=@($c.CommandElements|Select-Object -Skip 1|ForEach-Object {$_.Extent.Text})
-      if(@($targets|Where-Object {$_ -match $script:WatchClosurePidTarget}).Count){&$add 'pid-record-write' $c.Extent}
-    }
+    if($lower -in $script:WatchClosureProcessCommands -or $lower -in $script:WatchClosureDeleteCommands -or $lower -in $script:WatchClosureDynamicCommands -or $lower -in $script:WatchClosureRecordCommands){&$add $lower $c}
+    elseif($lower -in $script:WatchClosureWriteCommands){&$addWrite $lower $c}
+    elseif($lower -ceq 'tee-object' -and @($c.CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -imatch '^v'}).Count -eq 0){&$addWrite 'tee-object' $c}
   }
   foreach($m in (Find-WatchClosureNodes $Node ([Management.Automation.Language.InvokeMemberExpressionAst]))){
+    if(Test-WatchClosureExcluded $m $Excluded){continue}
     $member=if($m.Member -is [Management.Automation.Language.StringConstantExpressionAst]){$m.Member.Value}else{$null}
-    if($null -eq $member){&$add 'dynamic-member' $m.Extent;continue}
-    if($member.ToLowerInvariant() -in $script:WatchClosureKillMembers){&$add '.Kill()' $m.Extent;continue}
-    if($m.Static -and $m.Expression -is [Management.Automation.Language.TypeExpressionAst] -and $m.Expression.TypeName.FullName -imatch '^(System\.)?IO\.(File|Directory)$' -and $member -cmatch $script:WatchClosureStaticFileMembers){
-      $arguments=@($m.Arguments|ForEach-Object {$_.Extent.Text})
-      if(@($arguments|Where-Object {$_ -match $script:WatchClosurePidTarget}).Count){&$add 'pid-record-write' $m.Extent}
+    if($null -eq $member){&$add 'dynamic-member' $m;continue}
+    $lm=$member.ToLowerInvariant()
+    $type=if($m.Static -and $m.Expression -is [Management.Automation.Language.TypeExpressionAst]){$m.Expression.TypeName.FullName}else{''}
+    if($lm -in @('kill','terminate')){&$add '.kill()' $m;continue}
+    if($lm -ceq 'invokescript'){&$add 'dynamic-exec' $m;continue}
+    if($type -imatch '^(System\.)?Diagnostics\.Process$' -and $lm -ceq 'start'){&$add 'process-start' $m;continue}
+    if($type -imatch '^(System\.Management\.Automation\.)?ScriptBlock$' -and $lm -ceq 'create'){&$add 'dynamic-exec' $m;continue}
+    if($type -imatch '^(System\.)?IO\.(File|Directory)$'){
+      if($lm -cmatch '^(delete|move|replace)$'){&$add ('io-'+$lm) $m}
+      elseif($lm -cmatch '^(write\w*|append\w*|create\w*)$'){&$addWrite ('io-write') $m}
+      continue
     }
+    if(-not $m.Static -and $lm -cmatch '^(delete|moveto)$'){&$add ('.'+$lm+'()') $m}
+  }
+  $strings=@(Find-WatchClosureNodes $Node ([Management.Automation.Language.StringConstantExpressionAst]))
+  $strings+=@(Find-WatchClosureNodes $Node ([Management.Automation.Language.ExpandableStringExpressionAst]))
+  foreach($s in $strings){
+    if(Test-WatchClosureExcluded $s $Excluded){continue}
+    if(([string]$s.Value) -match $script:WatchClosureToolString){&$add 'process-tool-string' $s}
+  }
+  foreach($v in (Find-WatchClosureNodes $Node ([Management.Automation.Language.VariableExpressionAst]))){
+    if(Test-WatchClosureExcluded $v $Excluded){continue}
+    if($v.VariablePath.UserPath -ieq 'ExecutionContext'){&$add 'dynamic-exec' $v}
+  }
+  foreach($r in (Find-WatchClosureNodes $Node ([Management.Automation.Language.FileRedirectionAst]))){
+    if(Test-WatchClosureExcluded $r $Excluded){continue}
+    if($r.Location.Extent.Text.Trim() -ine '$null'){&$addWrite 'redirect' $r}
   }
   return @{hits=$hits.ToArray();calls=$calls.ToArray()}
 }
@@ -191,6 +271,17 @@ function Test-WatchClosureOwnership($Table,[string[]]$Names){
   }
   return @($problems|Sort-Object -Unique)
 }
+function Test-WatchClosureException($Group,$Exceptions){
+  # An exception covers exactly the pinned hits: same text, same number of occurrences.
+  $key=$Group.Name
+  $entry=@($Exceptions|Where-Object {("$($_.script)|$($_.function)|$($_.primitive)").ToLowerInvariant() -ceq $key})|Select-Object -First 1
+  if(-not $entry){return $false}
+  $seen=@{};foreach($h in $Group.Group){$seen[$h.sha]=1+[int]$seen[$h.sha]}
+  $pins=@($entry.pins)
+  if($seen.Count -ne $pins.Count){return $false}
+  foreach($pin in $pins){if([int]$seen[[string]$pin.sha256] -ne [int]$pin.count){return $false}}
+  return $true
+}
 function Invoke-WatchDriverClosureCheck([string]$DriverDirectory,[string]$SourcesDirectory,$Exceptions=$null){
   # Returns @{ok=bool;reasons=@(fixed enum);hits=@(unexcepted hits);excepted=<count>}.
   if($null -eq $Exceptions){$Exceptions=$script:WatchClosureExceptions}
@@ -202,31 +293,29 @@ function Invoke-WatchDriverClosureCheck([string]$DriverDirectory,[string]$Source
   try{foreach($id in $files.Keys){$asts[$id]=Get-WatchClosureAst $files[$id]}}catch{return @{ok=$false;reasons=@('closure_parse_failed');hits=@();excepted=0}}
   $reasons=[Collections.Generic.List[string]]::new();$violations=@{};$excepted=0
   try{
-    # Local diagnosis only (tests, design notes): unlisted command names and the reached function sets.
-    $script:WatchClosureLastUnlisted=@();$script:WatchClosureReached=@{}
+    # Local diagnosis only (tests, design notes): unlisted command names, reached function sets, load order.
+    $script:WatchClosureLastUnlisted=@();$script:WatchClosureReached=@{};$script:WatchClosureLoadOrder=@{}
     foreach($spec in (Get-WatchClosureProfileSpecs)){
-      $table=@{}
-      foreach($id in $spec.scripts){
-        foreach($f in (Find-WatchClosureNodes $asts[$id] ([Management.Automation.Language.FunctionDefinitionAst]))){$table[$f.Name.ToLowerInvariant()]=@{ast=$f;script=$id}}
-      }
+      $exec=Get-WatchClosureExecution $spec $asts
+      $table=$exec.table;$script:WatchClosureLoadOrder[$spec.name]=$exec.order
       foreach($problem in (Test-WatchClosureOwnership $table @($script:WatchOwnershipFunctions.Keys|Where-Object {$script:WatchOwnershipFunctions[$_] -ceq $spec.name}))){$reasons.Add($problem)}
       $seen=[Collections.Generic.HashSet[string]]::new();$queue=[Collections.Generic.Queue[object]]::new()
-      foreach($root in (Get-WatchClosureEntryRoots $spec $asts)){$queue.Enqueue($root)}
+      foreach($root in $exec.roots){$queue.Enqueue($root)}
       $script:WatchClosureReached[$spec.name]=$seen
       while($queue.Count){
         $item=$queue.Dequeue()
-        $scan=Get-WatchClosureScan $item.node $item.script $item.function $spec $table
-        foreach($hit in $scan.hits){
-          $key="$($hit.script)|$($hit.function)|$($hit.primitive)".ToLowerInvariant()
-          if(@($Exceptions|Where-Object {("$($_.script)|$($_.function)|$($_.primitive)").ToLowerInvariant() -ceq $key}).Count){$excepted++;continue}
-          $violations["$($spec.name)|$key|$($hit.line)"]=$hit
+        $scan=Get-WatchClosureScan $item.node $item.script $item.function $spec $table $asts $item.excluded
+        foreach($g in @($scan.hits|Group-Object {"$($_.script)|$($_.function)|$($_.primitive)".ToLowerInvariant()})){
+          if(Test-WatchClosureException $g $Exceptions){$excepted+=$g.Count;continue}
+          foreach($h in $g.Group){$violations["$($spec.name)|$($g.Name)|$($h.line)|$($h.sha)"]=$h}
         }
         foreach($call in $scan.calls){
-          if($seen.Add($call)){$entry=$table[$call];$queue.Enqueue(@{node=$entry.ast.Body;script=$entry.script;function=$entry.ast.Name})}
+          if($seen.Add($call)){$entry=$table[$call];$queue.Enqueue(@{node=$entry.ast.Body;script=$entry.script;function=$entry.ast.Name;excluded=@()})}
         }
       }
     }
   }catch{
+    $script:WatchClosureLastError=($_.Exception.Message+' @'+$_.InvocationInfo.ScriptLineNumber)
     return @{ok=$false;reasons=@('closure_analysis_failed');hits=@();excepted=$excepted}
   }
   if($violations.Count){$reasons.Add('closure_forbidden_primitive')}

@@ -62,6 +62,85 @@ try{
   [IO.File]::WriteAllText($overlay,$original)
   Assert-Closure ((-not $own.ok) -and @($own.reasons|Where-Object {$_ -like 'ownership_*'}).Count -ge 1) 'an unlisted ownership call was accepted'
 
+  # 3b. Review round 1, item 4: every injection form the reviewer found (all were accepted before).
+  function Add-Injection([string]$Path,[string]$Anchor,[string]$Code){
+    $text=[IO.File]::ReadAllText($Path);$m=[regex]::Match($text,$Anchor)
+    if(-not $m.Success){throw 'injection anchor not found: '+$Anchor}
+    [IO.File]::WriteAllText($Path,$text.Substring(0,$m.Index+$m.Length)+"`n"+$Code+"`n"+$text.Substring($m.Index+$m.Length))
+  }
+  function Test-Refused([string]$Path,[string]$Original,[string]$Anchor,[string]$Code,[string]$Why,[string]$Expect='closure_forbidden_primitive'){
+    [IO.File]::WriteAllText($Path,$Original)
+    Add-Injection $Path $Anchor $Code
+    $r=Invoke-WatchDriverClosureCheck $run.out $sources
+    [IO.File]::WriteAllText($Path,$Original)
+    Assert-Closure ((-not $r.ok) -and $Expect -in @($r.reasons) -and @($r.hits).Count -ge 1) ('closure check accepted: '+$Why)
+    $r
+  }
+  $obs='(?m)^function Invoke-ReadonlyMetadataObservation[^{\r\n]*\{'
+  foreach($case in @(
+    @('copy pid into variable then delete','$p=$PidPath; Remove-Item $p'),
+    @('pipe pid into Remove-Item','$PidPath | Remove-Item'),
+    @('braced variable','Remove-Item ${PidPath}'),
+    @('splatted Remove-Item','$a=@{Path=''x''}; Remove-Item @a'),
+    @('object Delete()','(Get-Item $PidPath).Delete()'),
+    @('redirection to pid path','"" > $PidPath'),
+    @('Start-Process taskkill','Start-Process taskkill.exe'),
+    @('absolute-path taskkill','& ''C:\Windows\System32\taskkill.exe'' /PID 1'),
+    @('cmd /c taskkill','cmd /c taskkill /PID 1'),
+    @('Diagnostics.Process Start','[Diagnostics.Process]::Start(''taskkill.exe'',''/PID 1'')'),
+    @('scriptblock Create','[scriptblock]::Create(''1'').Invoke()'),
+    @('Invoke-Expression','Invoke-Expression ''1'''),
+    @('Set-Content','Set-Content -Path x -Value 1'),
+    @('Kill()','(Get-Process -Id 1).Kill()'),
+    @('ExecutionContext','$ExecutionContext.InvokeCommand.ExpandString(''1'')')
+  )){
+    [void](Test-Refused $overlay $original $obs $case[1] $case[0])
+  }
+
+  # 3c. Item 2: an exception covers only the exact hit it pins; a second hit or a different one is refused.
+  $transport=Join-Path $sources 'transport.ps1';$transportOriginal=[IO.File]::ReadAllText($transport)
+  try{
+    $r=Test-Refused $transport $transportOriginal '(\[string\]\$Cleanup = ''Preserve''\))' '(Get-Process -Id 1).Kill()' 'extra Kill() inside the excepted Invoke-DeadlineProcess'
+    Assert-Closure (@($r.hits|Where-Object {$_.profile -ceq 'control' -and $_.function -ceq 'Invoke-DeadlineProcess' -and $_.primitive -ceq '.kill()'}).Count -eq 2) 'the excepted function must report all of its Kill() hits once one is extra'
+  }finally{[IO.File]::WriteAllText($transport,$transportOriginal)}
+  [void](Test-Refused $overlay $original $obs '$t=''taskkill.exe''; & $t /PID 1' 'taskkill through a variable inside the excepted Invoke-ReadonlyMetadataObservation')
+  Assert-Closure ((Invoke-WatchDriverClosureCheck $run.out $sources).ok) 'restoring after exception tests did not restore a passing check'
+
+  # 3d. Item 3: the control copy is scanned across its whole Status dispatch (try/catch included);
+  # only the other switch branches are left out.
+  $control=Join-Path $run.out 'watchdog-status-control.ps1';$controlOriginal=[IO.File]::ReadAllText($control)
+  [void](Test-Refused $control $controlOriginal '(?s)if \(\$Action -ne "Panel"\) \{.*?\} catch \{' 'Stop-Process -Id 1' 'Stop-Process in the dispatcher catch block')
+  [void](Test-Refused $control $controlOriginal '(?s)if \(\$Action -ne "Panel"\) \{\s*try \{' 'Stop-Process -Id 1' 'Stop-Process in the dispatcher try block outside the switch')
+  [IO.File]::WriteAllText($control,$controlOriginal)
+  $text=$controlOriginal.Replace('"Start" { Invoke-SystemStart }','"Start" { Stop-Process -Id 1 }')
+  Assert-Closure ($text -cne $controlOriginal) 'the Start switch branch was not found'
+  [IO.File]::WriteAllText($control,$text)
+  $branch=Invoke-WatchDriverClosureCheck $run.out $sources
+  [IO.File]::WriteAllText($control,$controlOriginal)
+  Assert-Closure $branch.ok 'a non-Status switch branch must stay out of the scan'
+
+  # 3e. Item 7: the function table follows the real load order; the later definition is the one scanned.
+  $supervisorPath=Join-Path $sources 'supervisor.ps1';$supervisorOriginal=[IO.File]::ReadAllText($supervisorPath)
+  $backendPath=Join-Path $sources 'backend.ps1';$backendOriginal=[IO.File]::ReadAllText($backendPath)
+  $dangerous='function Test-LoadOrderProbe { Remove-Item -LiteralPath x }';$clean='function Test-LoadOrderProbe { return 1 }'
+  try{
+    [IO.File]::WriteAllText($overlay,$original)
+    Add-Injection $overlay $obs 'Test-LoadOrderProbe;'
+    # The supervisor library re-dot-sources the Django library after its own earlier definitions.
+    Add-Injection $supervisorPath '(?m)^\$previousLibraryOnly = \[Environment\]' $clean
+    [IO.File]::WriteAllText($backendPath,$backendOriginal+"`n"+$dangerous+"`n")
+    $a=Invoke-WatchDriverClosureCheck $run.out $sources
+    Assert-Closure (@($a.hits|Where-Object {$_.profile -ceq 'wrapper-supervisor' -and $_.function -ceq 'Test-LoadOrderProbe' -and $_.script -ceq 'backend'}).Count -eq 1) 'a supervisor-library definition loaded before the Django re-load must be shadowed by the Django one'
+    # A definition loaded last (end of the supervisor library) wins.
+    [IO.File]::WriteAllText($supervisorPath,$supervisorOriginal+"`n"+$dangerous+"`n")
+    [IO.File]::WriteAllText($backendPath,$backendOriginal+"`n"+$clean+"`n")
+    $b=Invoke-WatchDriverClosureCheck $run.out $sources
+    Assert-Closure (@($b.hits|Where-Object {$_.profile -ceq 'wrapper-supervisor' -and $_.function -ceq 'Test-LoadOrderProbe' -and $_.script -ceq 'supervisor'}).Count -eq 1) 'the supervisor definition loaded last must be the one scanned'
+  }finally{
+    [IO.File]::WriteAllText($overlay,$original);[IO.File]::WriteAllText($supervisorPath,$supervisorOriginal);[IO.File]::WriteAllText($backendPath,$backendOriginal)
+  }
+  Assert-Closure ((Invoke-WatchDriverClosureCheck $run.out $sources).ok) 'restoring after load-order tests did not restore a passing check'
+
   # 4. Generator rejections are structured (exit 3) and unrelated failures are not.
   $shape=New-Sources 'shape'
   [IO.File]::WriteAllText((Join-Path $shape 'supervisor.ps1'),"# not the supervisor`r`n")

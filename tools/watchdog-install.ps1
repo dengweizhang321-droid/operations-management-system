@@ -180,7 +180,10 @@ function Install-WatchdogSafely([string]$SourceDirectory){
     # lease as Check. An immutable path also protects a not-yet-parsed child.
     $c=Get-WatchInstallContext $SourceDirectory $PreparedLauncherPath $PreparedLauncherSha256
     if($ApprovedInstallPlanId -cnotmatch '^[0-9a-f]{64}$' -or $ApprovedInstallPlanId -cne $c.planId){throw 'watchdog_install_plan_changed'}
-    $health=Get-WatchSnapshot
+    # The installed predecessor's installation.json may predate nodePath: admission resolves node
+    # from the node this install itself just validated, never from the old record.
+    $previousNodeOverride=$script:WatchNodePathOverride
+    try{$script:WatchNodePathOverride=$c.nodePath;$health=Get-WatchSnapshot}finally{$script:WatchNodePathOverride=$previousNodeOverride}
     if(-not $health.healthy){
       # Drift deadlock: fixing pinned-source drift needs an install, but drift itself keeps
       # health false. The exact asset-set match below is what stops this being a blanket bypass.
