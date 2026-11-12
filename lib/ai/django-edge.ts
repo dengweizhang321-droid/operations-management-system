@@ -1,7 +1,7 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import { aiEnvironment, aiSha256 } from "@/lib/django/ai-service";
 import { resolveAiBackgroundPrincipal } from "@/lib/ai/background-principal";
-import { executeRegisteredToolCall, getMarketV2EnabledRegistry, getToolsForPrincipal, pandasProductPageTool, type AiToolSurface } from "@/lib/ai/tool-registry";
+import { executeRegisteredToolCall, getMarketV2EnabledRegistry, getToolsForPrincipal, pandasProductPageTool, pandasSalesCategoryPageTool, type AiToolSurface } from "@/lib/ai/tool-registry";
 import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
 import { readAiBoundedText } from "@/app/api/ai/route-helpers";
 
@@ -100,14 +100,17 @@ export async function handleAiEdge(request: Request) {
     } else if (body.action === "catalog") {
       exact(body, ["action", "surface"]); result = { entries: entries(principal, body.surface, marketV2Enabled) };
     } else if (body.action === "execute") {
-      exact(body, ["action", "name", "arguments", "surface", "requestId", "providerCallId", "policyDigest", "singleShop", "pandasProductPage"]);
+      exact(body, ["action", "name", "arguments", "surface", "requestId", "providerCallId", "policyDigest", "singleShop", "pandasProductPage", "pandasSalesCategoryPage"]);
       if (body.policyDigest !== await aiSha256(canonicalAiEdge(entries(principal, body.surface, marketV2Enabled)))) throw denied();
       const toolSurface = surface(body.surface, marketV2Enabled);
       let registry = getMarketV2EnabledRegistry(marketV2Enabled);
-      if (body.pandasProductPage !== undefined) {
-        if (body.pandasProductPage !== true || body.name !== "get_netshop_performance"
+      if (body.pandasProductPage !== undefined || body.pandasSalesCategoryPage !== undefined) {
+        const sales = body.pandasSalesCategoryPage !== undefined;
+        if (body.pandasProductPage !== undefined && sales) throw denied();
+        if ((sales ? body.pandasSalesCategoryPage : body.pandasProductPage) !== true
+          || body.name !== (sales ? "get_sales_category_analysis" : "get_netshop_performance")
           || (toolSurface !== "ai_chat" && toolSurface !== "dingtalk_chat")) throw denied();
-        const exportTool = pandasProductPageTool(registry);
+        const exportTool = (sales ? pandasSalesCategoryPageTool : pandasProductPageTool)(registry);
         if (!exportTool) throw denied();
         registry = [exportTool];
       }

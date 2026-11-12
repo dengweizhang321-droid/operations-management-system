@@ -318,11 +318,82 @@ class PandasExportTests(SimpleTestCase):
         with patch.object(datasets, "query", return_value={**page(), "data": {"totalMatched": 1, "truncated": True, "trend": valid}}):
             frames, _ = sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
             self.assertEqual(frames["native"], rows)
-        data = {"totalMatched": 1, "returned": 1, "truncated": False, "items": [{"category": "合成品类", "trend": valid}],
-                "categoryOptions": {"truncated": True}}
-        with patch.object(datasets, "query", return_value={**page(), "data": data}):
-            frames, _ = sandbox.export_frames([{**item, "collection": "items", "columns": ["category"]}], ADMIN, "fixture", "ai_chat")
-            self.assertEqual(frames["native"], [{"category": "合成品类"}])
+
+    @staticmethod
+    def sales_response(number, total, names, size):
+        row = lambda n: {"category": n, "netSalesCents": 1, "shareRate": 0.5, "weekOverWeekRate": None}
+        return {**page(), "dataCutoffDate": "2026-11-07", "data": {"items": [row(n) for n in names],
+            "pagination": {"page": number, "pageSize": size, "total": total, "returned": len(names),
+                           "truncated": number * size < total}}}
+
+    def sales_pages(self, total, size):
+        count = (total + size - 1) // size
+        return [self.sales_response(n, total, [f"品类{i}" for i in range((n - 1) * size, min(n * size, total))], size)
+                for n in range(1, count + 1)]
+
+    def test_sales_category_items_export_pages_all_categories_with_server_page_size(self):
+        # The caller's limit=1 (as the tool description teaches) and page=1 are ignored.
+        query = {"startDate": "2026-11-01", "endDate": "2026-11-07", "limit": 1, "page": 1}
+        item = {"name": "cats", "dataset": "sales_category", "query": query, "collection": "items", "columns": ["category"]}
+        with patch.object(datasets, "query", side_effect=self.sales_pages(120, 50)) as source:
+            frames, sources = sandbox.export_frames([item], ADMIN, "fixture", "dingtalk_chat")
+        self.assertEqual(frames["cats"], [{"category": f"品类{i}"} for i in range(120)])
+        self.assertEqual([c.kwargs["pandas_sales_page"] for c in source.call_args_list], [1, 2, 3])
+        for call in source.call_args_list:
+            self.assertEqual(call.args[1], {"query": {"startDate": "2026-11-01", "endDate": "2026-11-07", "limit": 50}})
+            self.assertEqual(call.kwargs["surface"], "dingtalk_chat")
+        self.assertEqual((sources[0]["pages"], sources[0]["rows"], sources[0]["consistency"], sources[0]["complete"]),
+                         (3, 120, "live_per_page", True))
+        self.assertEqual(sources[0]["query"], query)  # the caller's original query is what is recorded
+        # a single short page also works with no caller limit
+        with patch.object(datasets, "query", side_effect=self.sales_pages(1, 50)) as source:
+            sandbox.export_frames([{**item, "query": {"startDate": "2026-11-01"}}], ADMIN, "fixture", "ai_chat")
+        self.assertEqual(source.call_args.args[1], {"query": {"startDate": "2026-11-01", "limit": 50}})
+
+    def test_sales_category_items_export_without_columns_is_scalar_only_and_passes_validate_job(self):
+        item = {"name": "cats", "dataset": "sales_category", "query": {}, "collection": "items"}
+        with patch.object(datasets, "query", side_effect=self.sales_pages(3, 50)):
+            frames, _ = sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
+        self.assertEqual(len(frames["cats"]), 3)
+        validate_job({"frames": frames, "code": "result = frames['cats']"})
+
+    def test_sales_category_items_export_rejects_inconsistent_pages(self):
+        item = {"name": "cats", "dataset": "sales_category", "query": {}, "collection": "items"}
+        r = self.sales_response
+        with patch.object(sandbox, "SALES_EXPORT_PAGE_SIZE", 1):
+            cases = {
+                "total grows": [r(1, 2, ["甲"], 1), r(2, 3, ["乙"], 1), r(3, 3, ["丙"], 1)],
+                "total shrinks": [r(1, 3, ["甲"], 1), r(2, 2, ["乙"], 1), r(3, 2, ["丙"], 1)],
+                "duplicate category": [r(1, 2, ["甲"], 1), r(2, 2, ["甲"], 1)],
+                "empty category": [r(1, 2, ["甲"], 1), r(2, 2, [""], 1)],
+                "wrong page number": [r(1, 2, ["甲"], 1), r(3, 2, ["乙"], 1)],
+                "short last page": [r(1, 2, ["甲"], 1), r(2, 2, [], 1)],
+            }
+            for label, responses in cases.items():
+                with self.subTest(label), patch.object(datasets, "query", side_effect=responses), self.assertRaises(AiError):
+                    sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
+
+    def test_sales_category_items_export_rejects_page_and_row_limits(self):
+        item = {"name": "cats", "dataset": "sales_category", "query": {"limit": 1}, "collection": "items"}
+        # 1001 categories at the fixed size of 50 would need 21 pages
+        first = self.sales_pages(1001, 50)[0]
+        with patch.object(datasets, "query", return_value=first) as source, self.assertRaises(AiError) as rejected:
+            sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
+        self.assertEqual((rejected.exception.status, source.call_count), (413, 1))
+        first = self.sales_pages(60, 50)[0]
+        with patch.object(datasets, "query", return_value=first) as source, patch.object(sandbox, "MAX_ROWS", 59), \
+                self.assertRaises(AiError) as rejected:
+            sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
+        self.assertEqual((rejected.exception.status, source.call_count), (413, 1))
+
+    def test_sales_category_trend_export_keeps_single_response_rule(self):
+        item = {"name": "t", "dataset": "sales_category", "query": {}, "collection": "trend.items"}
+        rows = [{"category": "合成品类", "period": "2026-09", "x": 1}]
+        data = {"totalMatched": 1, "trend": {"categoryLimit": 8, "returned": 1, "truncated": False, "items": rows}}
+        with patch.object(datasets, "query", return_value={**page(), "data": data}) as source:
+            frames, _ = sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
+        self.assertEqual(frames["t"], rows)
+        self.assertNotIn("pandas_sales_page", source.call_args.kwargs)
 
     def test_unavailable_or_denied_never_exports_or_calls_container(self):
         with patch.object(sandbox, "config", side_effect=sandbox.unavailable()), patch.object(datasets, "query") as source, self.assertRaises(AiError):
