@@ -83,7 +83,7 @@ jobs:
       - name: Lifecycle controller qualification bytes
         # Static source-byte check only. A controller change must be reviewed
         # and qualified before it can reach a maintenance window.
-        run: node --test --test-timeout=30000 tests/maintenance-controller-qualification.test.mjs
+        run: node --test --test-timeout=30000 tests/maintenance-controller-qualification.test.mjs tests/schema-addition-enumeration-consistency.test.mjs
 
       - name: Current Ai158 schema recipe source bindings
         # Explicit current recipe only. Historical rehearsal recipes are not
