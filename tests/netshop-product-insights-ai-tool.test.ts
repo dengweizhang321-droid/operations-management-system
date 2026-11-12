@@ -6,6 +6,7 @@ import type { AppPrincipal } from "../lib/auth/authorization";
 import type { AiToolEntry, RegistryAuditInput } from "../lib/ai/tool-registry-contract";
 import type { MetricValue } from "../lib/netshop/insights-contract";
 import { completeProductSectionsFixture } from "./netshop-products-test-fixture";
+import { assertView, expectedProductView } from "./netshop-view-oracle";
 
 const environment = {
   TERUISI_DJANGO_NETSHOP_READER_BASE_URL: "https://product-reader.example.test",
@@ -28,7 +29,8 @@ const { executeToolCallWithRegistry, getAnthropicTools, getOpenAiTools, getVisib
 const { createAiToolExecutionRuntime } = await import("../lib/ai/tool-execution-runtime");
 const entry: AiToolEntry = aiToolRegistry.find(e => e.name === name)!;
 const principal: AppPrincipal = { email: "synthetic-product-analyst@example.test", displayName: "Synthetic", role: "analyst", scope: null };
-const args = { platforms: ["京东"], shops: [{ platform: "京东", shopName: "合成店A" }], startDate: "2026-09-01", endDate: "2026-09-01" };
+// pageSize is explicit: the fixture's table scope is page size 3, while the AI default now depends on the view (overview 1, rankings 10, list 4).
+const args = { platforms: ["京东"], shops: [{ platform: "京东", shopName: "合成店A" }], startDate: "2026-09-01", endDate: "2026-09-01", pageSize: 3 };
 const execution = { principal, surface: "test" as const, requestId: "synthetic-product-ai" };
 const originalFetch = globalThis.fetch;
 let calls: Array<{ url: URL; init?: RequestInit }> = [];
@@ -45,13 +47,14 @@ function fixture() {
   }])) as Record<typeof productMetricKeys[number], MetricValue>;
   const comparisons = Object.fromEntries(productMetricKeys.map(key => [key, { previous: compareMetrics(metrics[key], metrics[key]), yearAgo: compareMetrics(metrics[key], metrics[key]) }]));
   const item = { identity: { platform: "京东", shopName: "合成店A", dimension: "spu", id: "P01" }, title: "合成商品", category: null, imageUrl: null, imageStatus: "unverified", metrics, comparisons, baselineMetrics: { previous: metrics, yearAgo: metrics } };
-  const pagination = { page: 1, pageSize: 5, total: 1, returned: 1, hasMore: false, truncated: false };
-  return { schemaVersion: "netshop-product-insights-v1", context, sectionToken: "a".repeat(64), tableScope: { q: "", category: "", sort: "payment_desc", page: 1, pageSize: 5 }, joinedSourceRevisions: context.sourceRevisions, consistency: "revision_vector_checked", sections: { ...completeProductSectionsFixture(metrics), summary: metrics, comparisons, items: [item], pagination, baselineReads: { previous: { state: "ready", data: metrics }, yearAgo: { state: "ready", data: metrics } }, growth: { state: "ready", data: { collection: "paired_full_set_before_pagination", items: [item], pagination } } } };
+  const pagination = { page: 1, pageSize: 3, total: 1, returned: 1, hasMore: false, truncated: false };
+  return { schemaVersion: "netshop-product-insights-v1", context, sectionToken: "a".repeat(64), tableScope: { q: "", category: "", sort: "payment_desc", page: 1, pageSize: 3 }, joinedSourceRevisions: context.sourceRevisions, consistency: "revision_vector_checked", sections: { ...completeProductSectionsFixture(metrics), summary: metrics, comparisons, items: [item], pagination, baselineReads: { previous: { state: "ready", data: metrics }, yearAgo: { state: "ready", data: metrics } }, growth: { state: "ready", data: { collection: "paired_full_set_before_pagination", items: [item], pagination } } } };
 }
 let payload: ReturnType<typeof fixture>;
 function response(data: unknown = payload, status = 200, header: string | null = revision) {
   return Response.json(data, { status, headers: header === null ? {} : { "X-Netshop-Data-Revision": header } });
 }
+const request0 = (all: typeof calls) => all.at(-1)!;
 const errorIs = (code: string) => (error: unknown) => error instanceof RegistryToolError && error.code === code;
 beforeEach(() => {
   calls = []; payload = fixture(); revision = "1:aaaaaaaaaaaa";
@@ -102,7 +105,7 @@ test("the actual central list entry uniquely derives closed schemas and explicit
   assert.equal(entry.handler, getNetshopProductInsightsForAi);
   assert.equal(entry.risk, "read_only"); assert.equal(entry.scopePolicy, "principal_scope");
   assert.equal(entry.inputSchema.additionalProperties, false);
-  assert.deepEqual(entry.execution, { environment: "worker_inline", mode: "direct", allowedSurfaces: ["ai_chat", "ai_agent", "codex_mcp", "test"], timeoutMs: 30000, maxResultCharacters: 40000, maxCallsPerRequest: 2 });
+  assert.deepEqual(entry.execution, { environment: "worker_inline", mode: "direct", allowedSurfaces: ["ai_chat", "ai_agent", "codex_mcp", "test"], timeoutMs: 30000, maxResultCharacters: 40000, maxCallsPerRequest: 3 });
   assert.equal(aiToolRegistry.some(e => /get_netshop_product_insights_detail/.test(e.name)), false);
   for (const role of ["viewer", "analyst", "operator", "admin"] as const) {
     const actor = { ...principal, role };
@@ -117,21 +120,21 @@ test("the actual central list entry uniquely derives closed schemas and explicit
   }
 });
 
-test("all four roles sign the exact owning GET and retain the complete original DTO", async () => {
+test("all four roles sign the exact owning GET; each view keeps its sections of the decoded DTO unchanged", async () => {
   for (const role of ["viewer", "analyst", "operator", "admin"] as const) {
     const actor = { ...principal, role };
     const data = await entry.handler(args, { ...execution, principal: actor });
-    assert.deepEqual(data, payload); assert.equal(Object.hasOwn(data, "returned"), false);
+    assertView(data, expectedProductView(payload, "overview"), "overview", ["sections.items", "sections.growth", "sections.efficiency.watchlist"]); assert.equal(Object.hasOwn(data, "returned"), false);
+    assert.equal(request0(calls).url.searchParams.has("view"), false);
     const request = calls.at(-1)!;
     assert.equal(request.init?.method, "GET"); assert.equal(request.init?.body, undefined);
     assert.deepEqual(request.url.searchParams.getAll("outlet"), ["京东\u001f合成店A"]);
-    assert.equal(request.url.searchParams.get("pageSize"), "5");
+    assert.equal(request.url.searchParams.get("pageSize"), "3");
     const headers = new Headers(request.init?.headers);
     const envelope = headers.get("X-Teruisi-Principal")!;
     assert.deepEqual(JSON.parse(Buffer.from(envelope, "base64url").toString()), actor);
     const signed = ["v1", headers.get("X-Teruisi-Timestamp"), headers.get("X-Teruisi-Request-Id"), "GET", request.url.pathname, request.url.searchParams.toString(), headers.get("X-Teruisi-Content-SHA256"), envelope].join("\n");
     assert.equal(headers.get("X-Teruisi-Signature"), `v1=${createHmac("sha256", environment.TERUISI_DJANGO_INTERNAL_SECRET).update(signed).digest("hex")}`);
-    assert.deepEqual(data.context, payload.context); assert.deepEqual(data.sections, payload.sections);
   }
 });
 
@@ -181,7 +184,7 @@ test("true zero, missing fields and missing days remain explicit with full summa
   payload.sections.summary.visitors = missing;
   payload.sections.comparisons.visitors = { previous: compareMetrics(missing, missing), yearAgo: compareMetrics(missing, missing) };
   const data = await entry.handler(args, execution);
-  assert.deepEqual(data, payload);
+  assertView(data, expectedProductView(payload, "overview"), "overview", ["sections.items"]);
   assert.equal(payload.sections.summary.payment.value, 0);
   assert.equal(payload.sections.summary.visitors.reasonCode, "missing_field");
   assert.deepEqual((data.context as typeof payload.context).calendar, payload.context.calendar);
@@ -237,7 +240,7 @@ test("complete valid responses above the final envelope budget refuse without co
   decodeProductInsights(payload, query, revision);
   assert.ok(JSON.stringify(payload).length < 2 * 1024 * 1024);
   assert.ok(JSON.stringify({ ok: true, toolName: name, data: payload }).length > 40000);
-  await assert.rejects(entry.handler({ ...args, pageSize: 20 }, execution), errorIs("tool_result_too_large"));
+  await assert.rejects(entry.handler({ ...args, pageSize: 20, view: "list" }, execution), errorIs("tool_result_too_large"));
   assert.equal(payload.sections.items.length, 20); assert.equal(calls.length, 1);
 });
 
@@ -260,15 +263,16 @@ test("central mandatory audits and the third-call budget fail closed without dat
   calls = [];
   const audits: RegistryAuditInput[] = [];
   const runtime = createAiToolExecutionRuntime({ context: execution, entries: aiToolRegistry, audit: async input => { audits.push(input); } });
-  assert.equal((await runtime.execute(name, args)).ok, true);
-  assert.equal((await runtime.execute(name, args)).ok, true);
-  const third = await runtime.execute(name, args);
-  assert.equal(third.ok, false); if (!third.ok) assert.equal(third.error.code, "tool_call_budget_exceeded");
-  assert.equal(calls.length, 2);
+  // maxCallsPerRequest is 3 so that overview, rankings and list can each be read once.
+  for (const view of ["overview", "rankings", "list"] as const) assert.equal((await runtime.execute(name, { ...args, view })).ok, true);
+  const fourth = await runtime.execute(name, args);
+  assert.equal(fourth.ok, false); if (!fourth.ok) assert.equal(fourth.error.code, "tool_call_budget_exceeded");
+  assert.equal(calls.length, 3);
   const succeeded = audits.filter(a => a.status === "succeeded");
-  assert.equal(succeeded.length, 2); assert.deepEqual(succeeded[0].result, payload);
+  assert.equal(succeeded.length, 3); assertView(succeeded[0].result as Record<string, any>, expectedProductView(payload, "overview"), "overview", []);
   assert.equal(succeeded[0].actorEmail, principal.email); assert.equal(succeeded[0].surface, "test");
   assert.notEqual(succeeded[0].invocationId, succeeded[1].invocationId);
+  assert.equal(new Set(calls.map(call => call.url.searchParams.get("pageSize"))).size, 1);
 });
 
 test("central timeout aborts transport, suppresses late data and terminates later calls", async () => {
@@ -282,4 +286,23 @@ test("central timeout aborts transport, suppresses late data and terminates late
   const second = await runtime.execute(name, args);
   assert.equal(second.ok, false); if (!second.ok) assert.equal(second.error.code, "tool_runtime_terminated");
   assert.equal(count, 1);
+});
+
+test("sectionToken without an explicit pageSize is refused before any request; the same pageSize continues and aiView reports the pageSize used", async () => {
+  const { pageSize: _omitted, ...withoutPageSize } = args;
+  for (const view of [undefined, "overview", "rankings", "list"]) {
+    await assert.rejects(entry.handler({ ...withoutPageSize, sectionToken: payload.sectionToken, ...(view ? { view } : {}) }, execution), (error: unknown) => errorIs("invalid_arguments")(error) && /pageSize/.test((error as Error).message) && /sectionToken/.test((error as Error).message));
+  }
+  assert.equal(calls.length, 0, "no Django request may be made");
+  // Same pageSize as the token was issued with (3): continues, in any view; aiView names the pageSize actually used.
+  for (const view of ["overview", "rankings", "list"]) {
+    const data = await entry.handler({ ...args, view, sectionToken: payload.sectionToken }, execution) as Record<string, any>;
+    assert.equal(data.aiView.pageSize, 3);
+    assert.equal(calls.at(-1)!.url.searchParams.get("pageSize"), "3");
+    assert.equal(calls.at(-1)!.url.searchParams.get("sectionToken"), payload.sectionToken);
+  }
+  // Without a token the per-view default applies and is reported.
+  Object.assign(payload.tableScope, { pageSize: 10 }); Object.assign(payload.sections.pagination, { pageSize: 10 });
+  const first = await entry.handler({ ...withoutPageSize, view: "rankings" }, execution) as Record<string, any>;
+  assert.equal(first.aiView.pageSize, 10);
 });
