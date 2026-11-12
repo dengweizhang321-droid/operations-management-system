@@ -12,7 +12,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   return nextResolve(specifier, context);
 } });
 const { aiToolRegistry } = await import("../lib/ai/tool-registry");
-const { NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME: name, NETSHOP_PRODUCT_INSIGHTS_AI_DEFAULT_PAGE_SIZE, netshopProductInsightsInputSchema } = await import("../lib/ai/netshop-product-insights-tool");
+const { NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME: name } = await import("../lib/ai/netshop-product-insights-tool");
 const { compactProductInsightsForAi, productCompactionLadder } = await import("../lib/ai/netshop-product-compaction");
 const { syntheticInsightsContext } = await import("../lib/netshop/insights-fixtures");
 const { compareMetrics } = await import("../lib/netshop/insights-contract");
@@ -191,21 +191,6 @@ test("product coverage gap dates become lossless ranges and no gap entry is lost
   assert.match(out.aiCompaction.note, /missingRanges/);
 });
 
-test("product default pageSize 3: schema default (max 20), omitted pageSize requests 3, heavy non-zero scene fits 40000 with 3 ranking rows each (measured, NOT within 36000)", async () => {
-  assert.equal(NETSHOP_PRODUCT_INSIGHTS_AI_DEFAULT_PAGE_SIZE, 3);
-  const schema = netshopProductInsightsInputSchema.properties.pageSize as { default: number; maximum: number };
-  assert.equal(schema.default, 3); assert.equal(schema.maximum, 20);
-  payload = build(3, 14);
-  assert.ok(envelope(payload) > BUDGET, `source ${envelope(payload)}`);
-  let requested = "";
-  globalThis.fetch = async input => { requested = new URL(String(input)).searchParams.get("pageSize")!; return Response.json(payload, { headers: { "X-Netshop-Data-Revision": "1:aaaaaaaaaaaa" } }); };
-  const data = await entry.handler({ platforms: ["京东"], shops: [{ platform: "京东", shopName: "合成店A" }], startDate: "2026-09-01", endDate: "2026-09-01" }, execution) as Plain;
-  assert.equal(requested, "3");
-  console.log("product heavy default pageSize=3 envelope", envelope(data));
-  assert.ok(envelope(data) <= BUDGET, `envelope ${envelope(data)}`);
-  assert.equal(data.sections.growth.data.items.length, 3); assert.equal(data.sections.efficiency.watchlist.length, 3); assert.equal(data.sections.items.length, 3);
-});
-
 test("product pageSize 5 heavy scene (measured): fits 40000 only at level 5, where growth is cut to 3 rows (target 5 rows within 36000 not met)", () => {
   const p = build(5, 14);
   const ladder = productCompactionLadder.map((_, l) => envelope(direct(p, l)));
@@ -216,4 +201,96 @@ test("product pageSize 5 heavy scene (measured): fits 40000 only at level 5, whe
   const out = direct(p, fit);
   assert.equal(out.sections.growth.data.items.length, 3);
   assert.match(out.aiCompaction.sections.map((s: Plain) => s.rule).join("|"), /first_3_of_ranked_page_by_payment_delta/);
+});
+
+// ---- views (overview / rankings / list) ----
+const baseArgs = { platforms: ["京东"], shops: [{ platform: "京东", shopName: "合成店A" }], startDate: "2026-09-01", endDate: "2026-09-01" };
+async function runView(view: string | undefined, pageSize: number | undefined, source: Plain) {
+  payload = source;
+  const requests: URLSearchParams[] = [];
+  globalThis.fetch = async input => { requests.push(new URL(String(input)).searchParams); return Response.json(payload, { headers: { "X-Netshop-Data-Revision": "1:aaaaaaaaaaaa" } }); };
+  const data = await entry.handler({ ...baseArgs, ...(view ? { view } : {}), ...(pageSize ? { pageSize } : {}) }, execution) as Plain;
+  return { data, requests };
+}
+const schemaProps = (entry.inputSchema as Plain).properties as Plain;
+
+test("product view schema: enum + default overview; pageSize has no single default (per-view defaults are in the description) and max 20", () => {
+  assert.deepEqual(schemaProps.view.enum, ["overview", "rankings", "list"]);
+  assert.equal(schemaProps.view.default, "overview");
+  assert.equal("default" in schemaProps.pageSize, false);
+  assert.equal(schemaProps.pageSize.maximum, 20);
+});
+
+test("product views (heavy scene, 14 categories, non-zero metrics): rankings (17231) and list at default 4 (32945) within 36000; overview (38641) measured under 40000 but NOT within 36000; omitted pageSize follows the view default", async () => {
+  const sizes: Record<string, number> = {};
+  for (const [view, defaultSize] of [["overview", 1], ["rankings", 10], ["list", 4]] as const) {
+    const { data, requests } = await runView(view, undefined, build(defaultSize, 14));
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get("pageSize"), String(defaultSize));
+    assert.equal(requests[0].has("view"), false, "view must not be sent to Django");
+    sizes[view] = envelope(data);
+    // overview (38641) is above the 36000 target: nothing is compacted while the envelope fits 40000, and no metric/gap may be dropped to reach 36000
+    assert.ok(sizes[view] <= (view === "overview" ? 40000 : 36000), `${view} ${sizes[view]}`);
+    assert.equal(data.aiView.view, view);
+    console.log("product view", view, sizes[view], JSON.stringify(data.aiCompaction?.sections.map((m: Plain) => `${m.path}:${m.rule}`)));
+    if (view === "overview") assert.equal(data.aiCompaction, undefined, "overview needs no further compaction");
+  }
+  console.log("product view sizes (heavy, defaults)", JSON.stringify(sizes));
+  // omitted view = overview
+  const { data } = await runView(undefined, undefined, build(1, 14));
+  assert.equal(data.aiView.view, "overview");
+});
+
+test("product views carry exactly their sections; rankings depth = pageSize; omitted paths point to the right view", async () => {
+  const over = (await runView("overview", undefined, build(1, 14))).data;
+  assert.deepEqual(Object.keys(over.sections).sort(), ["baselineReads", "comparisons", "counts", "dataQuality", "efficiency", "metadata", "structure", "summary"].sort());
+  assert.equal("watchlist" in over.sections.efficiency, false);
+  for (const path of ["sections.items", "sections.growth", "sections.efficiency.watchlist"]) assert.ok(over.aiView.omitted.some((o: Plain) => o.path === path), path);
+  assert.match(over.aiView.omitted.find((o: Plain) => o.path === "sections.growth").howToGet, /rankings/);
+  assert.match(over.aiView.omitted.find((o: Plain) => o.path === "sections.items").howToGet, /list/);
+
+  const rank = (await runView("rankings", 10, build(10, 14))).data;
+  assert.deepEqual(Object.keys(rank.sections).sort(), ["dataQuality", "efficiency", "growth", "metadata"]);
+  assert.equal(rank.sections.growth.data.items.length, 10);
+  assert.equal(rank.sections.efficiency.watchlist.length, 10);
+  assert.equal(rank.context.capabilities, undefined);
+  for (const r of [...rank.sections.growth.data.items, ...rank.sections.efficiency.watchlist]) for (const f of ["platform", "shopName", "dimension", "id"]) assert.ok(r.identity?.[f] !== undefined, `identity.${f}`);
+  assert.ok(rank.aiView.omitted.some((o: Plain) => o.path === "sections.structure"));
+
+  const list = (await runView("list", 4, build(4, 14))).data;
+  assert.deepEqual(Object.keys(list.sections).sort(), ["dataQuality", "items", "metadata", "pagination"]);
+  assert.equal(list.sections.items.length, 4);
+  for (const path of ["sections.growth", "sections.efficiency", "sections.structure"]) assert.ok(list.aiView.omitted.some((o: Plain) => o.path === path), path);
+});
+
+test("product views keep tokens, dates, scope, quality and limitations and the coverage gaps in every view (lossless as ranges)", async () => {
+  for (const [view, size] of [["overview", 1], ["rankings", 10], ["list", 4]] as const) {
+    const src = build(size, 14);
+    const { data } = await runView(view, size, src);
+    assert.equal(data.sectionToken, src.sectionToken);
+    assert.equal(data.context.snapshotToken, src.context.snapshotToken);
+    assert.equal(data.context.columnVersion, src.context.columnVersion);
+    assert.deepEqual(data.context.periods, src.context.periods);
+    assert.deepEqual(data.context.effectiveScope, src.context.effectiveScope);
+    assert.deepEqual(data.sections.dataQuality, src.sections.dataQuality);
+    assert.ok(data.sections.metadata.limitations);
+    const gaps = Object.entries<Plain>(src.context.coverageBySource ?? {}).filter(([, c]) => c.complete === false);
+    for (const [k, c] of gaps) {
+      const kept = data.context.coverageBySource[k];
+      assert.ok(kept, `${view} gap ${k}`);
+      for (const shop of kept.missingByShop ?? []) assert.deepEqual(shop.dates ?? expandDateRanges(shop.missingRanges), c.missingByShop.find((s: Plain) => s.shopKey === shop.shopKey).dates);
+    }
+  }
+});
+
+test("product invalid view: invalid_arguments and no Django request; decode failure rejects in all three views", async () => {
+  let fetched = 0;
+  globalThis.fetch = async () => { fetched++; return Response.json(build(1), { headers: { "X-Netshop-Data-Revision": "1:aaaaaaaaaaaa" } }); };
+  for (const view of ["detail", "ALL", "", null, 1]) await assert.rejects(entry.handler({ ...baseArgs, view } as never, execution), (e: Plain) => e.code === "invalid_arguments");
+  assert.equal(fetched, 0);
+  for (const view of ["overview", "rankings", "list"]) {
+    const bad = build(1); bad.sectionToken = "not-a-token"; payload = bad;
+    globalThis.fetch = async () => Response.json(payload, { headers: { "X-Netshop-Data-Revision": "1:aaaaaaaaaaaa" } });
+    await assert.rejects(entry.handler({ ...baseArgs, view } as never, execution), (e: Plain) => e.code === "invalid_tool_result" || e.code === "invalid_arguments" || /invalid/.test(String(e.code)), view);
+  }
 });

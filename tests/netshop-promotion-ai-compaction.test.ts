@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { assertView, expectedPromotionView } from "./netshop-view-oracle";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { registerHooks } from "node:module";
@@ -43,6 +44,8 @@ function queryFor(args: Record<string, unknown>) {
 function response(data: unknown = payload) { return Response.json(data, { headers: { "X-Netshop-Data-Revision": owningRevision } }); }
 const hex = (seed: string) => createHash("sha256").update(seed).digest("hex");
 const envelopeLength = (data: unknown) => JSON.stringify({ ok: true, toolName: listName, data }).length;
+/** The lightest ladder level whose envelope fits, applied to the FULL decoded DTO (no view): this file tests the ladder itself; views are tested separately. */
+const lightestFitting = (data: unknown): any => { for (const level of promotionCompactionLadder) { const out = compactPromotionInsightsForAi(data as Record<string, unknown>, level); if (envelopeLength(out) <= BUDGET) return out; } throw new Error("no level fits"); };
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
 
 /**
@@ -99,9 +102,9 @@ test("the generated production-scale response is real: decoder-valid, over 250KB
   assert.ok(envelopeLength(payload) > BUDGET * 5);
 });
 
-test("oversized valid response is compacted under 40000 with originals, tokens and current page intact", async () => {
-  const args = argsFor(payload), before = structuredClone(payload);
-  const data = await listEntry.handler(args, context) as unknown as PromotionInsightsResponse & { aiCompaction: { applied: true; sections: Array<{ path: string; originalCount: number; keptCount: number; rule: string }>; note: string } };
+test("oversized valid response: the ladder's lightest fitting level is under 40000 with originals, tokens and current page intact", async () => {
+  const before = structuredClone(payload);
+  const data = lightestFitting(payload) as unknown as PromotionInsightsResponse & { aiCompaction: { applied: true; sections: Array<{ path: string; originalCount: number; keptCount: number; rule: string }>; note: string } };
   assert.deepEqual(payload, before, "source object must not be mutated");
   assert.ok(envelopeLength(data) < BUDGET, `envelope ${envelopeLength(data)}`);
   assert.equal(data.columnVersion, payload.columnVersion); assert.equal(data.sectionToken, payload.sectionToken); assert.equal(data.context.snapshotToken, payload.context.snapshotToken);
@@ -130,7 +133,7 @@ test("oversized valid response is compacted under 40000 with originals, tokens a
 });
 
 test("compaction never loses a coverage gap: every incomplete entry survives whole, only complete ones are folded", async () => {
-  const data = await listEntry.handler(argsFor(payload), context) as unknown as PromotionInsightsResponse;
+  const data = lightestFitting(payload) as unknown as PromotionInsightsResponse;
   const before = gapped(payload);
   assert.ok(before.section.length >= 1 && before.context.length >= 1);
   for (const [ref, gap] of before.section) assert.deepEqual(data.sections.coverage[ref], asRanges(gap));
@@ -142,7 +145,7 @@ test("compaction never loses a coverage gap: every incomplete entry survives who
 test("an incomplete entry is never folded even when it looks otherwise normal (missing dates, truncated shape)", async () => {
   const shopKey = payload.context.effectiveScope.shopKeys[0], date = payload.context.periods.current.startDate;
   payload.sections.coverage["promotion:object:aaaaaaaaaaaaaaaa:current"] = { expectedShopDatePairs: 2, coveredShopDatePairs: 1, complete: false, missingByShop: [{ shopKey, dates: [date] }], truncated: false };
-  const data = await listEntry.handler(argsFor(payload), context) as unknown as PromotionInsightsResponse;
+  const data = lightestFitting(payload) as unknown as PromotionInsightsResponse;
   assert.deepEqual(data.sections.coverage["promotion:object:aaaaaaaaaaaaaaaa:current"], asRanges(payload.sections.coverage["promotion:object:aaaaaaaaaaaaaaaa:current"]));
 });
 
@@ -173,16 +176,16 @@ test("when even the heaviest level cannot fit, it still refuses with tool_result
   await assert.rejects(listEntry.handler(args, context), e => e instanceof RegistryToolError && e.code === "tool_result_too_large");
 });
 
-test("a response that already fits is returned byte-for-byte unchanged with no aiCompaction", async () => {
+test("a response that already fits is returned as its overview view, with no aiCompaction", async () => {
   const small = await fixture("product"); payload = small; owningRevision = small.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
   const data = await listEntry.handler(argsFor(small), context);
-  assert.deepEqual(data, small); assert.equal(Object.hasOwn(data, "aiCompaction"), false);
+  assertView(data as any, expectedPromotionView(small, "overview"), "overview", ["sections.items", "sections.contributions"]); assert.equal(Object.hasOwn(data, "aiCompaction"), false);
 });
 
-test("ladder reports its levels and picks the lightest one that fits", async () => {
+test("ladder reports its levels and picks the lightest one that fits (full DTO, no view)", async () => {
   const lengths = promotionCompactionLadder.map(level => envelopeLength(compactPromotionInsightsForAi(payload as unknown as Record<string, unknown>, level)));
   for (let i = 1; i < lengths.length; i++) assert.ok(lengths[i] <= lengths[i - 1], `level ${i} should not be larger: ${lengths}`);
-  const data = await listEntry.handler(argsFor(payload), context);
+  const data = lightestFitting(payload);
   const chosen = lengths.findIndex(length => length <= BUDGET);
   assert.ok(chosen >= 0, `no ladder level fits: ${lengths}`);
   assert.equal(envelopeLength(data), lengths[chosen]);

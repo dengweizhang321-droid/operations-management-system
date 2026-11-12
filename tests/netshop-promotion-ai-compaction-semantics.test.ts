@@ -13,7 +13,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   return nextResolve(specifier, context);
 } });
 const { aiToolRegistry } = await import("../lib/ai/tool-registry");
-const { NETSHOP_PROMOTION_INSIGHTS_TOOL_NAME: listName, NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE, netshopPromotionInsightsInputSchema } = await import("../lib/ai/netshop-promotion-insights-tool");
+const { NETSHOP_PROMOTION_INSIGHTS_TOOL_NAME: listName } = await import("../lib/ai/netshop-promotion-insights-tool");
 const { expandDateRanges } = await import("../lib/ai/netshop-ai-compaction");
 const { compactPromotionInsightsForAi, promotionCompactionLadder } = await import("../lib/ai/netshop-promotion-compaction");
 const { decodePromotionInsightsForQuery } = await import("../lib/netshop/promotion-insights-contract");
@@ -209,27 +209,6 @@ test("promotion note explains that a missing coverage key means complete", async
   assert.match(out.aiCompaction.note, /缺失的键表示该来源完整/);
 });
 
-test("promotion default pageSize: schema default and an omitted pageSize stay under 40000 with margin (decoder-valid, full contribution lists)", async () => {
-  assert.equal(NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE, 1);
-  assert.equal((netshopPromotionInsightsInputSchema.properties.pageSize as { default: number }).default, NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE);
-  assert.equal((netshopPromotionInsightsInputSchema.properties.pageSize as { maximum: number }).maximum, 20);
-  // Decoder-safe: real fixture shape, 4 x 10 ranked contribution rows (the owner's maximum), one shop, one trend point.
-  const full = await semanticsPayload(1);
-  payload = await base();
-  payload.sections.contributions = full.sections.contributions;
-  payload.sections.pagination = { ...payload.sections.pagination, pageSize: NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE };
-  owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
-  const c = payload.context;
-  const args = { platform: c.requestedScope.platforms[0], startDate: c.periods.current.startDate, endDate: c.periods.current.endDate, periodKind: c.requestedScope.periodKind, trendGrain: payload.sections.trend.grain, ...(c.requestedScope.shopKeys.length ? { outlets: c.requestedScope.shopKeys } : {}) };
-  let requested = "";
-  globalThis.fetch = async input => { requested = new URL(String(input)).searchParams.get("pageSize")!; return Response.json(payload, { headers: { "X-Netshop-Data-Revision": owningRevision } }); };
-  assert.ok(envelope(payload) > BUDGET, "uncompacted source must be over budget for this to prove anything");
-  const data = await listEntry.handler(args, context);
-  assert.equal(requested, "1");
-  assert.ok(envelope(data) <= BUDGET - 1500, `envelope ${envelope(data)}`);
-  void decodePromotionInsightsForQuery;
-});
-
 /** Heavy scene: real misaligned-fixture shape, 4 shops, non-zero metrics everywhere, 4 x 10 contribution rows, optional extra gap entries. */
 async function heavyScene(rows: number, extraGaps: number): Promise<PromotionInsightsResponse> {
   const p = JSON.parse(await readFile("tests/fixtures/netshop-promotion/response-misaligned.json", "utf8")) as PromotionInsightsResponse;
@@ -268,4 +247,118 @@ test("promotion heavy scene with 30 extra gap entries: every gap entry survives 
   const out = direct(p, promotionCompactionLadder.length - 1);
   for (const k of gapKeys) assert.ok(out.sections.coverage[k], `gap ${k} kept`);
   console.log("promotion heavy +30 gaps, heaviest level envelope", envelope(out));
+});
+
+// ---- views (overview / rankings / list) ----
+/**
+ * Decoder-valid heavy scene: the real misaligned fixture (2 shops; the decoder ties the shop list to effectiveScope, so 4 shops
+ * cannot be forged here), distinct page rows, 4 x 10 ranked contribution rows and optional extra gap entries.
+ */
+async function decoderScene(rows: number, extraGaps: number): Promise<PromotionInsightsResponse> {
+  const p = JSON.parse(await readFile("tests/fixtures/netshop-promotion/response-misaligned.json", "utf8")) as PromotionInsightsResponse;
+  const row = p.sections.items[0];
+  const makeRow = (id: string, score = 0): PromotionObjectRow => {
+    const r = structuredClone(row); r.rowKey = hex(id); r.id = id; r.title = `合成推广商品名称较长${id}`;
+    r.mapping = { ...r.mapping, followSkuId: id, linkIdentity: r.mapping.linkIdentity ? { ...r.mapping.linkIdentity, id } : null };
+    if (score) for (const key of ["spend", "attributedPayment"] as const) r.changes[key].previous = { ...r.changes[key].previous, value: score, status: "available", reasonCode: null };
+    return r;
+  };
+  p.sections.items = Array.from({ length: rows }, (_, i) => makeRow(`page${i}`));
+  const ranked = (prefix: string, sign: 1 | -1) => Array.from({ length: 10 }, (_, i) => makeRow(`${prefix}${i}`, sign * (90000 - i * 1000)));
+  p.sections.contributions = { collection: "comparable_full_set_before_search_pagination", comparedObjectCount: 80, excludedObjectCount: 0, previous: { spendIncrease: ranked("si", 1), spendDecrease: ranked("sd", -1), attributedPaymentIncrease: ranked("pi", 1), attributedPaymentDecrease: ranked("pd", -1) } } as never;
+  for (let i = 0; i < extraGaps; i++) (p.sections.coverage as Plain)[`promotion:object:${String(i).padStart(16, "0")}:current`] = { expectedShopDatePairs: 2, coveredShopDatePairs: 1, complete: false, truncated: false, missingByShop: [{ shopKey: p.context.effectiveScope.shopKeys[0], dates: ["2026-09-01"] }] };
+  return p;
+}
+const listProps = (listEntry.inputSchema as Plain).properties as Plain;
+function viewArgs(p: PromotionInsightsResponse, view?: unknown) {
+  const c = p.context;
+  return { platform: c.requestedScope.platforms[0], startDate: c.periods.current.startDate, endDate: c.periods.current.endDate, periodKind: c.requestedScope.periodKind, trendGrain: p.sections.trend.grain, ...(c.requestedScope.shopKeys.length ? { outlets: c.requestedScope.shopKeys } : {}), objectKind: p.sections.listScope.objectKind, q: p.sections.listScope.q, page: 1, ...(view === undefined ? {} : { view }) };
+}
+async function runPromotionView(view: string | undefined, pageSize: number | undefined, rows: number, gaps: number) {
+  payload = await decoderScene(rows, gaps);
+  payload.sections.pagination = { ...payload.sections.pagination, pageSize: pageSize ?? (view === "list" ? 3 : 1), total: rows, returned: rows, hasMore: false, truncated: false };
+  owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
+  const requests: URLSearchParams[] = [];
+  globalThis.fetch = async input => { requests.push(new URL(String(input)).searchParams); return Response.json(payload, { headers: { "X-Netshop-Data-Revision": owningRevision } }); };
+  const args = { ...viewArgs(payload, view), ...(pageSize ? { pageSize } : {}) };
+  const source = payload;
+  const data = await listEntry.handler(args, context) as Plain;
+  return { data, requests, source };
+}
+
+test("promotion view schema: enum + default overview; pageSize has no single default and max 20", () => {
+  assert.deepEqual(listProps.view.enum, ["overview", "rankings", "list"]);
+  assert.equal(listProps.view.default, "overview");
+  assert.equal("default" in listProps.pageSize, false);
+  assert.equal(listProps.pageSize.maximum, 20);
+});
+
+test("promotion views (heavy scene, 4 shops, non-zero, +30 gaps): every view within 36000; requested pageSize follows the view default (list=3, since 5 rows exceed 40000 with 30 extra gaps)", async () => {
+  const sizes: Record<string, number> = {};
+  for (const [view, pageSize] of [["overview", "1"], ["rankings", "1"], ["list", "3"]] as const) {
+    const { data, requests } = await runPromotionView(view, undefined, Number(pageSize), 30);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get("pageSize"), pageSize);
+    assert.equal(requests[0].has("view"), false, "view must not be sent to Django");
+    sizes[view] = envelope(data);
+    console.log("promotion view", view, sizes[view], JSON.stringify(data.aiCompaction?.sections.map((m: Plain) => `${m.path}:${m.rule}`)));
+    assert.ok(sizes[view] <= 36000, `${view} ${sizes[view]}`);
+    assert.equal(data.aiView.view, view);
+  }
+  console.log("promotion view sizes (heavy, +30 gaps, defaults)", JSON.stringify(sizes));
+});
+
+test("promotion views carry exactly their sections; rankings keep 10 rows per direction in source order; omitted paths point to the right view", async () => {
+  const over = await runPromotionView("overview", undefined, 1, 30);
+  for (const key of ["summary", "comparisons", "changes", "attribution", "matchedRange", "shops", "trend", "diagnostic"]) assert.ok(over.data.sections[key], `overview ${key}`);
+  for (const key of ["items", "contributions", "pagination"]) assert.equal(key in over.data.sections, false, `overview has no ${key}`);
+  assert.ok(over.data.aiView.omitted.some((o: Plain) => o.path === "sections.contributions" && /rankings/.test(o.howToGet)));
+  assert.ok(over.data.aiView.omitted.some((o: Plain) => o.path === "sections.items" && /list/.test(o.howToGet)));
+
+  const rank = await runPromotionView("rankings", undefined, 1, 30);
+  assert.deepEqual(Object.keys(rank.data.sections).filter(k => !["coverage", "limitations", "dataQuality"].includes(k)), ["contributions"]);
+  for (const [key, rows] of Object.entries<Plain[]>(rank.data.sections.contributions.previous)) {
+    assert.equal(rows.length, 10, key);
+    assert.deepEqual(rows.map(r => r.rowKey), (rank.source.sections.contributions.previous as Plain)[key].slice(0, 10).map((r: Plain) => r.rowKey));
+    for (const r of rows) assert.ok(r.rowKey && r.shopKey && r.objectKind && r.id !== undefined, "detail-tool identity");
+  }
+  for (const key of ["shops", "trend", "items", "sourceMatrix", "objectCapabilities"]) assert.equal(key in rank.data.sections, false, `rankings has no ${key}`);
+  assert.equal(rank.data.context.capabilities, undefined);
+
+  const list = await runPromotionView("list", 3, 3, 30);
+  assert.equal(list.data.sections.items.length, 3);
+  for (const key of ["pagination", "listScope"]) assert.ok(list.data.sections[key], key);
+  for (const key of ["contributions", "shops", "trend"]) assert.equal(key in list.data.sections, false, `list has no ${key}`);
+  for (const path of ["sections.contributions", "sections.shops", "sections.trend"]) assert.ok(list.data.aiView.omitted.some((o: Plain) => o.path === path), path);
+});
+
+test("promotion views keep tokens, dates, scope, dataQuality, limitations and every coverage gap entry (lossless as ranges) in every view", async () => {
+  for (const [view, size] of [["overview", 1], ["rankings", 1], ["list", 3]] as const) {
+    const { data, source } = await runPromotionView(view, undefined, size, 30);
+    assert.equal(data.context.snapshotToken, source.context.snapshotToken);
+    assert.equal(data.context.columnVersion, (source.context as Record<string, unknown>).columnVersion);
+    assert.deepEqual(data.context.periods, source.context.periods);
+    assert.deepEqual(data.context.effectiveScope, source.context.effectiveScope);
+    if ("dataQuality" in source.sections) assert.deepEqual(data.sections.dataQuality, (source.sections as Plain).dataQuality, `${view} dataQuality`);
+    assert.deepEqual(data.sections.limitations, source.sections.limitations);
+    const gaps = Object.entries<Plain>(source.sections.coverage as Plain).filter(([, c]) => c.complete === false);
+    assert.ok(gaps.length >= 30);
+    for (const [k, c] of gaps) {
+      const kept = data.sections.coverage[k];
+      assert.ok(kept, `${view} gap ${k}`);
+      for (const shop of kept.missingByShop ?? []) assert.deepEqual(shop.dates ?? expandDateRanges(shop.missingRanges), c.missingByShop.find((s: Plain) => s.shopKey === shop.shopKey).dates);
+    }
+  }
+});
+
+test("promotion invalid view: invalid_arguments and no Django request; decode failure rejects in all three views", async () => {
+  payload = await base(); owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
+  let fetched = 0;
+  globalThis.fetch = async () => { fetched++; return Response.json(payload, { headers: { "X-Netshop-Data-Revision": owningRevision } }); };
+  for (const view of ["detail", "ALL", "", null, 1]) await assert.rejects(listEntry.handler(viewArgs(payload, view) as never, context), (e: Plain) => e.code === "invalid_arguments");
+  assert.equal(fetched, 0);
+  for (const view of ["overview", "rankings", "list"]) {
+    owningRevision = "99:aaaaaaaaaaaa";
+    await assert.rejects(listEntry.handler(viewArgs(payload, view) as never, context), (e: Plain) => e.code === "invalid_tool_result", view);
+  }
 });

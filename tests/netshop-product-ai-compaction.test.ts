@@ -5,6 +5,7 @@ import type { AppPrincipal } from "../lib/auth/authorization";
 import type { MetricValue } from "../lib/netshop/insights-contract";
 import { expandDateRanges } from "../lib/ai/netshop-ai-compaction";
 import { completeProductSectionsFixture } from "./netshop-products-test-fixture";
+import { assertView, expectedProductView } from "./netshop-view-oracle";
 
 const environment = { TERUISI_DJANGO_NETSHOP_READER_BASE_URL: "https://product-compact.example.test", TERUISI_DJANGO_NETSHOP_WRITER_BASE_URL: "https://product-compact-writer.example.test", TERUISI_DJANGO_INTERNAL_SECRET: "synthetic-product-compact-secret-0123456789", TERUISI_DJANGO_NETSHOP_TIMEOUT_MS: "120000" };
 (globalThis as typeof globalThis & { __productCompactEnv?: typeof environment }).__productCompactEnv = environment;
@@ -28,6 +29,8 @@ const BUDGET = 40000;
 const query = () => new URLSearchParams({ platform: "京东", outlet: "京东\u001f合成店A", startDate: args.startDate, endDate: args.endDate, pageSize: "1" });
 const envelopeLength = (data: unknown) => JSON.stringify({ ok: true, toolName: name, data }).length;
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
+/** The lightest ladder level whose envelope fits, applied to the FULL decoded DTO (no view): this file tests the ladder itself; views are tested separately. */
+const lightestFitting = (data: unknown) => { for (const level of productCompactionLadder) { const out = compactProductInsightsForAi(data as any, level); if (envelopeLength(out) < BUDGET) return out as any; } throw new Error("no level fits"); };
 const errorIs = (code: string) => (error: unknown) => error instanceof RegistryToolError && error.code === code;
 
 type Payload = ReturnType<typeof fixture>;
@@ -77,9 +80,9 @@ test("generated production-scale product response is decoder-valid and over the 
   assert.ok(bytes(payload) < 2 * 1024 * 1024);
 });
 
-test("oversized valid product response is compacted under 40000 and every reduction is named", async () => {
+test("oversized valid product response: the ladder's lightest fitting level is under 40000 and every reduction is named", async () => {
   const before = structuredClone(payload);
-  const data = await entry.handler(args, execution) as any;
+  const data = lightestFitting(payload);
   assert.deepEqual(payload, before, "source object must not be mutated");
   assert.ok(envelopeLength(data) < BUDGET, `envelope ${envelopeLength(data)}`);
   assert.equal(data.sectionToken, payload.sectionToken); assert.equal(data.context.snapshotToken, payload.context.snapshotToken);
@@ -108,7 +111,7 @@ test("oversized valid product response is compacted under 40000 and every reduct
 });
 
 test("product coverage gaps survive compaction whole; only complete context entries fold", async () => {
-  const data = await entry.handler(args, execution) as any;
+  const data = lightestFitting(payload);
   const gaps = Object.entries(payload.context.coverageBySource).filter(([, c]) => !c.complete);
   assert.ok(gaps.length >= 1);
   for (const [ref, gap] of gaps) {
@@ -143,14 +146,14 @@ test("product still refuses with tool_result_too_large when the heaviest level c
   Object.assign(payload.sections.growth.data.pagination, { pageSize: 20, total: 20, returned: 20 });
   decodeProductInsights(payload, new URLSearchParams({ platform: "京东", outlet: "京东\u001f合成店A", startDate: args.startDate, endDate: args.endDate, pageSize: "20" }), revision);
   assert.ok(envelopeLength(compactProductInsightsForAi(payload as any, productCompactionLadder.at(-1)!)) > BUDGET);
-  await assert.rejects(entry.handler({ ...args, pageSize: 20 }, execution), errorIs("tool_result_too_large"));
+  await assert.rejects(entry.handler({ ...args, pageSize: 20, view: "list" }, execution), errorIs("tool_result_too_large"));
   assert.equal(payload.sections.items.length, 20);
 });
 
-test("a product response that already fits is returned unchanged with no aiCompaction", async () => {
+test("a product response that already fits is returned as its view, with no aiCompaction", async () => {
   payload = fixture(1); payload.sections.growth.data.items = [];
   Object.assign(payload.sections.growth.data.pagination, { total: 0, returned: 0 });
   assert.ok(envelopeLength(payload) <= BUDGET);
   const data = await entry.handler(args, execution);
-  assert.deepEqual(data, payload); assert.equal(Object.hasOwn(data, "aiCompaction"), false);
+  assertView(data, expectedProductView(payload, "overview"), "overview", ["sections.items", "sections.growth"]); assert.equal(Object.hasOwn(data, "aiCompaction"), false);
 });

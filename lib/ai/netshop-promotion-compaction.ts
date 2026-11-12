@@ -74,15 +74,15 @@ export function compactPromotionInsightsForAi(data: Record<string, unknown>, lev
   };
 
   // Contribution lists: source-ranked by previous-period change, so the first N are a real Top N.
-  const contributions = sections.contributions as Plain;
-  const lists = contributions.previous as Record<string, Plain[]>;
+  const contributions = sections.contributions as Plain | undefined;
+  const lists = (contributions?.previous ?? {}) as Record<string, Plain[]>;
   const keptLists: Record<string, Plain[]> = {};
   for (const [key, rows] of Object.entries(lists)) {
     const top = level.topN === null ? rows : rows.slice(0, level.topN);
     keptLists[key] = top.map(row => rankRow(row, key));
     if (rows.length > 0) c.record(`sections.contributions.previous.${key}`, rows.length, top.length, `${top.length < rows.length ? `top_${level.topN}_source_ranked_by_previous_change; ` : ""}${PROMOTION_RANK_ROW_RULE}`);
   }
-  out.contributions = { ...contributions, previous: keptLists };
+  if (contributions) out.contributions = { ...contributions, previous: keptLists };
 
   // Matched-range dates become inclusive ranges; each shop row's copy is dropped only when identical.
   const rangesOf = (matched: Plain) => (matched.shopDates as Array<{ shopKey: string; dates: string[] }>).map(({ shopKey, dates }) => ({ shopKey, dateRanges: datesToRanges(dates) }));
@@ -101,12 +101,12 @@ export function compactPromotionInsightsForAi(data: Record<string, unknown>, lev
 
   // Shops: source order is shop-name order, not a ranking. Keep every shop when possible;
   // otherwise choose by spend (desc, unknown last) and say so in the rule name.
-  const shops = sections.shops as Plain;
-  const shopRows = shops.items as Plain[];
+  const shops = sections.shops as Plain | undefined;
+  const shopRows = (shops?.items ?? []) as Plain[];
   const shopLimit = level.shopsTop ?? Math.max(shopRows.length, 1);
   const trimmedShops = shopRows.length > shopLimit;
   const keptShops = trimmedShops ? selectTopBy(shopRows, shopLimit, shop => (typeof shop.metrics?.spend?.value === "number" ? shop.metrics.spend.value : null)) : shopRows;
-  out.shops = { ...shops, items: keptShops.map(shop => ({
+  if (shops) out.shops = { ...shops, items: keptShops.map(shop => ({
     ...pick(shop, ["platform", "shopKey", "shopName", "coverageRef"]),
     metrics: c.stripProvenance(pick(shop.metrics, KEY_METRICS)),
     comparisons: pick(shop.comparisons, level.shopComparisonsFull ? KEY_METRICS : PAY_KEYS),
@@ -118,10 +118,10 @@ export function compactPromotionInsightsForAi(data: Record<string, unknown>, lev
   if (shopDatesOmitted > 0) c.record("sections.shops.items[].matchedRange.shopDates", shopDatesOmitted, 0, "omitted_duplicate_of_sections.matchedRange.shopDates");
 
   // Trend is chronological; the newest points are kept.
-  const trend = sections.trend as Plain;
-  const trendRows = trend.items as Plain[];
+  const trend = sections.trend as Plain | undefined;
+  const trendRows = (trend?.items ?? []) as Plain[];
   const latest = trendRows.slice(Math.max(0, trendRows.length - level.trendPoints));
-  out.trend = { ...trend, items: latest.map(point => ({ ...pick(point, ["startDate", "endDate", "days", "truncatedPeriod", "coverageRef"]), metrics: c.stripProvenance(pick(point.metrics, KEY_METRICS)) })) };
+  if (trend) out.trend = { ...trend, items: latest.map(point => ({ ...pick(point, ["startDate", "endDate", "days", "truncatedPeriod", "coverageRef"]), metrics: c.stripProvenance(pick(point.metrics, KEY_METRICS)) })) };
   if (trendRows.length > 0) c.record("sections.trend.items", trendRows.length, latest.length, `${latest.length < trendRows.length ? `latest_${level.trendPoints}_points; ` : ""}points_reduced_to_spend_attributedPayment_roas_values`);
 
   // Coverage: only complete, gap-free entries are folded; gaps stay (dates as ranges).
@@ -130,8 +130,8 @@ export function compactPromotionInsightsForAi(data: Record<string, unknown>, lev
   next.context = { ...context, coverageBySource: c.keepCoverageGaps("context.coverageBySource", context.coverageBySource) };
 
   // Current page rows: all fields, metrics and comparisons stay; only the listed duplicates go.
-  const items = sections.items as Plain[];
-  if (level.slimPage) {
+  const items = (sections.items ?? []) as Plain[];
+  if (level.slimPage && sections.items) {
     out.items = items.map(row => {
       const { observation: _observation, mapping, ...rest } = row;
       const slim: Plain = c.stripProvenance(rest);
@@ -148,7 +148,7 @@ export function compactPromotionInsightsForAi(data: Record<string, unknown>, lev
     c.record("sections.matchedRange.shopDates", summaryDates.size, summaryDates.size, "matched_dates_as_ranges");
   }
   if (level.stripScalars) {
-    for (const key of ["summary", "changes"]) out[key] = c.stripProvenance(sections[key]);
+    for (const key of ["summary", "changes"]) if (sections[key] !== undefined) out[key] = c.stripProvenance(sections[key]);
     c.record("sections.summary,changes,matchedRange.metrics", 3, 3, SOURCE_REFS_OMITTED_RULE);
   }
 

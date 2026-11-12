@@ -6,6 +6,7 @@ import { periodKinds } from "@/lib/netshop/insights-contract";
 import { NetshopQueryError, netshopOutletKey } from "@/lib/netshop/query-contract";
 import { validatePromotionQuery, decodePromotionInsightsForQuery, decodePromotionDetailForQuery, PROMOTION_OBJECT_KINDS, PROMOTION_SORTS } from "@/lib/netshop/promotion-insights-contract";
 import { aiEnvelopeLength, fitNetshopAiResult } from "./netshop-ai-compaction";
+import { NETSHOP_AI_VIEWS, projectNetshopAiView, viewHint, viewOf, type AiViewPlan, type NetshopAiView } from "./netshop-ai-view";
 import { compactPromotionInsightsForAi, promotionCompactionLadder } from "./netshop-promotion-compaction";
 import { RegistryToolError, validateToolArguments, type AiToolExecutionContext, type JsonSchema } from "./tool-registry-contract";
 
@@ -14,8 +15,28 @@ export const NETSHOP_PROMOTION_DETAIL_TOOL_NAME = "get_netshop_promotion_object_
 export const NETSHOP_PROMOTION_AI_TIMEOUT_MS = 30_000;
 export const NETSHOP_PROMOTION_AI_MAX_CHARACTERS = 40_000;
 export const NETSHOP_PROMOTION_AI_MAX_SOURCE_BYTES = 2 * 1024 * 1024;
-/** AI-side default page size, measured so default responses stay inside the 40000-character envelope after compaction. The owning reader still allows up to 20. */
-export const NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE = 1;
+/**
+ * AI-side default page size per view (the schema cannot express per-view defaults, so it carries none and the description says so).
+ * Only list reads the current-page rows; overview and rankings drop them, so 1. The owning reader still allows up to 20.
+ */
+export const NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZES: Record<NetshopAiView, number> = { overview: 1, rankings: 1, list: 3 };
+/** Ranking rows per direction in the rankings view, in source order (previous-period change); independent of pageSize. */
+export const NETSHOP_PROMOTION_RANKING_ROWS_PER_DIRECTION = 10;
+
+/** What each view carries; `capabilities` is the pseudo key for context.capabilities. Tokens, effective dates, coverage and limitations are always kept. */
+export const NETSHOP_PROMOTION_VIEW_PLAN: AiViewPlan = {
+  always: ["coverage", "limitations", "dataQuality"],
+  keep: {
+    overview: ["summary", "comparisons", "changes", "attribution", "matchedRange", "shops", "trend", "diagnostic", "objectCapabilities", "sourceMatrix", "capabilities"],
+    rankings: ["contributions"],
+    list: ["items", "pagination", "listScope"],
+  },
+  reasons: {
+    summary: "整期汇总属于总览", comparisons: "环比/同比比较属于总览", changes: "变化量属于总览", attribution: "归因口径属于总览", matchedRange: "匹配期间属于总览",
+    shops: "分店铺汇总属于总览", trend: "趋势属于总览", diagnostic: "诊断能力属于总览", objectCapabilities: "对象能力清单属于总览", sourceMatrix: "来源矩阵属于总览",
+    contributions: "贡献排行行属于排名视图", items: "当前页对象行属于列表视图", pagination: "分页回执随当前页对象行属于列表视图", listScope: "列表范围随当前页对象行属于列表视图",
+  },
+};
 
 const sharedProperties = {
   platform: { type: "string", enum: ["京东", "天猫"], description: "唯一平台，归因定义分别保留；SKU/SPU维度由平台派生，不接受模型指定。" },
@@ -33,7 +54,8 @@ export const netshopPromotionInsightsInputSchema = {
   type: "object", properties: { ...sharedProperties,
     q: { type: "string", maxLength: 120, default: "", description: "仅搜索对象列表；全期汇总和完整贡献集合不随搜索变化。" },
     page: { type: "integer", minimum: 1, maximum: 10000, default: 1 },
-    pageSize: { type: "integer", minimum: 1, maximum: 20, default: NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE, description: "对象列表当前页行数，默认1：环比/同比和周报只需整期汇总、比较与贡献排行，不需要多行对象。调大会使完整响应更易超过40000字符被拒绝，当前页行在超预算时只能省略部分展示字段，不删指标。" },
+    view: { type: "string", enum: [...NETSHOP_AI_VIEWS], default: "overview", description: "overview(默认)=整体/环比同比/周报；rankings=涨跌最大/Top N排名行(四个方向各前10行)；list=当前页对象行、分页与列表范围。不同视图省略的内容见返回的aiView.omitted。view只决定返回哪些已校验内容，不发送给后端。" },
+    pageSize: { type: "integer", minimum: 1, maximum: 20, description: "对象列表当前页行数，仅list视图使用；省略时按view取默认（schema无法按view给默认值）：overview=1、rankings=1（均不含当前页行）、list=3（重场景下页行每多一行约多5K字符，调大到约5行即可能超预算被拒绝）。rankings的排名行数固定每方向10行，不受pageSize影响。调大更易超过40000字符被拒绝。" },
     sort: { type: "string", enum: [...PROMOTION_SORTS], default: "spend_desc" },
   }, required: ["platform", "startDate", "endDate"], additionalProperties: false,
 } satisfies JsonSchema;
@@ -61,7 +83,7 @@ function promotionQuery(args: Record<string, unknown>, context: AiToolExecutionC
     if (detail) {
       query.set("objectId", String(args.objectId)); query.set("shopKey", String(args.shopKey));
     } else {
-      query.set("q", String(args.q ?? "")); query.set("page", String(args.page ?? 1)); query.set("pageSize", String(args.pageSize ?? NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE)); query.set("sort", String(args.sort ?? "spend_desc"));
+      query.set("q", String(args.q ?? "")); query.set("page", String(args.page ?? 1)); query.set("pageSize", String(args.pageSize ?? NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZES[viewOf(args)])); query.set("sort", String(args.sort ?? "spend_desc"));
     }
     const spec = validatePromotionQuery(query, detail);
     if (spec.context.shops.length !== outlets.length || spec.context.shops.some(shop => !outlets.includes(netshopOutletKey(shop.platform, shop.shopName)))) throw new RegistryToolError("invalid_arguments", "精确店铺身份不能重复或通过空格改变");
@@ -115,8 +137,21 @@ async function readPromotion(args: Record<string, unknown>, context: AiToolExecu
     if (aiEnvelopeLength(name, data) > NETSHOP_PROMOTION_AI_MAX_CHARACTERS) throw new RegistryToolError("tool_result_too_large", "完整推广信封超过40000字符，请缩小范围；未截断任何来源覆盖");
     return { ...data };
   }
-  const fitted = fitNetshopAiResult(name, data as Record<string, unknown>, NETSHOP_PROMOTION_AI_MAX_CHARACTERS, promotionCompactionLadder.map(level => (source: Record<string, unknown>) => compactPromotionInsightsForAi(source, level)));
-  if (fitted === null) throw new RegistryToolError("tool_result_too_large", "推广结果精简后仍超过40000字符，请缩小范围或减小每页条数；覆盖缺口未被裁去");
+  const view = viewOf(args);
+  const projected = projectNetshopAiView(data as Record<string, unknown>, view, NETSHOP_PROMOTION_VIEW_PLAN, (sections, builder) => {
+    const contributions = sections.contributions as Record<string, any> | undefined;
+    if (view === "rankings" && contributions) {
+      const previous: Record<string, unknown[]> = {};
+      for (const [key, rows] of Object.entries(contributions.previous as Record<string, unknown[]>)) {
+        previous[key] = rows.slice(0, NETSHOP_PROMOTION_RANKING_ROWS_PER_DIRECTION);
+        if (rows.length > NETSHOP_PROMOTION_RANKING_ROWS_PER_DIRECTION) builder.omit(`sections.contributions.previous.${key}`, "contributions-tail", `源有${rows.length}行（按上期环比变化排序），仅取前${NETSHOP_PROMOTION_RANKING_ROWS_PER_DIRECTION}行；被截断的列表不可求和`);
+      }
+      sections.contributions = { ...contributions, previous };
+    }
+    return sections;
+  });
+  const fitted = fitNetshopAiResult(name, projected, NETSHOP_PROMOTION_AI_MAX_CHARACTERS, promotionCompactionLadder.map(level => (source: Record<string, unknown>) => compactPromotionInsightsForAi(source, level)));
+  if (fitted === null) throw new RegistryToolError("tool_result_too_large", `推广结果精简后仍超过40000字符，请缩小店铺或日期范围、改用其他视图（${viewHint(NETSHOP_AI_VIEWS.filter(item => item !== view))}）或减小pageSize；覆盖缺口未被裁去`);
   return fitted;
 }
 export function getNetshopPromotionInsightsForAi(args: Record<string, unknown>, context: AiToolExecutionContext) { return readPromotion(args, context, false); }

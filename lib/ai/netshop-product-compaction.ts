@@ -64,8 +64,13 @@ export function compactProductInsightsForAi(data: Record<string, unknown>, level
   }
   const efficiency = sections.efficiency as Plain | undefined;
   if (efficiency) {
-    out.efficiency = { ...efficiency, watchlist: rank("sections.efficiency.watchlist", efficiency.watchlist as Plain[], `first_${level.topN}_of_ranked_page_by_visitors_desc`, watchRank) };
-    if (level.stripScalars) { out.efficiency = { ...c.stripProvenance({ ...out.efficiency, watchlist: [] }), watchlist: out.efficiency.watchlist }; c.record("sections.efficiency", 1, 1, SOURCE_REFS_OMITTED_RULE); }
+    const hasWatchlist = Array.isArray(efficiency.watchlist);
+    out.efficiency = hasWatchlist ? { ...efficiency, watchlist: rank("sections.efficiency.watchlist", efficiency.watchlist as Plain[], `first_${level.topN}_of_ranked_page_by_visitors_desc`, watchRank) } : { ...efficiency };
+    if (level.stripScalars) {
+      const { watchlist: keptWatchlist, ...rest } = out.efficiency;
+      out.efficiency = hasWatchlist ? { ...c.stripProvenance({ ...rest, watchlist: [] }), watchlist: keptWatchlist } : c.stripProvenance(rest);
+      c.record("sections.efficiency", 1, 1, SOURCE_REFS_OMITTED_RULE);
+    }
   }
   const structure = sections.structure as Plain | undefined;
   if (structure) {
@@ -84,7 +89,7 @@ export function compactProductInsightsForAi(data: Record<string, unknown>, level
   next.context = { ...context, coverageBySource: c.keepCoverageGaps("context.coverageBySource", context.coverageBySource) };
 
   // Current page rows: identity, every metric, every comparison, paymentDelta stay; only the listed duplicates go.
-  if (level.slimPage) {
+  if (level.slimPage && Array.isArray(sections.items)) {
     const items = sections.items as Plain[];
     out.items = items.map(row => {
       const { baselineMetrics: _baseline, imageUrl: _image, productUrl: _url, categoryEvidence: _evidence, ...rest } = row;

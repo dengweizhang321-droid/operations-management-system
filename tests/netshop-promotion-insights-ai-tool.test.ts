@@ -17,6 +17,7 @@ const { aiToolRegistry } = await import("../lib/ai/tool-registry");
 const { getNetshopPromotionInsightsForAi, getNetshopPromotionObjectDetailForAi, NETSHOP_PROMOTION_INSIGHTS_TOOL_NAME: listName, NETSHOP_PROMOTION_DETAIL_TOOL_NAME: detailName } = await import("../lib/ai/netshop-promotion-insights-tool");
 const { validatePromotionQuery, decodePromotionInsightsForQuery, decodePromotionDetailForQuery, PROMOTION_OBJECT_KINDS, PROMOTION_SORTS } = await import("../lib/netshop/promotion-insights-contract");
 const { validateToolRegistry, getOpenAiTools, getAnthropicTools, getVisibleToolCatalog, executeToolCallWithRegistry, RegistryToolError } = await import("../lib/ai/tool-registry-contract");
+const { assertView, expectedPromotionView } = await import("./netshop-view-oracle");
 const { createAiToolExecutionRuntime } = await import("../lib/ai/tool-execution-runtime");
 const listEntry: AiToolEntry = aiToolRegistry.find(e => e.name === listName)!;
 const detailEntry: AiToolEntry = aiToolRegistry.find(e => e.name === detailName)!;
@@ -55,7 +56,8 @@ test("actual central entries are unique, closed, role/scope aware and limited to
   assert.equal(listEntry.handler, getNetshopPromotionInsightsForAi); assert.equal(detailEntry.handler, getNetshopPromotionObjectDetailForAi);
   for (const entry of [listEntry, detailEntry]) {
     assert.equal(entry.risk, "read_only"); assert.equal(entry.scopePolicy, "principal_scope"); assert.equal(entry.inputSchema.additionalProperties, false);
-    assert.deepEqual(entry.execution, { environment: "worker_inline", mode: "direct", allowedSurfaces: ["ai_chat", "ai_agent", "codex_mcp", "test"], timeoutMs: 30000, maxResultCharacters: 40000, maxCallsPerRequest: 2 });
+    // The list tool reads overview, rankings and list once each (3); the detail tool keeps 2.
+    assert.deepEqual(entry.execution, { environment: "worker_inline", mode: "direct", allowedSurfaces: ["ai_chat", "ai_agent", "codex_mcp", "test"], timeoutMs: 30000, maxResultCharacters: 40000, maxCallsPerRequest: entry === listEntry ? 3 : 2 });
     assert.deepEqual(entry.allowedRoles, ["viewer", "analyst", "operator", "admin"]);
     for (const role of entry.allowedRoles) for (const surface of entry.execution.allowedSurfaces) {
       const actor = { ...principal, role }; assert.equal(getOpenAiTools(actor, surface, aiToolRegistry).find(t => t.function.name === entry.name)?.function.parameters, entry.inputSchema); assert.equal(getAnthropicTools(actor, surface, aiToolRegistry).find(t => t.name === entry.name)?.input_schema, entry.inputSchema); assert.equal(getVisibleToolCatalog(actor, surface, aiToolRegistry).find(t => t.name === entry.name)?.inputSchema, entry.inputSchema);
@@ -69,7 +71,7 @@ test("actual smallest owning product fixture fits the complete envelope and all 
   const args = argsFor(payload), chars = JSON.stringify({ ok: true, toolName: listName, data: payload }).length;
   assert.ok(chars <= 40000); decodePromotionInsightsForQuery(payload, queryFor(args), owningRevision);
   for (const role of ["viewer", "analyst", "operator", "admin"] as const) {
-    const data = await listEntry.handler(args, { ...context, principal: { ...principal, role } }); assert.deepEqual(data, payload);
+    const data = await listEntry.handler(args, { ...context, principal: { ...principal, role } }); assertView(data, expectedPromotionView(payload, "overview"), "overview", ["sections.items", "sections.contributions"]);
     const call = calls.at(-1)!; assert.equal(call.init?.method, "GET"); assert.equal(call.init?.body, undefined); assert.equal(call.url.searchParams.get("dimension"), "sku"); assert.equal(call.url.searchParams.get("pageSize"), String((payload as PromotionInsightsResponse).sections.pagination.pageSize));
     const headers = new Headers(call.init?.headers); assert.match(headers.get("X-Teruisi-Signature")!, /^v1=[a-f0-9]{64}$/); assert.equal(JSON.parse(Buffer.from(headers.get("X-Teruisi-Principal")!, "base64url").toString()).role, role);
   }
@@ -120,7 +122,7 @@ test("non-product eligibility never enlarges the existing admin/JD/single/1-7-da
   }
   assert.equal(calls.length, 0);
   payload = await fixture("plan"); owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
-  assert.deepEqual(await listEntry.handler(argsFor(payload), context), payload);
+  assertView(await listEntry.handler(argsFor(payload), context), expectedPromotionView(payload, "overview"), "overview", ["sections.items"]);
 });
 test("valid but mismatched scope/header/token/decoder operands never escape", async () => {
   const good = await fixture("product"), args = argsFor(good);
@@ -132,16 +134,22 @@ test("valid but mismatched scope/header/token/decoder operands never escape", as
 // flat refusal. The decoder still accepts the whole body first; the tool now returns a marked
 // model-facing view in which every incomplete coverage entry stays whole.
 function asRanges(c: any) { return { ...c, missingByShop: (c.missingByShop ?? []).map(({ dates, ...rest }: any) => (dates ? { ...rest, missingRanges: datesToRanges(dates) } : rest)) }; }
-test("real misaligned-store fixture over 40k is compacted with every coverage gap kept and the reduction marked", async () => {
-  payload = await fixture("misaligned"); owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision; const args = argsFor(payload);
+test("real misaligned-store fixture over 40k: every view answers within 40000 with every coverage gap kept", async () => {
+  payload = await fixture("misaligned"); owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
+  const args = argsFor(payload);
   decodePromotionInsightsForQuery(payload, queryFor(args), owningRevision); assert.ok(JSON.stringify({ ok: true, toolName: listName, data: payload }).length > 40000);
-  const before = structuredClone(payload); const data = await listEntry.handler(args, context) as PromotionInsightsResponse & { aiCompaction: { applied: boolean; sections: Array<{ path: string }> } };
-  assert.deepEqual(payload, before); assert.equal(calls.length, 1);
-  assert.ok(JSON.stringify({ ok: true, toolName: listName, data }).length <= 40000);
-  assert.equal(data.aiCompaction.applied, true); assert.ok(data.aiCompaction.sections.length > 0);
-  for (const [ref, gap] of Object.entries(payload.sections.coverage).filter(([, c]) => !c.complete)) assert.deepEqual(data.sections.coverage[ref], asRanges(gap));
-  for (const [ref, gap] of Object.entries(payload.context.coverageBySource).filter(([, c]) => !c.complete)) assert.deepEqual(data.context.coverageBySource[ref], asRanges(gap));
-  assert.deepEqual((data.sections as any).summary.spend.value, (payload as PromotionInsightsResponse).sections.summary.spend.value); assert.deepEqual((data.sections as any).comparisons, (payload as PromotionInsightsResponse).sections.comparisons); assert.deepEqual(data.sectionToken, payload.sectionToken);
+  const before = structuredClone(payload);
+  for (const view of ["overview", "rankings", "list"] as const) {
+    const data = await listEntry.handler({ ...args, view }, context) as PromotionInsightsResponse & { aiView: { view: string }; aiCompaction?: { applied: boolean; sections: Array<{ path: string }> } };
+    assert.deepEqual(payload, before); assert.equal(data.aiView.view, view);
+    assert.equal(calls.at(-1)!.url.searchParams.has("view"), false);
+    const chars = JSON.stringify({ ok: true, toolName: listName, data }).length; console.log("misaligned fixture", view, chars); assert.ok(chars <= 40000);
+    if (data.aiCompaction) { assert.equal(data.aiCompaction.applied, true); assert.ok(data.aiCompaction.sections.length > 0); }
+    for (const [ref, gap] of Object.entries(payload.sections.coverage).filter(([, c]) => !c.complete)) assert.deepEqual(data.sections.coverage[ref], data.aiCompaction ? asRanges(gap) : gap); // dates become ranges only when compaction is applied
+    for (const [ref, gap] of Object.entries(payload.context.coverageBySource).filter(([, c]) => !c.complete)) assert.deepEqual(data.context.coverageBySource[ref], data.aiCompaction ? asRanges(gap) : gap);
+    assert.equal(data.sectionToken, payload.sectionToken); assert.equal((data as any).columnVersion, (payload as PromotionInsightsResponse).columnVersion);
+  }
+  assert.equal(calls.length, 3);
 });
 test("reader status meanings stay safe, never retry or fall back to historical APIs", async () => {
   const args = argsFor(payload);
@@ -149,13 +157,15 @@ test("reader status meanings stay safe, never retry or fall back to historical A
     let count = 0; globalThis.fetch = async () => { count++; return response({ code, error: "private-upstream-detail" }, status, null); }; await assert.rejects(listEntry.handler(args, context), e => e instanceof RegistryToolError && e.code === expected && !e.message.includes("private-upstream-detail")); assert.equal(count, 1);
   }
 });
-test("central audit availability and two-call budget are mandatory for both registered tools", async () => {
+test("central audit availability and the per-tool call budget (list 3, detail 2) are mandatory for both registered tools", async () => {
   for (const [name, filename, detail] of [[listName, "product", false], [detailName, "detail", true]] as const) {
     payload = await fixture(filename); owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision; calls = []; const args = argsFor(payload, detail);
     const blocked = await executeToolCallWithRegistry(name, args, context, { entries: aiToolRegistry, audit: async () => { throw Error("offline"); } }); assert.equal(blocked.ok, false); if (!blocked.ok) assert.equal(blocked.error.code, "audit_unavailable"); assert.equal(calls.length, 0);
     const terminal = await executeToolCallWithRegistry(name, args, context, { entries: aiToolRegistry, audit: async input => { if (input.status === "succeeded") throw Error("terminal audit offline"); } }); assert.equal(terminal.ok, false); if (!terminal.ok) assert.equal(terminal.error.code, "audit_unavailable");
     calls = []; const statuses: string[] = []; const runtime = createAiToolExecutionRuntime({ context, entries: aiToolRegistry, audit: async input => { statuses.push(input.status); } });
-    assert.equal((await runtime.execute(name, args)).ok, true); assert.equal((await runtime.execute(name, args)).ok, true); const third = await runtime.execute(name, args); assert.equal(third.ok, false); if (!third.ok) assert.equal(third.error.code, "tool_call_budget_exceeded"); assert.equal(calls.length, 2); assert.equal(statuses.filter(s => s === "succeeded").length, 2);
+    const limit = detail ? 2 : 3; // list: overview + rankings + list; detail: 2
+    for (let i = 0; i < limit; i++) assert.equal((await runtime.execute(name, args)).ok, true);
+    const over = await runtime.execute(name, args); assert.equal(over.ok, false); if (!over.ok) assert.equal(over.error.code, "tool_call_budget_exceeded"); assert.equal(calls.length, limit); assert.equal(statuses.filter(s => s === "succeeded").length, limit);
   }
 });
 test("actual SDK refuses a source body above 2MiB UTF8 even below a smaller character count", async () => {
