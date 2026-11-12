@@ -309,7 +309,7 @@ export const releaseChainTripleFixWorkerScriptSha256='0e5459dd34c5dd5fa26109d360
 // bytes now installed in production stay releaseChainTripleFixDjangoScriptSha256, so
 // forward adoption and rollback both remain admissible. The hash is over the git-stored
 // bytes (UTF-8 BOM + CRLF, -text in .gitattributes). Predecessor records are not touched.
-export const djangoSupervisorRelaunchDjangoScriptSha256='023ea7c41a1dd6d4b1eb85097601ce2133001af5aef9fb9599e06a2937da2c8a';
+export const djangoSupervisorRelaunchDjangoScriptSha256='ff63a968e6df23ce96034f4df3ee8baa3d3e2d04f428a52245f9b8c2537ec58a';
 // Controlled-stop exiting-process fix (codex/worker-stop-exiting-race-20261112):
 // Get-ControlledStopSweep falls back to the ledger's complete snapshot only for a
 // ledgered process whose PID/creation/name/parent are unchanged while Win32 already

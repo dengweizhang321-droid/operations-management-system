@@ -26,9 +26,12 @@ try {
   . $ServiceScript -Action Start -RuntimeRoot $FixtureRoot
   $DjangoSupervisorFixedRuntimeRoot = $FixtureRoot
   $DjangoSupervisorPollMilliseconds = 50
-  $DjangoSupervisorConfirmSeconds = 1
   $DjangoSupervisorStopWaitSeconds = 1
   New-Item -ItemType Directory -Path $RunDirectory, $LogDirectory -Force | Out-Null
+  # The supervisor (and the relaunch plan) compare the desired-state digest with the INSTALLED
+  # script, so the fake runtime root carries a byte copy of the script under test.
+  New-Item -ItemType Directory -Path (Split-Path -Parent $InstalledScriptPath) -Force | Out-Null
+  function Restore-InstalledScript { Copy-Item -LiteralPath $ServiceScript -Destination $InstalledScriptPath -Force }
 
   $PowerShellExe = (Get-Command 'powershell.exe').Source
   $ExpectedArguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $FixtureRoot + '\app\tools\django-runtime-supervisor.ps1" -Action Run -RuntimeRoot "' + $FixtureRoot + '" -Execute'
@@ -66,8 +69,8 @@ try {
     $script:SupervisorExpectedDesiredStateSha256 = ''
     $script:DjangoSupervisorFixedRuntimeRoot = $FixtureRoot
     $script:NativeIsolation = $null
-    $script:DjangoSupervisorConfirmSeconds = 1
     $script:DjangoSupervisorStopWaitSeconds = 1
+    Restore-InstalledScript
     $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = $null
     foreach ($path in @($MaintenancePath, $DjangoSupervisorPidPath, $SupervisorDesiredStatePath, $LauncherLogPath, "$LauncherLogPath.1")) {
       if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
@@ -89,6 +92,9 @@ try {
     Assert-That ($script:Calls[0].WorkingDirectory -ceq $InstalledAppRoot) 'working directory must be the app root'
     Assert-That ($result.Launched -and $result.ProcessId -eq 424242) 'result must carry the created process id'
     Assert-That ($script:Calls[0].CommandLine -notmatch 'RedirectStandard') 'no redirection allowed'
+    $requested = @(Get-LauncherEvents | Where-Object { $_.event -ceq 'supervisor_launch_requested' })
+    Assert-That ($requested.Count -eq 1 -and $requested[0].message -ceq 'processId=424242') 'supervisor_launch_requested with the WMI pid missing'
+    Assert-That (@(Get-LauncherEvents | Where-Object { $_.event -ceq 'supervisor_launched' -or $_.event -ceq 'supervisor_launch_unconfirmed' }).Count -eq 0) 'no confirmation events exist any more'
   }
 
   # ---- every skip condition ----
@@ -104,7 +110,13 @@ try {
         $state = Get-Content -Raw -LiteralPath $SupervisorDesiredStatePath -Encoding UTF8 | ConvertFrom-Json
         $state.serviceScriptSha256 = ('d' * 64)
         [IO.File]::WriteAllText($SupervisorDesiredStatePath, ($state | ConvertTo-Json), $Utf8NoBom) } },
+    @{ Reason = 'desired_state_digest_mismatch'; Setup = {
+        # running copy equals the desired state, but the INSTALLED script differs (non-installed copy executing)
+        [IO.File]::AppendAllText($InstalledScriptPath, "`r`n# drift`r`n") } },
+    @{ Reason = 'desired_state_digest_mismatch'; Setup = { Remove-Item -LiteralPath $InstalledScriptPath -Force } },
     @{ Reason = 'startup_missing'; Setup = { $script:Shortcut = $null } },
+    @{ Reason = 'startup_not_supervisor'; Setup = { $script:Shortcut = [pscustomobject]@{ TargetPath = (Join-Path $env:SystemRoot 'System32\cmd.exe'); Arguments = $ExpectedArguments; WorkingDirectory = $InstalledAppRoot } } },
+    @{ Reason = 'startup_not_supervisor'; Setup = { $script:Shortcut = [pscustomobject]@{ TargetPath = $PowerShellExe; Arguments = $ExpectedArguments; WorkingDirectory = (Join-Path $FixtureRoot 'elsewhere') } } },
     @{ Reason = 'startup_not_supervisor'; Setup = { $script:Shortcut = [pscustomobject]@{ TargetPath = $PowerShellExe; Arguments = $OneShotArguments; WorkingDirectory = $InstalledAppRoot } } },
     @{ Reason = 'supervisor_already_running'; Setup = { Write-Receipt $PID $OwnCreation } },
     @{ Reason = 'supervisor_candidate_present'; Setup = { $script:Candidates = @([pscustomobject]@{ ProcessId = 1 }) } }
@@ -167,33 +179,19 @@ try {
     Assert-That (@(Get-LauncherEvents | Where-Object { $_.event -ceq 'supervisor_launch_failed' }).Count -eq 1) 'failure event missing'
   }
 
-  # ---- confirmation ----
-  Check 'confirmation sees the receipt written by the launched process' {
+  # ---- Start must not wait for the supervisor receipt ----
+  Check 'launch step returns promptly although the receipt never appears' {
     Reset-Fixture
-    $result = Invoke-DjangoSupervisorRelaunch
-    Write-Receipt 424242 $OwnCreation
-    Confirm-DjangoSupervisorLaunch $result
-    Assert-That (@(Get-LauncherEvents | Where-Object { $_.event -ceq 'supervisor_launched' -and $_.message -ceq 'processId=424242' }).Count -eq 1) 'supervisor_launched missing'
-  }
-  Check 'confirmation timeout only records a WARN event' {
-    Reset-Fixture
-    $result = Invoke-DjangoSupervisorRelaunch
+    # the stub create succeeds, but no receipt is ever written (the real supervisor needs ~38 s)
     $clock = [Diagnostics.Stopwatch]::StartNew()
-    Confirm-DjangoSupervisorLaunch $result
-    Assert-That ($clock.ElapsedMilliseconds -lt 5000) 'confirmation wait must be bounded'
-    $warn = @(Get-LauncherEvents | Where-Object { $_.event -ceq 'supervisor_launch_unconfirmed' })
-    Assert-That ($warn.Count -eq 1 -and $warn[0].level -ceq 'WARN' -and $warn[0].message -match 'reason=timeout') 'unconfirmed WARN missing'
-  }
-  Check 'confirmation never outlives the caller deadline' {
-    Reset-Fixture
     $result = Invoke-DjangoSupervisorRelaunch
-    $script:DjangoSupervisorConfirmSeconds = 20
-    $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = [string]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + 3000)
-    $clock = [Diagnostics.Stopwatch]::StartNew()
-    Confirm-DjangoSupervisorLaunch $result
-    $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = $null
-    Assert-That ($clock.ElapsedMilliseconds -lt 1500) 'must not wait when less than the reserve remains'
-    Assert-That (@(Get-LauncherEvents | Where-Object { $_.event -ceq 'supervisor_launch_unconfirmed' -and $_.message -match 'deadline_budget' }).Count -eq 1) 'deadline_budget event missing'
+    Assert-That ($result.Launched) 'launch must be reported as requested'
+    Assert-That ($clock.ElapsedMilliseconds -lt 700) "launch step waited for a receipt: $($clock.ElapsedMilliseconds) ms"
+    Assert-That (-not (Test-Path -LiteralPath $DjangoSupervisorPidPath)) 'fixture sanity: no receipt exists'
+  }
+  Check 'no confirmation step exists in the controller' {
+    Assert-That ($null -eq (Get-Command 'Confirm-DjangoSupervisorLaunch' -ErrorAction SilentlyContinue)) 'Confirm-DjangoSupervisorLaunch must be gone'
+    Assert-That ($null -eq (Get-Command 'Test-DjangoSupervisorReceiptProcess' -ErrorAction SilentlyContinue)) 'Test-DjangoSupervisorReceiptProcess must be gone'
   }
 
   # ---- Stop: bounded wait, never throws, never ends a process ----
@@ -245,7 +243,7 @@ try {
   $source = [IO.File]::ReadAllText($ServiceScript)
   $functionTexts = @{}
   $ast = [Management.Automation.Language.Parser]::ParseFile($ServiceScript, [ref]$null, [ref]$null)
-  foreach ($name in @('Invoke-DjangoSupervisorProcessCreate', 'Invoke-DjangoSupervisorRelaunch', 'Confirm-DjangoSupervisorLaunch', 'Wait-DjangoSupervisorExitAfterStop', 'Get-DjangoSupervisorRelaunchPlan', 'Get-DjangoSupervisorReceiptState', 'Test-DjangoSupervisorRunning')) {
+  foreach ($name in @('Invoke-DjangoSupervisorProcessCreate', 'Invoke-DjangoSupervisorRelaunch', 'Wait-DjangoSupervisorExitAfterStop', 'Get-DjangoSupervisorRelaunchPlan', 'Get-DjangoSupervisorReceiptState', 'Test-DjangoSupervisorRunning')) {
     $definition = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
     $functionTexts[$name] = if ($definition) { $definition.Extent.Text } else { '' }
   }
@@ -261,14 +259,15 @@ try {
     Assert-That ($text -match 'Invoke-CimMethod -ClassName Win32_Process -MethodName Create') 'must use Invoke-CimMethod Win32_Process Create'
     Assert-That ($text -notmatch 'Start-Process|RedirectStandard') 'must not use Start-Process or redirection'
   }
-  Check 'Start branch relaunches inside the mutex and confirms after it; Stop waits after the mutex' {
+  Check 'Start branch relaunches once after the domain starts and never waits afterwards; Stop waits after the mutex' {
     $start = [regex]::Match($source, '(?s)"Start" \{.*?\r?\n      "Stop" \{').Value
     Assert-That ($start.Length -gt 0) 'Start branch not found'
     $domain = $start.IndexOf('Invoke-EnabledDjangoDomainStarts $orchestratedLifecycleAclToken')
-    $relaunch = $start.IndexOf('$script:DjangoSupervisorLaunchResult = Invoke-DjangoSupervisorRelaunch')
-    $mutexEnd = $start.IndexOf('Confirm-DjangoSupervisorLaunch')
-    Assert-That ($domain -gt 0 -and $relaunch -gt $domain -and $mutexEnd -gt $relaunch) 'order must be domain starts, relaunch, confirm'
-    Assert-That ($start.Substring($relaunch, $mutexEnd - $relaunch) -match '(?s)\}\s*$') 'confirm must come after the mutex block closes'
+    $relaunch = $start.IndexOf('Invoke-DjangoSupervisorRelaunch')
+    Assert-That ($domain -gt 0 -and $relaunch -gt $domain) 'order must be domain starts, then relaunch'
+    Assert-That ($start.IndexOf('Invoke-DjangoSupervisorRelaunch', $relaunch + 1) -lt 0) 'relaunch must be called exactly once'
+    Assert-That ($start -notmatch 'Confirm-DjangoSupervisor|Start-Sleep|Wait-DjangoSupervisor') 'Start must not wait for the supervisor'
+    Assert-That ($functionTexts['Invoke-DjangoSupervisorRelaunch'] -notmatch '(?i)Start-Sleep|\bwhile\b|\bdo\s*\{') 'the relaunch step must not wait or loop'
     $stop = [regex]::Match($source, '(?s)"Stop" \{.*?\r?\n      "Status" \{').Value
     $stopEnd = $stop.IndexOf('Stop-ServiceStack')
     $wait = $stop.IndexOf('Wait-DjangoSupervisorExitAfterStop')
