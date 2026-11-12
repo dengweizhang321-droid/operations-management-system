@@ -143,3 +143,16 @@ test("classification and corrupt-state gates pass isolated PowerShell fixtures",
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.deepEqual(JSON.parse(result.stdout.trim()), { status: "completed" });
 });
+
+test("supervisor upgrade archives only a cleanly stopped previous state and fatal exits leave a diagnostic", {
+  skip: process.platform !== "win32" || !existsSync(powershell), timeout: 120_000,
+}, () => {
+  const result = spawnSync(powershell, [
+    "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+    "-File", path.join(root, "tests", "django-runtime-supervisor-selflock.test.ps1"),
+  ], { encoding: "utf8", windowsHide: true, timeout: 100_000 });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const summary = JSON.parse(result.stdout.trim().split(/\r?\n/).pop() ?? "");
+  assert.equal(summary.productionTouched, false);
+  assert.ok(summary.checks >= 60, `expected at least 60 checks, got ${summary.checks}`);
+});

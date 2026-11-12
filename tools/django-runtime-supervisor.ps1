@@ -277,7 +277,10 @@ function New-SupervisorState {
   }
 }
 
-function Read-SupervisorState {
+function Read-SupervisorState(
+  [ValidateSet("Strict", "AllowPreviousStopped", "ArchivePreviousStopped")]
+  [string]$Mode = "Strict"
+) {
   if (-not (Test-Path -LiteralPath $SupervisorStatePath -PathType Leaf)) {
     return New-SupervisorState
   }
@@ -310,10 +313,53 @@ function Read-SupervisorState {
       -not (Test-SupervisorOptionalTimestamp ([string]$state.lastHealthyAt)) -or
       -not (Test-SupervisorOptionalTimestamp ([string]$state.lastRestartAttemptAt)) -or
       -not (Test-SupervisorOptionalTimestamp ([string]$state.lastAlertAt)) -or
-      [string]$state.supervisorScriptSha256 -cne (Get-FileSha256 $SupervisorScriptPath)) {
+      [string]$state.supervisorScriptSha256 -cnotmatch "^[0-9a-f]{64}$") {
     throw "Django supervisor state 版本或脚本摘要无效"
   }
+  $currentSha256 = Get-FileSha256 $SupervisorScriptPath
+  if ([string]$state.supervisorScriptSha256 -cne $currentSha256) {
+    # A state written by another script generation is accepted only when that
+    # generation ended in a clean stop; anything else stays fail-closed.
+    if ($Mode -ceq "Strict" -or
+        -not (Test-SupervisorPreviousGenerationCleanStop $state)) {
+      throw "Django supervisor state 版本或脚本摘要无效"
+    }
+    if ($Mode -ceq "ArchivePreviousStopped") {
+      Move-SupervisorStatePreviousGeneration ([string]$state.supervisorScriptSha256)
+      return New-SupervisorState
+    }
+  }
   return $state
+}
+
+function Test-SupervisorPreviousGenerationCleanStop([object]$State) {
+  # Exactly what Invoke-SupervisorCycle writes before the supervisor exits on
+  # desired-state stopped. A running/unhealthy/restarting generation never
+  # matches, so it cannot be silently adopted by a different script.
+  return (
+    [string]$State.desiredState -ceq "stopped" -and
+    [string]$State.health -ceq "stopped" -and
+    [string]$State.code -ceq "desired_state_stopped" -and
+    $State.recoverable -is [bool] -and
+    -not [bool]$State.recoverable -and
+    [int]$State.consecutiveFailures -eq 0
+  )
+}
+
+function Move-SupervisorStatePreviousGeneration([string]$PreviousSha256) {
+  if ($PreviousSha256 -cnotmatch "^[0-9a-f]{64}$") {
+    throw "Django supervisor state 旧摘要无效，拒绝归档"
+  }
+  # Rename within one directory is atomic and keeps every byte of the old file.
+  # An existing archive is never overwritten: use the first free numbered name.
+  $target = Join-Path $SupervisorMonitorDirectory "state.previous-$PreviousSha256.json"
+  $suffix = 0
+  while (Test-Path -LiteralPath $target) {
+    $suffix++
+    if ($suffix -gt 99) { throw "Django supervisor state 归档名已耗尽，拒绝覆盖" }
+    $target = Join-Path $SupervisorMonitorDirectory "state.previous-$PreviousSha256.$suffix.json"
+  }
+  Move-Item -LiteralPath $SupervisorStatePath -Destination $target
 }
 
 function Write-SupervisorState([object]$State) {
@@ -778,19 +824,31 @@ function Invoke-SupervisorRun {
       throw "已有经过身份验证的 Django supervisor 进程"
     }
     $snapshot = Write-SupervisorProcessReceipt
+    $script:SupervisorStage = "state_upgrade"
+    # Mutating path only: a previous script generation that stopped cleanly is
+    # archived next to state.json and a fresh state starts from the new script.
+    Read-SupervisorState "ArchivePreviousStopped" | Out-Null
+    $script:SupervisorStage = "cycle"
     while ($true) {
       try {
         $cycle = Invoke-SupervisorCycle
         if (-not [bool]$cycle.shouldContinue) { break }
       } catch {
-        $state = Read-SupervisorState
-        $digest = Get-Sha256Text (Protect-LogText $_.Exception.Message)
-        $state.health = "unknown"
-        $state.code = "supervisor_cycle_failed"
-        $state.recoverable = $false
-        $state.statusFingerprint = $digest
-        Write-SupervisorAlert $state "critical" "supervisor_cycle_failed" $digest | Out-Null
-        Write-SupervisorState $state
+        $cycleMessage = [string]$_.Exception.Message
+        try {
+          $state = Read-SupervisorState
+          $digest = Get-Sha256Text (Protect-LogText $cycleMessage)
+          $state.health = "unknown"
+          $state.code = "supervisor_cycle_failed"
+          $state.recoverable = $false
+          $state.statusFingerprint = $digest
+          Write-SupervisorAlert $state "critical" "supervisor_cycle_failed" $digest | Out-Null
+          Write-SupervisorState $state
+        } catch {
+          # The failure cannot even be recorded in state.json: surface both
+          # errors to the guarded entry point instead of crashing silently here.
+          throw "supervisor_cycle_failed: $cycleMessage | state_unrecordable: $($_.Exception.Message)"
+        }
       }
       Start-Sleep -Seconds $SupervisorProbeIntervalSeconds
     }
@@ -798,6 +856,37 @@ function Invoke-SupervisorRun {
     if ($null -ne $snapshot) { Remove-OwnSupervisorReceipt $snapshot }
     if ($acquired) { $mutex.ReleaseMutex() }
     $mutex.Dispose()
+  }
+}
+
+function Write-SupervisorFatalDiagnostic([string]$Message) {
+  # Best effort and never throws: a failure here must not mask the original
+  # error. One fixed file that is overwritten, so repeated failing logons cannot
+  # grow the directory.
+  try {
+    $text = Protect-LogText $Message
+    if ($text.Length -gt 2000) { $text = $text.Substring(0, 2000) }
+    $stage = if ([string]::IsNullOrEmpty([string]$script:SupervisorStage)) { "startup" } else { [string]$script:SupervisorStage }
+    $path = Join-Path $SupervisorMonitorDirectory "supervisor-fatal.json"
+    Write-SupervisorAtomicText $path ([pscustomobject][ordered]@{
+      version = "teruisi-django-supervisor-fatal-v1"
+      createdAt = [DateTimeOffset]::UtcNow.ToString("o")
+      processId = [int]$PID
+      stage = $stage
+      message = $text
+    } | ConvertTo-Json -Depth 4)
+  } catch {}
+}
+
+function Invoke-SupervisorRunGuarded {
+  $script:SupervisorStage = "startup"
+  try {
+    Invoke-SupervisorRun | Out-Null
+    return 0
+  } catch {
+    Write-SupervisorFatalDiagnostic ([string]$_.Exception.Message)
+    [Console]::Error.WriteLine((Protect-LogText ([string]$_.Exception.Message)))
+    return 1
   }
 }
 
@@ -1018,7 +1107,10 @@ $SupervisorPidPath = Assert-RuntimeChildPath (
 
 if (-not $librarySupervisorMode) {
   $result = switch ($SupervisorRequest.Action) {
-    "Run" { Invoke-SupervisorRun }
+    "Run" {
+      $runExit = Invoke-SupervisorRunGuarded
+      if ($runExit -ne 0) { exit $runExit }
+    }
     "Probe" { Invoke-SupervisorProbe }
     "Arm" { Invoke-SupervisorArm }
     "Disarm" { Invoke-SupervisorDisarm }
@@ -1026,7 +1118,7 @@ if (-not $librarySupervisorMode) {
     "RestoreOneShotStartup" { Restore-OneShotStartup }
     "Status" {
       $desired = Get-SupervisorDesiredState
-      $state = Read-SupervisorState
+      $state = Read-SupervisorState "AllowPreviousStopped"
       $process = $null
       $processStatus = "stopped"
       $processStatusDetail = $null
