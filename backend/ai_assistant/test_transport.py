@@ -297,52 +297,174 @@ class ModelDnsTests(SimpleTestCase):
         connection.getresponse.return_value = response
         return connection
 
+    def reresolve_wiring(self, sockets, connections):
+        context = MagicMock()
+        context.wrap_socket.side_effect = lambda sock, **kwargs: sock
+        self.enterContext(patch.object(transport.socket, "socket", side_effect=sockets))
+        self.enterContext(patch.object(transport.ssl, "create_default_context", return_value=context))
+        self.enterContext(patch.object(
+            transport.http.client, "HTTPConnection", side_effect=connections,
+        ))
+
     def test_single_address_tls_eof_falls_back_to_next_resolvers_address(self):
-        # Today's real failure: cf answers with exactly one A record for
+        # Real failure: cf answers with exactly one A record for
         # api.dingtalk.com, 161.117.70.119, whose TLS handshake fails with
         # SSLEOFError in 0.15-0.70s. tx (1.12.12.12) answers 106.11.23.24,
         # which completes the handshake in ~0.13s. public_model_addresses
-        # must re-resolve, excluding the proven-bad cf answer: cf answers
-        # the same bad IP again and is skipped for being all-excluded, then
-        # tx is tried and its address is the one the model connect reaches.
-        # Every phase (DoH to cf twice, model connect to cf's bad IP, DoH to
-        # tx, model connect to tx's good IP) runs through real socket-level
-        # mocks; nothing above the socket layer is faked.
-        doh_cf_sock_1, model_cf_sock, doh_cf_sock_2, doh_tx_sock, model_tx_sock = (
-            MagicMock(), MagicMock(), MagicMock(), MagicMock(), MagicMock()
+        # must re-resolve, excluding the proven-bad cf answer. cf rotates its
+        # single answer between equally unreachable nodes, so the
+        # re-resolution asks tx FIRST and never cf again. Every phase (DoH to
+        # cf, model connect to cf's bad IP, DoH to tx, model connect to tx's
+        # good IP) runs through real socket-level mocks.
+        doh_cf_sock, model_cf_sock, doh_tx_sock, model_tx_sock = (
+            MagicMock(), MagicMock(), MagicMock(), MagicMock()
         )
         model_cf_sock.do_handshake.side_effect = ssl.SSLEOFError("fixture-cf-eof")
-        context = MagicMock()
-        context.wrap_socket.side_effect = lambda sock, **kwargs: sock
-        cf_answer_1 = self.json_connection(dns_answer(1, "161.117.70.119"))
-        cf_answer_2 = self.json_connection(dns_answer(1, "161.117.70.119"))
+        cf_answer = self.json_connection(dns_answer(1, "161.117.70.119"))
         tx_answer = self.json_connection(dns_answer(1, "106.11.23.24"))
         model_connection = self.json_connection({"accessToken": "fixture"})
-        self.enterContext(patch.object(
-            transport.socket, "socket",
-            side_effect=[doh_cf_sock_1, model_cf_sock, doh_cf_sock_2, doh_tx_sock, model_tx_sock],
-        ))
-        self.enterContext(patch.object(transport.ssl, "create_default_context", return_value=context))
-        self.enterContext(patch.object(
-            transport.http.client, "HTTPConnection",
-            # connect_phase() retries entirely at the socket layer before any
-            # HTTPConnection exists; the failed model-cf attempt never
-            # reaches this constructor. Four calls total: DoH to cf, DoH to
-            # cf again (re-resolve), DoH to tx, then the model POST.
-            side_effect=[cf_answer_1, cf_answer_2, tx_answer, model_connection],
-        ))
+        # connect_phase() retries entirely at the socket layer before any
+        # HTTPConnection exists; the failed model-cf attempt never reaches
+        # the constructor. Three calls: DoH to cf, DoH to tx, the model POST.
+        self.reresolve_wiring(
+            [doh_cf_sock, model_cf_sock, doh_tx_sock, model_tx_sock],
+            [cf_answer, tx_answer, model_connection],
+        )
         with patch.object(transport, "resolve_addresses", return_value=addresses("198.18.0.9")):
             result = transport.bounded_json(URL, {"appKey": "k"})
         self.assertEqual(result, {"accessToken": "fixture"})
         self.assertEqual(
-            [doh_cf_sock_1.connect.call_args, model_cf_sock.connect.call_args,
-             doh_cf_sock_2.connect.call_args, doh_tx_sock.connect.call_args,
-             model_tx_sock.connect.call_args],
+            [doh_cf_sock.connect.call_args, model_cf_sock.connect.call_args,
+             doh_tx_sock.connect.call_args, model_tx_sock.connect.call_args],
             [((("1.1.1.1", 443),),), ((("161.117.70.119", 443),),),
-             ((("1.1.1.1", 443),),), ((("1.12.12.12", 443),),),
-             ((("106.11.23.24", 443),),)],
+             ((("1.12.12.12", 443),),), ((("106.11.23.24", 443),),)],
         )
         model_connection.request.assert_called_once()
+
+    def test_reresolution_after_rotating_primary_goes_to_secondary_without_asking_primary_again(self):
+        # 2026-11-11 production failure: cf answered 161.117.107.66 (TLS
+        # SSLEOFError through the proxy). cf rotates among overseas nodes, so
+        # asking it again could return another unreachable node that is not in
+        # `exclude` and would be accepted. The re-resolution must go straight
+        # to tx, which answers a domestic node that completes TLS. The socket
+        # list has exactly four entries, so a second cf query would exhaust it
+        # (StopIteration) instead of silently passing.
+        doh_cf_sock, model_cf_sock, doh_tx_sock, model_tx_sock = (
+            MagicMock(), MagicMock(), MagicMock(), MagicMock()
+        )
+        model_cf_sock.do_handshake.side_effect = ssl.SSLEOFError("fixture-cf-eof")
+        cf_answer = self.json_connection(dns_answer(1, "161.117.107.66"))
+        tx_answer = self.json_connection(dns_answer(1, "106.11.23.24"))
+        model_connection = self.json_connection({"accessToken": "fixture"})
+        self.reresolve_wiring(
+            [doh_cf_sock, model_cf_sock, doh_tx_sock, model_tx_sock],
+            [cf_answer, tx_answer, model_connection],
+        )
+        with patch.object(transport, "resolve_addresses", return_value=addresses("198.18.0.9")):
+            result = transport.bounded_json(URL, {"appKey": "k"})
+        self.assertEqual(result, {"accessToken": "fixture"})
+        self.assertEqual(
+            [sock.connect.call_args for sock in
+             (doh_cf_sock, model_cf_sock, doh_tx_sock, model_tx_sock)],
+            [((("1.1.1.1", 443),),), ((("161.117.107.66", 443),),),
+             ((("1.12.12.12", 443),),), ((("106.11.23.24", 443),),)],
+        )
+        model_connection.request.assert_called_once()
+
+    def test_reresolution_asks_primary_as_last_resort_when_secondary_is_unreachable(self):
+        # The primary stays a fallback: when tx cannot be connected to during
+        # the re-resolution, cf is asked last and its NEW (not excluded)
+        # address is used and succeeds.
+        doh_cf_sock_1, model_bad_sock, doh_tx_sock, doh_cf_sock_2, model_good_sock = (
+            MagicMock(), MagicMock(), MagicMock(), MagicMock(), MagicMock()
+        )
+        model_bad_sock.do_handshake.side_effect = ssl.SSLEOFError("fixture-cf-eof")
+        doh_tx_sock.connect.side_effect = ConnectionRefusedError("fixture-tx-down")
+        cf_answer_1 = self.json_connection(dns_answer(1, "161.117.107.66"))
+        cf_answer_2 = self.json_connection(dns_answer(1, "47.246.137.199"))
+        model_connection = self.json_connection({"accessToken": "fixture"})
+        self.reresolve_wiring(
+            [doh_cf_sock_1, model_bad_sock, doh_tx_sock, doh_cf_sock_2, model_good_sock],
+            [cf_answer_1, cf_answer_2, model_connection],
+        )
+        with patch.object(transport, "resolve_addresses", return_value=addresses("198.18.0.9")):
+            result = transport.bounded_json(URL, {"appKey": "k"})
+        self.assertEqual(result, {"accessToken": "fixture"})
+        self.assertEqual(
+            [sock.connect.call_args for sock in
+             (doh_cf_sock_1, model_bad_sock, doh_tx_sock, doh_cf_sock_2, model_good_sock)],
+            [((("1.1.1.1", 443),),), ((("161.117.107.66", 443),),),
+             ((("1.12.12.12", 443),),), ((("1.1.1.1", 443),),),
+             ((("47.246.137.199", 443),),)],
+        )
+
+    def test_reresolution_budget_goes_to_first_asked_resolver_and_bounded_window_to_last_resort(self):
+        # The re-resolution's first-asked resolver (tx) draws on the shared
+        # budget min(5, timeout); the last-resort primary only gets the
+        # bounded fallback window, and the caller's anchor is extended so the
+        # primary's late answer is not discarded. Without `exclude` the order
+        # and the budget split are the original ones (cf shared, tx bounded).
+        clock = [100.0]
+        timeouts = []
+        urls = []
+
+        def query(url, *args, **kwargs):
+            urls.append(url)
+            timeouts.append(kwargs["timeout"])
+            if ("1.12.12.12" if exclude else "1.1.1.1") in url:
+                clock[0] += 5.0
+                raise transport.ProviderTransportError(stage="connect", reason="unavailable")
+            return dns_answer(1, "47.246.137.199" if exclude else "106.11.23.24")
+
+        for exclude in (frozenset({"161.117.107.66"}), frozenset()):
+            urls.clear()
+            timeouts.clear()
+            clock[0] = 100.0
+            with self.subTest(exclude=bool(exclude)), patch.object(
+                transport.time, "monotonic", side_effect=lambda: clock[0]
+            ), patch.object(transport, "_bounded_json", side_effect=query):
+                result = transport.public_model_addresses(
+                    URL, addresses("198.18.0.9"), 60, exclude=exclude
+                )
+            self.assertEqual(
+                [row[4][0] for row in result],
+                ["47.246.137.199" if exclude else "106.11.23.24"],
+            )
+            first, second = ("1.12.12.12", "1.1.1.1") if exclude else ("1.1.1.1", "1.12.12.12")
+            self.assertTrue(urls[0].startswith(f"https://{first}/dns-query?"))
+            self.assertTrue(urls[1].startswith(f"https://{second}/dns-query?"))
+            self.assertEqual(timeouts, [5, 3])
+
+    def test_reresolution_slow_all_excluded_answer_leaves_last_resort_the_bounded_window(self):
+        # Re-resolution: tx is asked first with the shared budget and answers
+        # slowly (4.5s) with only an address that is already excluded, so it
+        # lands in skip_resolvers and _recovery_answer runs again. cf, asked
+        # last, must get the bounded fallback window min(3, 5 + 3 - 4.5, ...)
+        # = 3, not the 0.5s left of the shared budget. Pins the
+        # `not skip_resolvers` half of the shared-budget condition.
+        clock = [100.0]
+        timeouts = []
+        urls = []
+
+        def query(url, *args, **kwargs):
+            urls.append(url)
+            timeouts.append(kwargs["timeout"])
+            if "1.12.12.12" in url:
+                clock[0] += 4.5
+                return dns_answer(1, "161.117.107.66")
+            return dns_answer(1, "47.246.137.199")
+
+        with patch.object(
+            transport.time, "monotonic", side_effect=lambda: clock[0]
+        ), patch.object(transport, "_bounded_json", side_effect=query):
+            result = transport.public_model_addresses(
+                URL, addresses("198.18.0.9"), 60, exclude=frozenset({"161.117.107.66"})
+            )
+        self.assertEqual([row[4][0] for row in result], ["47.246.137.199"])
+        self.assertEqual(len(urls), 2)
+        self.assertTrue(urls[0].startswith("https://1.12.12.12/dns-query?"))
+        self.assertTrue(urls[1].startswith("https://1.1.1.1/dns-query?"))
+        self.assertEqual(timeouts, [5, 3])
 
     def test_multiple_addresses_first_fails_second_succeeds(self):
         # opencode.ai answers 4 IPs for one A query; only the first is
