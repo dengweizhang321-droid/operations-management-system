@@ -6,7 +6,13 @@ import { ensureMarketSchemaCached, marketStandardSkuImagePriceInheritanceSql } f
 
 import { normalizeJdMarketRepairImageUrl, type MarketImageRepairMapping } from "./image-repair-contract";
 export { normalizeJdMarketRepairImageUrl } from "./image-repair-contract";
-export type { MarketImageRepairIdentity, MarketImageRepairCandidate, MarketImageRepairMapping } from "./image-repair-contract";
+export type {
+  MarketImageFillCandidate,
+  MarketImageFillMapping,
+  MarketImageRepairIdentity,
+  MarketImageRepairCandidate,
+  MarketImageRepairMapping,
+} from "./image-repair-contract";
 
 type MarketImageRepairActor = { email: string; role: string };
 

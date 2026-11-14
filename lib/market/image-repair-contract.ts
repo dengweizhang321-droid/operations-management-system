@@ -14,6 +14,17 @@ export type MarketImageRepairMapping = MarketImageRepairIdentity & {
   imageUrl: string;
 };
 
+/** A SKU identity whose sku_code has no non-empty image_url in any ranking row. */
+export type MarketImageFillCandidate = MarketImageRepairIdentity & {
+  productName: string;
+  brand: string;
+  productUrl: string;
+  periodEnd: string;
+};
+
+/** Only empty image_url values are ever filled; prices and AI fields are never touched. */
+export type MarketImageFillMapping = MarketImageRepairMapping;
+
 export function normalizeJdMarketRepairImageUrl(value: unknown) {
   const raw = String(value ?? "").trim().replace(/^\/\//, "https://").replace(/^http:\/\//i, "https://");
   try {

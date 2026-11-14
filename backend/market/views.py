@@ -392,7 +392,7 @@ def _execute_query(principal: Principal, payload: dict[str, object]) -> dict[str
         return execute_master_query(payload)
     if operation == "annotations":
         return execute_annotation_query(payload, principal)
-    if operation in {"image_cache_job", "image_metadata", "image_repair_candidates"}:
+    if operation in {"image_cache_job", "image_metadata", "image_repair_candidates", "image_fill_candidates"}:
         return execute_image_query(payload)
     raise MarketApiError("市场查询操作无效")
 

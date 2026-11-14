@@ -10,7 +10,7 @@ import {
 } from "@/lib/django/market-service";
 import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
 import { readBoundedJsonObject } from "@/lib/http/bounded-json";
-import type { MarketImageRepairMapping } from "@/lib/market/image-repair";
+import type { MarketImageFillMapping, MarketImageRepairMapping } from "@/lib/market/image-repair";
 
 const MARKET_IMAGE_REPAIR_BODY_BYTES_MAX = 512 * 1024;
 
@@ -28,13 +28,17 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["admin"]);
     requireUnrestrictedDataScope(principal, "市场商品图片修复");
     const params = new URL(request.url).searchParams;
+    const mode = params.get("mode");
+    if (mode !== null && mode !== "fill") {
+      throw new PublicApiError(400, "invalid_request", "图片修复清单模式无效");
+    }
     const result = await requestDjangoMarketService<Record<string, unknown>>(
       principal,
       {
         path: MARKET_QUERIES_PATH,
         service: "reader",
         payload: {
-          operation: "image_repair_candidates",
+          operation: mode === "fill" ? "image_fill_candidates" : "image_repair_candidates",
           params: {
             page: integerParam(params.get("page"), 1),
             pageSize: integerParam(params.get("pageSize"), 100),
@@ -65,7 +69,13 @@ export async function POST(request: Request) {
     const body = await readBoundedJsonObject(
       request,
       MARKET_IMAGE_REPAIR_BODY_BYTES_MAX,
-    ) as { repairs?: MarketImageRepairMapping[] };
+    ) as { repairs?: MarketImageRepairMapping[]; fills?: MarketImageFillMapping[] };
+    if (body.fills !== undefined && body.repairs !== undefined) {
+      throw new PublicApiError(400, "invalid_request", "repairs 与 fills 不能同时提交");
+    }
+    const command = body.fills !== undefined
+      ? { action: "fill_missing_images", fills: body.fills }
+      : { action: "apply_image_repairs", repairs: body.repairs ?? [] };
     const result = await requestDjangoMarketService<{
       ok: boolean;
       result: Record<string, unknown>;
@@ -77,7 +87,7 @@ export async function POST(request: Request) {
         payload: {
           contractVersion: "market-command-v1",
           domain: "images",
-          command: { action: "apply_image_repairs", repairs: body.repairs ?? [] },
+          command,
         },
       },
       { signal: request.signal },

@@ -246,7 +246,7 @@ test("JD image repair aborts an in-flight cache poll with an explicit interrupti
 });
 
 test("JD image repair verifies the signed-in header shop instead of ranking-row mall links", async () => {
-  const runner = await readFile(new URL("../tools/jd-market-image-repair.ts", import.meta.url), "utf8");
+  const runner = await readFile(new URL("../lib/market/jd-image-fill.ts", import.meta.url), "utf8");
   assert.match(runner, /\.user-info \.shop-name a\[href\*=\"mall\.jd\.com\/index-\"\]/);
-  assert.match(runner, /return await fetchJdImages\(frame,/);
+  assert.match(runner, /await assertStoreIdentity\(page, expectedStore\);[\s\S]*await fetchJdImages\(frame, skuIds, headers,/);
 });
