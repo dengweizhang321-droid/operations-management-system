@@ -5,6 +5,8 @@ export type GuangdongItem = GuangdongIdentity & {
   warehouse: string; notes: string; availableQuantity: number | null; inTransitQuantity: number | null;
   inventoryAgeDays: number | null; unitCostCents: number | null; knownStockValueCents: number; costMissing: boolean;
   outbound7dQuantity: number | null; outbound15dQuantity: number | null; outbound30dQuantity: number | null;
+  tmallStockQuantity: number | null; tmallOutbound7dQuantity: number | null; tmallOutbound15dQuantity: number | null; tmallOutbound30dQuantity: number | null;
+  jdStockQuantity: number | null; jdOutbound7dQuantity: number | null; jdOutbound15dQuantity: number | null; jdOutbound30dQuantity: number | null;
   leadDays: number | null; bufferDays: number; supplierLeadDays: number | null; supplierBufferDays: number;
   leadDaysOverride: number | null; bufferDaysOverride: number | null;
   cycleSource: "型号设置" | "供应商设置" | "待设置"; inventoryStale: boolean;

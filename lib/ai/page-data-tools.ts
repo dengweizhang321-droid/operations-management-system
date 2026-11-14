@@ -90,8 +90,8 @@ export async function getInventoryGuangdongPageData(args: unknown, context: Page
     metrics: pickScalars(result.metrics, ["itemCount", "availableQuantity", "inTransitQuantity", "knownStockValueCents", "missingCostCount", "missingStockCount"]),
     distribution: boundedRecords(result.distribution, 6, ["risk", "label", "itemCount", "quantity", "knownStockValueCents", "itemRate", "quantityRate", "valueRate"]),
     pagination: projectPagination(result.pagination),
-    items: boundedRecords(result.items, pageInput.pageSize, ["productCode", "productName", "specification", "supplier", "operatorName", "buyer", "warehouse", "availableQuantity", "inTransitQuantity", "outbound7dQuantity", "outbound15dQuantity", "outbound30dQuantity", "turnoverDays", "inventoryAgeDays", "leadDays", "bufferDays", "latestOrderDate", "replenishmentQuantity", "latestReplenishmentOrderDate", "replenishmentStockIncreaseQuantity", "replenishmentRemainingQuantity", "replenishmentRemainingReason", "risk", "riskLabel", "riskReason", "autoRisk", "autoRiskLabel", "riskSource", "riskOverride", "riskReasonOverride"]),
-    disclosures: boundedStrings(result.disclosures, 8),
+    items: boundedRecords(result.items, pageInput.pageSize, ["productCode", "productName", "specification", "supplier", "operatorName", "buyer", "warehouse", "availableQuantity", "inTransitQuantity", "outbound7dQuantity", "outbound15dQuantity", "outbound30dQuantity", "turnoverDays", "inventoryAgeDays", "tmallStockQuantity", "tmallOutbound7dQuantity", "tmallOutbound15dQuantity", "tmallOutbound30dQuantity", "jdStockQuantity", "jdOutbound7dQuantity", "jdOutbound15dQuantity", "jdOutbound30dQuantity", "leadDays", "bufferDays", "latestOrderDate", "replenishmentQuantity", "latestReplenishmentOrderDate", "replenishmentStockIncreaseQuantity", "replenishmentRemainingQuantity", "replenishmentRemainingReason", "risk", "riskLabel", "riskReason", "autoRisk", "autoRiskLabel", "riskSource", "riskOverride", "riskReasonOverride"]),
+    disclosures: boundedStrings(result.disclosures, 9),
   };
 }
 

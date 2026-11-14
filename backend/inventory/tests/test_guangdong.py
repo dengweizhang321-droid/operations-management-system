@@ -76,6 +76,75 @@ class GuangdongTests(TestCase):
         result.update(updates)
         return result
 
+    CHANNEL_STOCK = [("上海公共平台仓28号库-京东", 40), ("北京公共平台仓23号库-京东", 15), ("ZA菜鸟华南佛山三水标准仓", 25), ("刷刷仓", 500)]
+
+    def add_channel_stock(self):
+        for warehouse, quantity in self.CHANNEL_STOCK:
+            InventoryStockLine.objects.create(batch_id="gd-stock", row_key="00123" + warehouse, source_row_number=1, snapshot_date=self.today, warehouse=warehouse, product_code="00123", available_quantity=quantity)
+
+    def channel_sales(self):
+        base = self.sales()
+        extra = [
+            {"productCode": "00123", "warehouseKey": gd._warehouse_key("京东仓"), "sales7dQuantity": 1, "sales15dQuantity": 3, "sales30dQuantity": 5},
+            {"productCode": "00123", "warehouseKey": gd._warehouse_key("上海公共平台仓28号库-京东"), "sales7dQuantity": 2, "sales15dQuantity": 4, "sales30dQuantity": 6},
+            {"productCode": "00123", "warehouseKey": gd._warehouse_key("北京公共平台仓23号库-京东"), "sales7dQuantity": 4, "sales15dQuantity": 8, "sales30dQuantity": 16},
+            {"productCode": "00123", "warehouseKey": gd._warehouse_key("ZA菜鸟华南佛山三水标准仓"), "sales7dQuantity": 5, "sales15dQuantity": 10, "sales30dQuantity": 20},
+            {"productCode": "00123", "warehouseKey": gd._warehouse_key("刷刷仓"), "sales7dQuantity": 100, "sales15dQuantity": 200, "sales30dQuantity": 300},
+            {"productCode": "00123", "warehouseKey": gd._warehouse_key("未知测试仓XYZ"), "sales7dQuantity": 1000, "sales15dQuantity": 2000, "sales30dQuantity": 3000},
+        ]
+        return self.sales(rows=base["rows"] + extra)
+
+    def test_tmall_and_jd_totals_and_sales_are_display_only(self):
+        self.save_rows([{"productCode": "00123"}, {"productCode": "B"}])
+        self.batch()
+        GuangdongSupplierCycle.objects.create(supplier="供应商甲", lead_days=10, updated_by="test")
+        with patch.object(gd, "_sales_query", return_value=self.sales()):
+            plain = {row["productCode"]: row for row in gd.monitor(self.principal, {})["items"]}
+        # fixture rows: 京东仓 999 (regex-inferred jd) and 广东仓-欧洲站 999 (guangdong) already exist
+        self.assertEqual((plain["00123"]["jdStockQuantity"], plain["00123"]["tmallStockQuantity"]), (999, 0))
+        self.add_channel_stock()
+        with patch.object(gd, "_sales_query", return_value=self.channel_sales()):
+            result = gd.monitor(self.principal, {})
+        items = {row["productCode"]: row for row in result["items"]}
+        item = items["00123"]
+        # jd stock: 999 + 40 + 15 = 1054; tmall: 25; 刷刷仓 500 and 欧洲站 999 excluded
+        self.assertEqual((item["jdStockQuantity"], item["tmallStockQuantity"]), (1054, 25))
+        # jd sales: 7d 1+2+4=7, 15d 3+4+8=15, 30d 5+6+16=27; tmall: 5/10/20; unknown and 刷刷仓 keys ignored
+        self.assertEqual((item["jdOutbound7dQuantity"], item["jdOutbound15dQuantity"], item["jdOutbound30dQuantity"]), (7, 15, 27))
+        self.assertEqual((item["tmallOutbound7dQuantity"], item["tmallOutbound15dQuantity"], item["tmallOutbound30dQuantity"]), (5, 10, 20))
+        # product with only a 广东仓 row has no jd/tmall rows: stock 0, sales 0 (covered window)
+        other = items["B"]
+        self.assertEqual((other["jdStockQuantity"], other["tmallStockQuantity"]), (0, 0))
+        self.assertEqual((other["jdOutbound30dQuantity"], other["tmallOutbound7dQuantity"]), (0, 0))
+        # 广东仓 fields are untouched by the extra rows
+        for key in ("risk", "riskReasons", "turnoverDays", "latestOrderDate", "availableQuantity", "outbound7dQuantity", "outbound15dQuantity", "outbound30dQuantity", "inTransitQuantity"):
+            self.assertEqual(item[key], plain["00123"][key], key)
+        self.assertEqual((item["risk"], item["turnoverDays"], item["outbound30dQuantity"]), ("urgent", 10, 300))
+        self.assertTrue(any("天猫仓" in text and "仅展示" in text for text in result["disclosures"]))
+
+    def test_channel_sales_none_when_coverage_short_but_stock_remains(self):
+        self.save_rows([{"productCode": "00123"}])
+        self.batch(); self.add_channel_stock()
+        # start = today - 10 days: 7d covered, 15d and 30d not
+        with patch.object(gd, "_sales_query", return_value=self.channel_sales() | {"dataStartDate": (self.today - timedelta(days=10)).isoformat()}):
+            item = gd.monitor(self.principal, {})["items"][0]
+        self.assertEqual((item["jdOutbound7dQuantity"], item["jdOutbound15dQuantity"], item["jdOutbound30dQuantity"]), (7, None, None))
+        self.assertEqual((item["tmallOutbound7dQuantity"], item["tmallOutbound15dQuantity"], item["tmallOutbound30dQuantity"]), (5, None, None))
+        with patch.object(gd, "_sales_query", return_value=self.channel_sales() | {"dataStartDate": self.today.isoformat()}):
+            item = gd.monitor(self.principal, {})["items"][0]
+        self.assertEqual((item["jdStockQuantity"], item["tmallStockQuantity"]), (1054, 25))
+        for key in ("jdOutbound7dQuantity", "jdOutbound15dQuantity", "jdOutbound30dQuantity", "tmallOutbound7dQuantity", "tmallOutbound15dQuantity", "tmallOutbound30dQuantity"):
+            self.assertIsNone(item[key], key)
+
+    def test_channel_fields_none_without_stock_batch(self):
+        self.save_rows([{"productCode": "00123"}])
+        with patch.object(gd, "_sales_query", return_value=self.channel_sales()):
+            item = gd.monitor(self.principal, {})["items"][0]
+        self.assertIsNone(item["jdStockQuantity"])
+        self.assertIsNone(item["tmallStockQuantity"])
+        # literal "京东仓" key is neither in the mapping nor in any stock row here, so it is ignored: jd 6+16=22
+        self.assertEqual((item["jdOutbound30dQuantity"], item["tmallOutbound30dQuantity"]), (22, 20))
+
     def test_monitor_source_snapshot_includes_erp_revision_without_changing_risk_rules(self):
         from sales.models import SalesDataRevision
         self.save_rows([{"productCode": "00123"}])

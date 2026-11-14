@@ -24,12 +24,16 @@ from .models import (
     ReplenishmentPlanItem,
 )
 from .query import _latest_batch, _sales_query, _sales_revision, _warehouse_key
+from .warehouse_mapping import classify_warehouse
+from .warehouse_mapping_service import effective_mapping
 from .revisions import revision_value, bump_revision
 from .write_requests import lock_active_authority
 from .replenishment_health import waiting_for_stock
 from .guangdong_replenishment import add_remaining_quantities
 
 MAX_ITEMS = 5000
+# 天猫仓=映射分类菜鸟仓(cainiao)，京东仓=jd；仅用于展示，不参与广东仓风险判定。
+CHANNEL_CATEGORIES = {"tmall": "cainiao", "jd": "jd"}
 RISK_LABELS = {"no_stock": "无库存可用", "urgent": "紧急补货", "warning": "补货预警", "stale": "低周转", "unknown": "积压风险", "healthy": "库存健康"}
 RISK_PRIORITY = ("no_stock", "stale", "urgent", "warning")
 
@@ -79,6 +83,40 @@ def _stock(codes):
                 raise InventoryApiError("广东仓快照存在重复型号记录，需先核验库存来源", status=503)
             rows[row.product_code] = row
     return latest, rows
+
+
+def _channel_stock(latest, codes):
+    """Raw available totals per product for 天猫仓/京东仓 in the latest stock batch.
+
+    Returns (totals, key_categories). totals[code][channel] sums every row whose
+    warehouse classifies to the channel category (刷刷仓 excluded); key_categories
+    maps the sales warehouse key to the set of categories sharing that key.
+    """
+    mapping = effective_mapping()
+    key_categories = {}
+    def register(name, category):
+        key_categories.setdefault(_warehouse_key(name), set()).add(category)
+    for name in mapping:
+        if name.strip() != "刷刷仓":
+            register(name, classify_warehouse(name, mapping=mapping).category)
+    totals = {code: {channel: 0 for channel in CHANNEL_CATEGORIES} for code in codes}
+    if latest is None or not codes:
+        return totals, key_categories
+    rows = (InventoryStockLine.objects.filter(batch_id=latest.id, product_code__in=codes)
+            .exclude(warehouse="广东仓")
+            .only("product_code", "warehouse", "warehouse_type", "warehouse_category", "include_in_inventory", "available_quantity"))
+    for row in rows:
+        if row.warehouse.strip() == "刷刷仓":
+            continue
+        category = classify_warehouse(
+            row.warehouse, stored_type=row.warehouse_type, stored_category=row.warehouse_category,
+            stored_include_in_inventory=bool(row.include_in_inventory), mapping=mapping,
+        ).category
+        register(row.warehouse, category)
+        for channel, target in CHANNEL_CATEGORIES.items():
+            if category == target:
+                totals[row.product_code][channel] += int(row.available_quantity)
+    return totals, key_categories
 
 
 def _ages(codes):
@@ -336,6 +374,8 @@ def _uncached_project_items(principal, watched):
         sales = _sales_query(principal, {"operation": "inventory_inbound_windows", "productCodes": codes, "asOfDate": None, "limit": 10000})
     if sales.get("truncated") is not False:
         raise InventoryApiError("销售查询超过安全范围，未返回截断结果", status=503)
+    channel_stock, key_categories = _channel_stock(latest, codes)
+    channel_sales = {code: {channel: {7: 0, 15: 0, 30: 0} for channel in CHANNEL_CATEGORIES} for code in codes}
     demand = {}
     seen = set()
     for row in sales.get("rows", []):
@@ -344,6 +384,11 @@ def _uncached_project_items(principal, watched):
             raise InventoryApiError("销售响应范围或业务键无效", status=503)
         seen.add((code, warehouse))
         if warehouse == _warehouse_key("广东仓"): demand[code] = row
+        categories = key_categories.get(warehouse, set())
+        for channel, target in CHANNEL_CATEGORIES.items():
+            if categories == {target}:
+                for days in (7, 15, 30):
+                    channel_sales[code][channel][days] += int(row.get(f"sales{days}dQuantity") or 0)
     cutoff = date.fromisoformat(sales["asOfDate"]) if sales.get("asOfDate") else None
     start = date.fromisoformat(sales["dataStartDate"]) if sales.get("dataStartDate") else None
     cycles = {row.supplier: row for row in GuangdongSupplierCycle.objects.filter(supplier__in={r["supplier"] for r in identities.values()})}
@@ -355,8 +400,10 @@ def _uncached_project_items(principal, watched):
         item = dict(identities[code])
         cycle = cycles.get(item["supplier"])
         available = int(row.available_quantity) if row else None
+        def covered(days):
+            return bool(cutoff and start and start <= cutoff - timedelta(days=days - 1))
         def quantity(days):
-            return int(sale[f"sales{days}dQuantity"]) if sale and cutoff and start and start <= cutoff - timedelta(days=days - 1) else None
+            return int(sale[f"sales{days}dQuantity"]) if sale and covered(days) else None
         s7, s15, s30 = quantity(7), quantity(15), quantity(30)
         cost = int(row.unit_cost_cents) if row else None
         plan = plans.get(code)
@@ -390,6 +437,10 @@ def _uncached_project_items(principal, watched):
             "buyerSource": "型号设置" if buyer_override is not None else "最新备货计划" if plan_buyer else "待设置",
             "inventoryStale": stale,
         })
+        for channel in CHANNEL_CATEGORIES:
+            item[f"{channel}StockQuantity"] = channel_stock[code][channel] if latest is not None else None
+            for days in (7, 15, 30):
+                item[f"{channel}Outbound{days}dQuantity"] = channel_sales[code][channel][days] if covered(days) else None
         item.update(risk_fields(available=available, sales30=s30, lead=item["leadDays"], buffer=item["bufferDays"], snapshot=latest.snapshot_date if latest else None))
         if stale:
             item["riskReasons"].append("库存快照待更新，估算仅供参考")
@@ -469,7 +520,7 @@ def monitor(principal, options, *, export=False):
         "metrics": {"itemCount": len(filtered), "availableQuantity": sum(row["availableQuantity"] or 0 for row in filtered), "inTransitQuantity": sum(row["inTransitQuantity"] or 0 for row in filtered), "knownStockValueCents": sum(row["knownStockValueCents"] for row in filtered), "missingCostCount": sum(row["costMissing"] for row in filtered), "missingStockCount": sum(row["availableQuantity"] is None for row in filtered)},
         "pagination": {"page": page, "pageSize": size, "total": len(filtered), "totalPages": math.ceil(len(filtered) / size)},
         "items": displayed,
-        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "销售周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "库龄只取最新吉客云库龄表格中仓名精确为广东仓的记录。", "备货数量与最新下单日期取备货计划中同货品、同广东仓的最新非取消计划。", "下单剩余库存=备货数量−下单日期之后广东仓实物库存逐日正向增量之和；下降不抵扣，结果可为负。下单当日为基线，缺失每日快照时待核算；快照增量不等于入库流水。", "新增或增加正数备货量后按健康跟进，广东仓实物库存首次增加后恢复风险检测；库存下降不会重新开启旧备货周期。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。"],
+        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "销售周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "库龄只取最新吉客云库龄表格中仓名精确为广东仓的记录。", "备货数量与最新下单日期取备货计划中同货品、同广东仓的最新非取消计划。", "下单剩余库存=备货数量−下单日期之后广东仓实物库存逐日正向增量之和；下降不抵扣，结果可为负。下单当日为基线，缺失每日快照时待核算；快照增量不等于入库流水。", "新增或增加正数备货量后按健康跟进，广东仓实物库存首次增加后恢复风险检测；库存下降不会重新开启旧备货周期。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。", "天猫仓（映射分类菜鸟仓）与京东仓总库存取最新吉客云库存快照中按仓库映射归类的全部仓库可用库存合计（不含刷刷仓）；7/15/30日销量为吉客云销售明细同类仓库正向出库合计，仅展示、不参与广东仓风险判定。"],
     }
     if version() != before or snapshot() != source_snapshot: _conflict()
     if export and options.get("version") != before: _conflict()
