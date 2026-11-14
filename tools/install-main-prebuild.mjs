@@ -14,7 +14,7 @@ import {knownResume} from './publish-main-known-resume.mjs';
 import {retirementIntentVersion,retirementConfigVersion} from './preparation-retirement-admission.mjs';
 import {retirementRefProtocol,makeRetirementReferenceHook} from './preparation-retirement-ref.mjs';
 import {retirementGit} from './preparation-retirement-fs.mjs';
-import {artifactLossProtocol,artifactLossManifestName,readArtifactFile,readArtifactLossControlBinding,validateArtifactLossManifest,assertArtifactLossBindings} from './prepared-artifact-loss.mjs';
+import {artifactLossProtocol,artifactLossManifestName,artifactLossSuccessorManifestVersion,artifactLossSuccessorFileName,readArtifactFile,readArtifactLossControlBinding,validateArtifactLossManifest,validateAnyArtifactLossManifest,validateArtifactLossChain,assertArtifactLossBindings} from './prepared-artifact-loss.mjs';
 import {readPreparationQueueStructure} from './main-prebuild-queue.mjs';
 const execute=promisify(execFile),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -81,14 +81,25 @@ export async function validateNativeToolsUpdate(update,config,configSha256){
  }
  return {...config,nativeToolsSource:root};
 }
-/** Successors inherit the exact external manifest. Replacement needs a separate protocol. */
+/** Successor bundles inherit the whole bound chain; they may only append one v2 successor of the chain tip. Returns the root as raw/sha256/value plus every successor in order. */
 export async function artifactLossUpgradeMaterial(stateDirectory,candidateFile){
  const queue=path.join(stateDirectory,'prebuild-queue-v2'),prior=await readArtifactLossControlBinding(queue);
  if(!candidateFile&&!prior)return null;
- const raw=await readArtifactFile(candidateFile??prior.manifestFile),value=JSON.parse(raw),digest=sha(raw);
- assert.equal(raw.toString(),canonical(value),'Artifact loss upgrade manifest is not canonical');validateArtifactLossManifest(value);assert.equal(path.resolve(value.queueDirectory),path.resolve(queue),'Artifact loss upgrade queue changed');
- if(prior)assert.equal(digest,prior.manifestSha256,'A successor cannot replace its bound artifact loss manifest');
- return {raw,sha256:digest,value};
+ const readElement=async file=>{const raw=await readArtifactFile(file),value=JSON.parse(raw);assert.equal(raw.toString(),canonical(value),'Artifact loss upgrade manifest is not canonical');validateAnyArtifactLossManifest(value);assert.equal(path.resolve(value.queueDirectory),path.resolve(queue),'Artifact loss upgrade queue changed');return {raw,sha256:sha(raw),value};};
+ if(!prior){
+  const root=await readElement(candidateFile);assert.notEqual(root.value.version,artifactLossSuccessorManifestVersion,'A successor manifest needs its adopted root manifest');
+  return {...root,successors:[]};
+ }
+ const inherited=prior.chain.slice(1);let successors=await Promise.all(inherited.map(async element=>({raw:await readArtifactFile(element.file),sha256:element.sha256,value:element.manifest})));
+ if(candidateFile){
+  const candidate=await readElement(candidateFile);
+  if(candidate.value.version===artifactLossSuccessorManifestVersion){
+   assert.ok(!prior.chain.some(element=>element.sha256===candidate.sha256),'Artifact loss successor is already bound');
+   successors=[...successors,candidate];validateArtifactLossChain([{sha256:prior.manifestSha256,manifest:prior.manifest},...successors.map(element=>({sha256:element.sha256,manifest:element.value}))]);
+   assertArtifactLossBindings(candidate.value,queue,await readPreparationQueueStructure(queue));
+  }else assert.equal(candidate.sha256,prior.manifestSha256,'A successor cannot replace its bound artifact loss manifest');
+ }
+ return {raw:await readArtifactFile(prior.manifestFile),sha256:prior.manifestSha256,value:prior.manifest,successors};
 }
 export async function prepareControlUpgrade({configFile,out,sourceRoot=source,dependencyUpdateFile,nativeToolsUpdateFile,restoreDisabledPreparationTask=false,artifactLossManifestFile}={}){
  assert.ok(path.isAbsolute(configFile??'')&&path.isAbsolute(out??''));assert.equal(await git(sourceRoot,['status','--porcelain']),'','Control source must be frozen and clean');
@@ -116,13 +127,13 @@ export async function prepareControlUpgrade({configFile,out,sourceRoot=source,de
  await fs.mkdir(out,{recursive:false});await fs.mkdir(path.join(out,'bundle/tools'),{recursive:true});const files={};
  await fs.writeFile(path.join(out,'RETIREMENT-OLD-CONFIG.json'),retirementConfigRaw,{flag:'wx'});
  await fs.writeFile(path.join(out,'CONTROL-OLD-CONFIG.json'),configRaw,{flag:'wx'});
- if(artifactLoss)await fs.writeFile(path.join(out,artifactLossManifestName),artifactLoss.raw,{flag:'wx'});
+ if(artifactLoss){await fs.writeFile(path.join(out,artifactLossManifestName),artifactLoss.raw,{flag:'wx'});for(const successor of artifactLoss.successors)await fs.writeFile(path.join(out,artifactLossSuccessorFileName(successor.sha256)),successor.raw,{flag:'wx'});}
  if(dependencyUpdateRaw){await fs.writeFile(path.join(out,'DEPENDENCY-UPDATE.json'),dependencyUpdateRaw,{flag:'wx'});await fs.writeFile(path.join(out,'DEPENDENCIES.json'),dependencyReceiptRaw,{flag:'wx'});await fs.writeFile(path.join(out,'DEPENDENCY-OLD-CONFIG.json'),configRaw,{flag:'wx'});}
  if(nativeToolsUpdateRaw){await fs.writeFile(path.join(out,'NATIVE-TOOLS-UPDATE.json'),nativeToolsUpdateRaw,{flag:'wx'});await fs.writeFile(path.join(out,'NATIVE-TOOLS-OLD-CONFIG.json'),configRaw,{flag:'wx'});}
  for(const name of controlFiles){const raw=await bytes(path.join(sourceRoot,'tools',name));files['tools/'+name]=sha(raw);await fs.writeFile(path.join(out,'bundle/tools',name),raw,{flag:'wx'});}
  const bundleSha256=sha(Buffer.from(canonical(files))),bundleRoot=path.join(config.stateDirectory,'control-bundles',bundleSha256);
  const manifest={version:'teruisi-main-control-bundle-v2',preparationRetirementProtocol:retirementIntentVersion,preparationRetirementRefProtocol:retirementRefProtocol,preparationTriggerMode,bundleSha256,sourceCommit:await git(sourceRoot,['rev-parse','HEAD']),sourceTree:await git(sourceRoot,['rev-parse','HEAD^{tree}']),files};
- if(artifactLoss)Object.assign(manifest,{preparedArtifactLossProtocol:artifactLossProtocol,artifactLossManifestSha256:artifactLoss.sha256});
+ if(artifactLoss)Object.assign(manifest,{preparedArtifactLossProtocol:artifactLossProtocol,artifactLossManifestSha256:artifactLoss.sha256},artifactLoss.successors.length?{artifactLossSuccessorManifestSha256s:artifactLoss.successors.map(element=>element.sha256)}:{});
  const bundleManifestSha256=await durableCreate(path.join(out,'bundle/MANIFEST.json'),manifest),dispatcher=path.join(config.stateDirectory,'control/tools/publish-latest-main.mjs'),oldHookEntry=path.join(config.stateDirectory,'control/tools/main-prebuild-hook.mjs');
  const preparationTask=await makePreparationTask(path.resolve(configFile),config);
  const oldInstallationRaw=await exists(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))?await bytes(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json')):null;
@@ -142,7 +153,7 @@ export async function prepareControlUpgrade({configFile,out,sourceRoot=source,de
  const installId=randomUUID(),intent={version:'teruisi-main-control-upgrade-v2',installId,configFile:path.resolve(configFile),stateDirectory:path.resolve(config.stateDirectory),repository:config.repository,bundleRoot,bundleSha256,bundleManifestSha256,
   preparationTask,oldPreparationTask,...(restoreDisabledPreparationTask?{restoreDisabledPreparationTask:true,oldPreparationTaskDefinition:predecessorDefinition,oldPreparationTaskState:predecessorState}:{}),sourceCommit:manifest.sourceCommit,sourceTree:manifest.sourceTree,dispatcher,dispatcherSha256:sha(shim),hook,hookSha256:sha(finalHook),bridgeHookSha256:sha(bridgeHook),configSha256:sha(configNew),retirementConfigSha256:sha(retirementConfigRaw),retirementHooks:{version:retirementRefProtocol,common:policy.common,hooks:policy.hooks,beforeLocal:policy.local,git:gitSpec},
   old:{dispatcher:await hashOrMissing(dispatcher),hook:oldHook?sha(oldHook):null,config:sha(configRaw),installation:await hashOrMissing(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))},...(dependencyUpdateRaw?{dependencyUpdateSha256:sha(dependencyUpdateRaw)}:{}),...(nativeToolsUpdateRaw?{nativeToolsUpdateSha256:sha(nativeToolsUpdateRaw)}:{}),preparedAt:new Date().toISOString()};
- if(artifactLoss)intent.artifactLossManifestSha256=artifactLoss.sha256;
+ if(artifactLoss){intent.artifactLossManifestSha256=artifactLoss.sha256;if(artifactLoss.successors.length)intent.artifactLossSuccessorManifestSha256s=artifactLoss.successors.map(element=>element.sha256);}
  const intentSha256=await durableCreate(path.join(out,'INTENT.json'),intent);
  await durableCreate(path.join(out,'PREPARED.json'),{version:'teruisi-main-control-upgrade-prepared-v2',installId,intentSha256,bundleManifestSha256,adoptionPerformed:false});
  return {status:'bundle-prepared',directory:out,installId,intentSha256,bundleManifestSha256,adoptionPerformed:false};
@@ -153,15 +164,20 @@ async function readMaterials(directory){
  const raw=await bytes(path.join(directory,'INTENT.json')),intent=JSON.parse(raw),prepared=JSON.parse(await bytes(path.join(directory,'PREPARED.json')));assert.equal(intent.version,'teruisi-main-control-upgrade-v2');assert.equal(prepared.version,'teruisi-main-control-upgrade-prepared-v2');assert.equal(prepared.intentSha256,sha(raw));assert.equal(prepared.installId,intent.installId);assert.equal(prepared.adoptionPerformed,false);
  const manifestRaw=await bytes(path.join(directory,'bundle/MANIFEST.json')),manifest=JSON.parse(manifestRaw);assert.equal(sha(manifestRaw),intent.bundleManifestSha256);assert.equal(manifest.bundleSha256,intent.bundleSha256);assert.deepEqual(Object.keys(manifest.files).sort(),controlFiles.map(name=>'tools/'+name).sort());
  assert.equal(manifest.preparationRetirementProtocol,retirementIntentVersion,'Control materials cannot remove retirement admission');assert.equal(manifest.preparationRetirementRefProtocol,retirementRefProtocol,'Control materials cannot remove native retired-target fence');
+ const successorDigests=intent.artifactLossSuccessorManifestSha256s??[];
  if(intent.artifactLossManifestSha256){
   assert.equal(manifest.preparedArtifactLossProtocol,artifactLossProtocol);assert.equal(manifest.artifactLossManifestSha256,intent.artifactLossManifestSha256,'Control materials changed artifact loss binding');
+  assert.deepEqual(manifest.artifactLossSuccessorManifestSha256s??[],successorDigests,'Control materials changed artifact loss successor binding');assert.ok(Array.isArray(successorDigests)&&successorDigests.every(digest=>/^[a-f0-9]{64}$/.test(digest)));
   const lossRaw=await bytes(path.join(directory,artifactLossManifestName));assert.equal(sha(lossRaw),intent.artifactLossManifestSha256);const loss=JSON.parse(lossRaw);assert.equal(lossRaw.toString(),canonical(loss));validateArtifactLossManifest(loss);assert.equal(path.resolve(loss.queueDirectory),path.join(intent.stateDirectory,'prebuild-queue-v2'));
- }else {assert.equal(manifest.artifactLossManifestSha256,undefined,'Unbound artifact loss manifest');assert.equal(manifest.preparedArtifactLossProtocol,undefined,'Unbound artifact loss capability');}
+  const chain=[{sha256:sha(lossRaw),manifest:loss}];
+  for(const digest of successorDigests){const raw=await bytes(path.join(directory,artifactLossSuccessorFileName(digest)));assert.equal(sha(raw),digest,'Artifact loss successor material changed');const value=JSON.parse(raw);assert.equal(raw.toString(),canonical(value));chain.push({sha256:digest,manifest:value});}
+  validateArtifactLossChain(chain);
+ }else {assert.equal(manifest.artifactLossManifestSha256,undefined,'Unbound artifact loss manifest');assert.equal(manifest.preparedArtifactLossProtocol,undefined,'Unbound artifact loss capability');assert.equal(manifest.artifactLossSuccessorManifestSha256s,undefined,'Unbound artifact loss successors');assert.equal(intent.artifactLossSuccessorManifestSha256s,undefined,'Unbound artifact loss successors');}
  if(intent.old.installation){
   const previousRaw=await bytes(path.join(directory,'CONTROL-OLD-INSTALLATION.json'));assert.equal(sha(previousRaw),intent.old.installation,'Control installation preimage changed');const previous=JSON.parse(previousRaw);
   if(previous.status==='adopted'){
    const previousManifestRaw=await bytes(path.join(previous.bundleRoot,'MANIFEST.json'));assert.equal(sha(previousManifestRaw),previous.bundleManifestSha256);const previousManifest=JSON.parse(previousManifestRaw);
-   if(previousManifest.artifactLossManifestSha256){assert.equal(manifest.preparedArtifactLossProtocol,artifactLossProtocol,'Successor cannot drop artifact loss capability');assert.equal(intent.artifactLossManifestSha256,previousManifest.artifactLossManifestSha256,'Successor cannot drop or replace its bound artifact loss manifest');}
+   if(previousManifest.artifactLossManifestSha256){assert.equal(manifest.preparedArtifactLossProtocol,artifactLossProtocol,'Successor cannot drop artifact loss capability');assert.equal(intent.artifactLossManifestSha256,previousManifest.artifactLossManifestSha256,'Successor cannot drop or replace its bound artifact loss manifest');const previousSuccessors=previousManifest.artifactLossSuccessorManifestSha256s??[];assert.deepEqual(successorDigests.slice(0,previousSuccessors.length),previousSuccessors,'Successor cannot drop, reorder or replace a bound artifact loss successor');assert.ok(successorDigests.length<=previousSuccessors.length+1,'A control upgrade appends at most one artifact loss successor');}
   }
  }
  for(const [name,expected] of Object.entries(manifest.files))assert.equal(sha(await bytes(path.join(directory,'bundle',...name.split('/')))),expected,'Prepared closure changed');
@@ -283,10 +299,10 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
  };
  await assertInstallationCas();
  const target=path.join(intent.stateDirectory,'control-upgrades',intent.installId);await fs.mkdir(target,{recursive:true});
- for(const name of ['INTENT.json','PREPARED.json','RETIREMENT-OLD-CONFIG.json','CONTROL-OLD-CONFIG.json',...(intent.old.installation?['CONTROL-OLD-INSTALLATION.json']:[]),...(intent.artifactLossManifestSha256?[artifactLossManifestName]:[]),...(intent.nativeToolsUpdateSha256?['NATIVE-TOOLS-UPDATE.json','NATIVE-TOOLS-OLD-CONFIG.json']:[])]){const raw=await bytes(path.join(directory,name)),destination=path.join(target,name);if(await exists(destination))assert.equal(sha(await bytes(destination)),sha(raw));else await fs.writeFile(destination,raw,{flag:'wx'});}
+ for(const name of ['INTENT.json','PREPARED.json','RETIREMENT-OLD-CONFIG.json','CONTROL-OLD-CONFIG.json',...(intent.old.installation?['CONTROL-OLD-INSTALLATION.json']:[]),...(intent.artifactLossManifestSha256?[artifactLossManifestName,...(intent.artifactLossSuccessorManifestSha256s??[]).map(artifactLossSuccessorFileName)]:[]),...(intent.nativeToolsUpdateSha256?['NATIVE-TOOLS-UPDATE.json','NATIVE-TOOLS-OLD-CONFIG.json']:[])]){const raw=await bytes(path.join(directory,name)),destination=path.join(target,name);if(await exists(destination))assert.equal(sha(await bytes(destination)),sha(raw));else await fs.writeFile(destination,raw,{flag:'wx'});}
  for(const [name,expected] of Object.entries(manifest.files)){const destination=path.join(intent.bundleRoot,...name.split('/'));await fs.mkdir(path.dirname(destination),{recursive:true});if(await exists(destination))assert.equal(sha(await bytes(destination)),expected,'Immutable bundle differs');else await fs.copyFile(path.join(directory,'bundle',...name.split('/')),destination,1);}
  const destManifest=path.join(intent.bundleRoot,'MANIFEST.json');if(await exists(destManifest))assert.equal(sha(await bytes(destManifest)),intent.bundleManifestSha256);else await fs.copyFile(path.join(directory,'bundle/MANIFEST.json'),destManifest,1);
- if(intent.artifactLossManifestSha256){const destination=path.join(intent.bundleRoot,artifactLossManifestName);if(await exists(destination))assert.equal(sha(await bytes(destination)),intent.artifactLossManifestSha256);else await fs.copyFile(path.join(directory,artifactLossManifestName),destination,1);}
+ if(intent.artifactLossManifestSha256)for(const [name,expected] of [[artifactLossManifestName,intent.artifactLossManifestSha256],...(intent.artifactLossSuccessorManifestSha256s??[]).map(digest=>[artifactLossSuccessorFileName(digest),digest])]){const destination=path.join(intent.bundleRoot,name);if(await exists(destination))assert.equal(sha(await bytes(destination)),expected);else await fs.copyFile(path.join(directory,name),destination,1);}
  await onStage('S0');const deadlineUnixMs=Date.now()+Math.min(timeoutMs,1800000),policy={requestId:intentSha256,deadlineUnixMs},unlocks=[];
  const oldPipe='\\\\.\\pipe\\TERUISI.MainPrebuild.'+sha(path.resolve(intent.stateDirectory,'prebuild-queue').toLowerCase());
  try{
@@ -294,7 +310,7 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
   const either=async(file,allowed)=>assert.ok(allowed.includes(await hashOrMissing(file)),'Upgrade predecessor/step drift: '+file);
   await either(intent.dispatcher,[intent.old.dispatcher,...(resume?[intent.dispatcherSha256]:[])]);await either(intent.hook,[intent.old.hook,...(resume?[intent.bridgeHookSha256,intent.hookSha256]:[])]);await either(intent.configFile,[intent.old.config,...(resume?[intent.configSha256]:[])]);
   await assertInstallationCas();
-  if(intent.artifactLossManifestSha256){const loss=JSON.parse(await bytes(path.join(directory,artifactLossManifestName)));assertArtifactLossBindings(loss,path.join(intent.stateDirectory,'prebuild-queue-v2'),await readPreparationQueueStructure(path.join(intent.stateDirectory,'prebuild-queue-v2')));}
+  if(intent.artifactLossManifestSha256){const lossQueue=path.join(intent.stateDirectory,'prebuild-queue-v2'),structure=await readPreparationQueueStructure(lossQueue);for(const name of [artifactLossManifestName,...(intent.artifactLossSuccessorManifestSha256s??[]).map(artifactLossSuccessorFileName)])assertArtifactLossBindings(JSON.parse(await bytes(path.join(directory,name))),lossQueue,structure);}
   await assertRetirementConfigUpgrade(intent.stateDirectory,intent.old.config,intent.configSha256);
   if(intent.dependencyUpdateSha256||intent.nativeToolsUpdateSha256)assert.equal((await readMaterials(directory)).intentSha256,intentSha256,'Exact update materials changed under installation locks');
  const taskResume=resume&&await hashOrMissing(stateFile)!==intent.old.installation;

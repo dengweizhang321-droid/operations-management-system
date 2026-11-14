@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import test, { afterEach } from "node:test";
-import { packagesRoot, parseWorktrees, planRetention, resolveProtected, selectPackageWorktrees } from "../tools/release-package-retention.mjs";
+import { packagesRoot, parseWorktrees, planRetention, queueProtectedPackages, resolveProtected, selectPackageWorktrees, withQueueLock } from "../tools/release-package-retention.mjs";
+import { acquireQueueLock, durableCreate, queueVersion, submitPreparation } from "../tools/main-prebuild-queue.mjs";
+import { artifactLossPacketId } from "../tools/prepared-artifact-loss.mjs";
 
 const name = (index) => `${index.toString(16).padStart(12, "0")}-aabbccdd-11223344`;
 const pkg = (index, mtimeMs) => ({ name: name(index), mtimeMs });
@@ -232,4 +235,128 @@ test("relative catalog receiptPath fails closed instead of being treated as outs
     await world.writeCatalogFile({ ...world.standard, receiptPath });
     await assert.rejects(resolveProtected(world.roots), /receiptPath is not an absolute path/, receiptPath);
   }
+});
+
+// ---- queue-referenced packages (synthetic temp queue only) ----
+const queueGeneration = { configSha256: "1".repeat(64), bundleSha256: "2".repeat(64) };
+const queueTarget = "a".repeat(40);
+
+// One dispatch for one packet whose single ticket ends in the given terminal kind.
+async function addQueueDispatch(queue, packet, kind) {
+  const submitted = await submitPreparation(queue, { ...queueGeneration, origin: "manual" });
+  const live = { mainCommit: "b".repeat(40), head: { bindingSha256: "5".repeat(64) }, djangoManifestSha256: "6".repeat(64), chainStateSha256: "7".repeat(64) };
+  const dispatchId = randomUUID();
+  const dispatch = { version: queueVersion, dispatchId, requestId: submitted.requestId, mode: "prepare-only", ...queueGeneration, selectedTarget: queueTarget,
+    selection: { targetCommit: queueTarget, packet, live }, deadlineUnixMs: Date.now() - 3600000, dispatchedAt: new Date().toISOString(),
+    tickets: [{ requestId: submitted.requestId, ticketSha256: submitted.ticketSha256, observedTarget: null }] };
+  const dispatchSha256 = await durableCreate(path.join(queue, "dispatches", dispatchId + ".json"), dispatch);
+  const refs = { dispatchId, dispatchSha256, selectedTarget: queueTarget, winnerRequestId: submitted.requestId };
+  const base = { version: queueVersion, requestId: submitted.requestId, ticketSha256: submitted.ticketSha256, at: new Date().toISOString(), ...queueGeneration };
+  let terminal;
+  if (kind === "prepared") {
+    terminal = { ...base, status: "prepared", ...refs, nativeResult: { status: "prepared-only", mainCommit: queueTarget, publicationPerformed: false,
+      preparationFile: path.join(packet, "publish-" + queueTarget.slice(0, 12), "preparation/PREPARED.json"), preparationSha256: "3".repeat(64) } };
+  } else if (kind === "failed-native") {
+    terminal = { ...base, status: "failed", ...refs, error: "failed", preparationTerminal: { kind: "native-preparation-failed", phase: "prepare",
+      resultFile: path.join(packet, "invocations", randomUUID() + ".json"), resultSha256: "4".repeat(64) } };
+  } else if (kind === "failed-rejected") {
+    terminal = { ...base, status: "failed", ...refs, error: "failed", preparationTerminal: { kind: "rejected-before-native", stage: "fetch" } };
+  } else if (kind === "unknown") terminal = { ...base, status: "unknown", ...refs, error: "unknown" };
+  if (terminal) await durableCreate(path.join(queue, "results", submitted.requestId + ".json"), terminal);
+  return { dispatchId, requestId: submitted.requestId };
+}
+
+async function queueWorld() {
+  const world = await buildWorld({ packages: [1, 3, 5, 6, 7, 8, 9], django: 1, catalogSource: 3, frontendSource: 3 });
+  const queue = path.join(world.roots.stateDirectory, "prebuild-queue-v2");
+  for (const leaf of ["tickets", "dispatches", "results"]) await mkdir(path.join(queue, leaf), { recursive: true });
+  const packet = (index) => path.join(world.roots.packagesDirectory, name(index));
+  return { world, queue, packet };
+}
+
+test("queue protection: prepared and native-failed packets are protected, rejected-before-native and unknown groups are not", async () => {
+  const { world, queue, packet } = await queueWorld();
+  await addQueueDispatch(queue, packet(5), "prepared");
+  await addQueueDispatch(queue, packet(6), "failed-native");
+  await addQueueDispatch(queue, packet(7), "failed-rejected");
+  await addQueueDispatch(queue, packet(8), "unknown");
+  assert.deepEqual(await queueProtectedPackages({ queueDirectory: queue, packagesDirectory: world.roots.packagesDirectory }), [name(5), name(6)].sort());
+  const guard = await resolveProtected(world.roots);
+  assert.deepEqual(guard.queueProtected, [name(5), name(6)].sort());
+  for (const protectedName of [name(1), name(3), name(5), name(6)]) assert.ok(guard.names.includes(protectedName), protectedName);
+  // Only evidence-free packages stay deletable, even with keepRecent 0 and the queue packages being the oldest.
+  const packages = [1, 3, 5, 6, 7, 8, 9].map((index) => pkg(index, index));
+  const plan = planRetention({ packages, worktrees: [], branches: [], protectedNames: guard.names, keepRecent: 0 });
+  assert.deepEqual(plan.removeDirectories.map((item) => item.name).sort(), [name(7), name(8), name(9)].sort());
+});
+
+test("queue protection: a loss-covered packet is not protected; a mixed group is protected by its prepared ticket", async () => {
+  const { world, queue, packet } = await queueWorld();
+  await addQueueDispatch(queue, packet(5), "prepared");
+  await addQueueDispatch(queue, packet(6), "prepared");
+  await addQueueDispatch(queue, packet(7), "failed-rejected");
+  await addQueueDispatch(queue, packet(7), "prepared");
+  await mkdir(path.join(queue, "artifact-losses"), { recursive: true });
+  // Retention reads only the packet identity of a loss record; the registry validates the rest elsewhere.
+  await durableCreate(path.join(queue, "artifact-losses", artifactLossPacketId(packet(5)) + ".json"), { version: "teruisi-prepared-artifact-loss-record-v1", packet: packet(5) });
+  assert.deepEqual(await queueProtectedPackages({ queueDirectory: queue, packagesDirectory: world.roots.packagesDirectory }), [name(6), name(7)].sort());
+});
+
+test("queue protection: path normalization ignores case and slash style; packets outside the root are ignored; nested paths fail closed", async () => {
+  const { queue, packet, world } = await queueWorld();
+  const root = world.roots.packagesDirectory;
+  await addQueueDispatch(queue, path.join(root.toUpperCase(), name(5)).replaceAll("\\", "/"), "prepared");
+  await addQueueDispatch(queue, path.join(elsewhere, name(6)), "prepared");
+  assert.deepEqual(await queueProtectedPackages({ queueDirectory: queue, packagesDirectory: root }), [name(5)]);
+  await addQueueDispatch(queue, path.join(packet(7), "source"), "prepared");
+  await assert.rejects(queueProtectedPackages({ queueDirectory: queue, packagesDirectory: root }), /not a direct release package/);
+});
+
+test("queue protection: an absent queue protects nothing; an unreadable queue or loss record refuses to plan", async () => {
+  const none = await buildWorld();
+  assert.deepEqual((await resolveProtected(none.roots)).queueProtected, []);
+  const { world, queue, packet } = await queueWorld();
+  const { requestId } = await addQueueDispatch(queue, packet(5), "prepared");
+  const roots = world.roots;
+  const resultFile = path.join(queue, "results", requestId + ".json");
+  const good = await readFile(resultFile);
+  await writeFile(resultFile, "{not json");
+  await assert.rejects(resolveProtected(roots), /Preparation queue unreadable; refusing to plan retention/);
+  await writeFile(resultFile, JSON.stringify({ version: "teruisi-main-prebuild-queue-v2" }));
+  await assert.rejects(resolveProtected(roots), /Preparation queue unreadable/);
+  await writeFile(resultFile, good);
+  assert.deepEqual((await resolveProtected(roots)).queueProtected, [name(5)]);
+  await writeFile(path.join(queue, "dispatches", "not-a-dispatch.json"), "{}");
+  await assert.rejects(resolveProtected(roots), /Preparation queue unreadable/);
+  await rm(path.join(queue, "dispatches", "not-a-dispatch.json"));
+  await mkdir(path.join(queue, "artifact-losses"), { recursive: true });
+  const lossFile = path.join(queue, "artifact-losses", artifactLossPacketId(packet(5)) + ".json");
+  await writeFile(lossFile, "{broken");
+  await assert.rejects(resolveProtected(roots), /Artifact loss record unreadable/);
+  await rm(lossFile);
+  await durableCreate(lossFile, { version: "teruisi-prepared-artifact-loss-record-v1", packet: packet(6) });
+  await assert.rejects(resolveProtected(roots), /does not match its name/);
+  await rm(lossFile);
+  await writeFile(path.join(queue, "artifact-losses", "stray.json"), "{}");
+  await assert.rejects(resolveProtected(roots), /Unknown artifact loss record name/);
+});
+
+test("execute holds the queue lock for the whole operation and refuses when the lock is busy", async () => {
+  const { queue } = await queueWorld();
+  const result = await withQueueLock(queue, async () => {
+    assert.equal(await acquireQueueLock(queue), null, "the queue is locked while the operation runs");
+    return "done";
+  });
+  assert.equal(result, "done");
+  const release = await acquireQueueLock(queue);
+  assert.ok(release);
+  let ranBusy = false;
+  await assert.rejects(withQueueLock(queue, async () => { ranBusy = true; }), /queue lock is busy/);
+  assert.equal(ranBusy, false);
+  await release();
+  // The lock is released after a failing operation too.
+  await assert.rejects(withQueueLock(queue, async () => { throw new Error("planned failure"); }), /planned failure/);
+  const again = await acquireQueueLock(queue);
+  assert.ok(again);
+  await again();
 });

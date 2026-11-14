@@ -264,7 +264,12 @@ export async function ticketResult(directory,requestId,ticketSha256,{native=true
   assert.equal(dispatch.configSha256,value.configSha256);assert.equal(dispatch.bundleSha256,value.bundleSha256);
   assert.ok(dispatch.tickets.some(ref=>ref.requestId===requestId&&ref.ticketSha256===ticketSha256),'Terminal belongs to another dispatch');
   if(value.status==='unknown'){assert.equal(typeof value.error,'string');return value;}
-  if(dispatchedFailed){assert.equal(typeof value.error,'string');await validatePreparationTerminal(value.preparationTerminal,dispatch,{native});return value;}
+  if(dispatchedFailed){
+   assert.equal(typeof value.error,'string');await validatePreparationTerminal(value.preparationTerminal,dispatch,{native:false});
+   // Native bytes stay mandatory unless this packet is retired as lost (mirrors the prepared path above).
+   if(native){const {readArtifactLossRegistry}=await import('./prepared-artifact-loss.mjs');if(!(await readArtifactLossRegistry(directory,await readPreparationQueueStructure(directory))).has(packetKey(dispatch.selection.packet)))await validatePreparationTerminal(value.preparationTerminal,dispatch);}
+   return value;
+  }
   if(value.status==='superseded'){assert.ok(ticket.value.observedTarget&&ticket.value.observedTarget!==value.selectedTarget);return value;}
   const result=value.nativeResult;assert.ok(result&&typeof result==='object'&&!Array.isArray(result));
   assert.equal(result.mainCommit??result.targetCommit,value.selectedTarget);assert.equal(result.publicationPerformed,false);
@@ -324,8 +329,10 @@ export async function readPreparationQueueInventory(directory){
  inventory.artifactLosses=await readArtifactLossRegistry(directory,inventory);
  for(const {value:dispatch} of inventory.dispatches)for(const ref of dispatch.tickets){
   const terminal=inventory.terminals.get(ref.requestId);
-  if(terminal?.status==='prepared'&&!inventory.artifactLosses.has(packetKey(dispatch.selection.packet)))await validatePreparedTerminalNative(terminal,dispatch);
-  if(terminal?.status==='failed'&&terminal.preparationTerminal)await validatePreparationTerminal(terminal.preparationTerminal,dispatch);
+  // A retired lost packet skips both native checks; reappearance restores them in readArtifactLossRegistry.
+  const lost=inventory.artifactLosses.has(packetKey(dispatch.selection.packet));
+  if(terminal?.status==='prepared'&&!lost)await validatePreparedTerminalNative(terminal,dispatch);
+  if(terminal?.status==='failed'&&terminal.preparationTerminal&&!lost)await validatePreparationTerminal(terminal.preparationTerminal,dispatch);
  }
  return inventory;
 }
