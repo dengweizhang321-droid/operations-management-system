@@ -24,6 +24,8 @@ export type JdMarketImageFillResult = {
 
 const FILL_POST_BATCH_SIZE = 200;
 export const JD_MARKET_IMAGE_FILL_MAX_SKUS = 5_000;
+/** Each page recomputes the candidate set server-side, so keep the number of calls small. */
+export const FILL_CANDIDATE_PAGE_SIZE = 1_000;
 const JD_MARKET_IMAGE_FILL_DEADLINE_MS = 10 * 60_000;
 
 export function normalizeBaseUrl(value: string) {
@@ -49,7 +51,7 @@ export async function readFillCandidates(baseUrl: string, maxSkus: number, reque
   const skus = new Set<string>();
   let truncated = false;
   for (let page = 1; ; page += 1) {
-    const body = await jsonRequest<CandidatePage>(`${baseUrl}/api/market/images/repair?mode=fill&page=${page}&pageSize=200`, undefined, request);
+    const body = await jsonRequest<CandidatePage>(`${baseUrl}/api/market/images/repair?mode=fill&page=${page}&pageSize=${FILL_CANDIDATE_PAGE_SIZE}`, undefined, request);
     for (const item of body.items) {
       if (!skus.has(item.skuCode) && skus.size >= maxSkus) { truncated = true; continue; }
       skus.add(item.skuCode);

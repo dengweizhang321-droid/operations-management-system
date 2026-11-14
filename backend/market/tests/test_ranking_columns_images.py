@@ -353,3 +353,66 @@ class FillJobFlowTests(TestCase):
             "jobLeaseToken": claimed["job"]["leaseToken"], "jobEpoch": claimed["job"]["leaseEpoch"]}, ADMIN)
         self.assertEqual(finished["job"]["status"], "completed")
         self.assertEqual(MarketImageCache.objects.get(source_url=url).status, "ready")
+
+
+class FillCandidatesCostTests(TestCase):
+    def bulk(self, count):
+        rows = [
+            MarketRankingEntry(
+                natural_key=f"bulk-{index}", source_row_number=1, period_start="2026-08-01",
+                period_end="2026-08-31", category="净水", scope="全部", sku_code=f"bulk-{index:05d}",
+                ranking_dimension="SKU", rank=1, last_import_batch_id="fixture",
+                image_url="https://img10.360buyimg.com/n5/x.jpg" if index % 3 == 0 else "")
+            for index in range(count)
+        ]
+        MarketRankingEntry.objects.bulk_create(rows)
+        MarketMasterIdentity.objects.bulk_create([
+            MarketMasterIdentity(category=row.category, scope=row.scope, ranking_dimension="SKU",
+                                 sku_code=row.sku_code, latest_entry_id=row.id)
+            for row in MarketRankingEntry.objects.filter(natural_key__startswith="bulk-")])
+
+    def test_query_count_is_bounded_and_independent_of_the_number_of_identities(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        self.bulk(2_500)
+        with CaptureQueriesContext(connection) as queries:
+            first = execute_image_query({"operation": "image_fill_candidates", "params": {"page": 1, "pageSize": 1_000}})
+        # one narrow identity read + one IN chunk per 1000 candidate sku codes (1666 empties -> 2 chunks)
+        self.assertLessEqual(len(queries), 3, [q["sql"][:80] for q in queries])
+        self.assertEqual(first["pagination"], {"page": 1, "pageSize": 1_000, "total": 1_666, "pageCount": 2})
+        self.assertEqual(len(first["items"]), 1_000)
+        second = execute_image_query({"operation": "image_fill_candidates", "params": {"page": 2, "pageSize": 1_000}})
+        self.assertEqual(len(second["items"]), 666)
+        codes = [item["skuCode"] for item in first["items"] + second["items"]]
+        self.assertEqual(len(codes), len(set(codes)))
+        self.assertTrue(all(int(code.split("-")[1]) % 3 != 0 for code in codes))
+        for item in first["items"][:1]:
+            self.assertEqual(set(item), {"category", "scope", "rankingDimension", "skuCode", "productName", "brand", "productUrl", "periodEnd"})
+
+    def test_fill_page_size_may_reach_1000_but_repair_candidates_stay_capped_at_200(self):
+        self.bulk(3)
+        ok = execute_image_query({"operation": "image_fill_candidates", "params": {"page": 1, "pageSize": 1_000}})
+        self.assertEqual(ok["pagination"]["pageSize"], 1_000)
+        with self.assertRaises(MarketApiError):
+            execute_image_query({"operation": "image_fill_candidates", "params": {"page": 1, "pageSize": 1_001}})
+        with self.assertRaises(MarketApiError):
+            execute_image_query({"operation": "image_repair_candidates", "params": {"page": 1, "pageSize": 201}})
+        self.assertEqual(
+            execute_image_query({"operation": "image_repair_candidates", "params": {"page": 1, "pageSize": 200}})["pagination"]["pageSize"], 200)
+
+    def test_sku_imaged_only_in_another_scope_or_older_month_is_not_a_candidate_and_spu_never_is(self):
+        def row(key, **values):
+            fields = dict(natural_key=key, source_row_number=1, period_start="2026-08-01", period_end="2026-08-31",
+                          category="净水", scope="全部", ranking_dimension="SKU", rank=1, last_import_batch_id="fixture")
+            fields.update(values)
+            return MarketRankingEntry.objects.create(**fields)
+        latest = row("l", sku_code="x", image_url="")
+        other = row("o", sku_code="x", scope="其他", period_start="2026-01-01", period_end="2026-01-31",
+                    image_url="https://img10.360buyimg.com/n5/o.jpg")
+        for entry in (latest, other):
+            MarketMasterIdentity.objects.create(category=entry.category, scope=entry.scope, ranking_dimension="SKU",
+                                                sku_code=entry.sku_code, latest_entry_id=entry.id)
+        spu = row("s", sku_code="spu1", ranking_dimension="SPU", image_url="")
+        MarketMasterIdentity.objects.create(category="净水", scope="全部", ranking_dimension="SPU", sku_code="spu1", latest_entry_id=spu.id)
+        result = execute_image_query({"operation": "image_fill_candidates", "params": {"page": 1, "pageSize": 100}})
+        self.assertEqual(result["items"], [])

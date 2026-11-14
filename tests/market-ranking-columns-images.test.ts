@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { marketItem } from "../lib/market/cache-payload-validators";
-import { fetchJdImages, type JdMarketImageFillResult } from "../lib/market/jd-image-fill";
+import { FILL_CANDIDATE_PAGE_SIZE, fetchJdImages, readFillCandidates, type JdMarketImageFillResult } from "../lib/market/jd-image-fill";
 import { fillMissingImagesBestEffort } from "../tools/jd-market-ranking-daily";
 
 function rankingItem(overrides: Record<string, unknown> = {}) {
@@ -150,4 +150,43 @@ test("ranking table renames sales, adds the order columns and keeps the empty-ro
   assert.match(table, /item\.orderCount === null \? "-" : count\(item\.orderCount\)/);
   const trend = view.slice(view.indexOf("function TrendDrawer"), view.indexOf("function CompareWorkspace"));
   assert.match(trend, /<th>月份<\/th><th>预估销售额<\/th>/);
+});
+
+function candidatePager(total: number) {
+  const urls: string[] = [];
+  const request = async (input: string | URL | Request) => {
+    const url = new URL(String(input));
+    urls.push(url.search);
+    const page = Number(url.searchParams.get("page"));
+    const pageSize = Number(url.searchParams.get("pageSize"));
+    const first = (page - 1) * pageSize;
+    const items = Array.from({ length: Math.max(0, Math.min(pageSize, total - first)) }, (_, offset) => ({
+      category: "净水", scope: "全部", rankingDimension: "SKU", skuCode: `sku-${first + offset}`,
+      productName: "", brand: "", productUrl: "", periodEnd: "2026-08-31",
+    }));
+    return new Response(JSON.stringify({ items, pagination: { page, pageSize, total, pageCount: Math.max(1, Math.ceil(total / pageSize)) } }), {
+      status: 200, headers: { "content-type": "application/json" },
+    });
+  };
+  return { urls, request };
+}
+
+test("fill candidates are read with 1000-row pages so a full run needs at most a handful of server queries", async () => {
+  assert.equal(FILL_CANDIDATE_PAGE_SIZE, 1_000);
+  const full = candidatePager(6_250);
+  const all = await readFillCandidates("http://127.0.0.1:3000", 20_000, full.request);
+  assert.equal(all.items.length, 6_250);
+  assert.equal(all.truncated, false);
+  assert.equal(full.urls.length, 7);
+  assert.ok(full.urls.every((search) => search.includes("mode=fill") && search.includes("pageSize=1000")));
+
+  const capped = candidatePager(6_250);
+  const bounded = await readFillCandidates("http://127.0.0.1:3000", 5_000, capped.request);
+  assert.equal(bounded.items.length, 5_000);
+  assert.equal(bounded.truncated, true);
+  assert.equal(capped.urls.length, 5, "stops reading as soon as the SKU cap is reached");
+
+  const empty = candidatePager(0);
+  assert.deepEqual(await readFillCandidates("http://127.0.0.1:3000", 5_000, empty.request), { items: [], truncated: false });
+  assert.equal(empty.urls.length, 1);
 });

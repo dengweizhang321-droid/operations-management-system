@@ -7,7 +7,7 @@ import uuid
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Exists, F, OuterRef, Q
+from django.db.models import Count, F, Q
 from django.utils import timezone
 
 from sales.auth import Principal
@@ -28,6 +28,8 @@ from .revisions import bump_revision, iso
 
 MAX_PAGE = 10_000
 MAX_PAGE_SIZE = 200
+MAX_FILL_PAGE_SIZE = 1_000
+FILL_SKU_CHUNK = 1_000
 MAX_CLAIMS = 16
 HEX64 = frozenset("0123456789abcdef")
 
@@ -140,17 +142,12 @@ def image_metadata(content_hash: str) -> dict[str, object]:
     }
 
 
-def repair_candidates(params: dict[str, object], *, never_imaged_only: bool = False) -> dict[str, object]:
+def repair_candidates(params: dict[str, object]) -> dict[str, object]:
     page = _integer(params.get("page"), "page", 1, 1, MAX_PAGE)
     page_size = _integer(params.get("pageSize"), "pageSize", 100, 1, MAX_PAGE_SIZE)
     query = MarketRankingEntry.objects.filter(
         id__in=MarketMasterIdentity.objects.values("latest_entry_id"), image_url=""
     ).order_by("category", "scope", "ranking_dimension", "sku_code", "-period_end", "-id")
-    if never_imaged_only:
-        # Only SKUs whose sku_code has no non-empty image_url in ANY row (any
-        # category, scope, dimension or month) still need a JD lookup.
-        imaged_elsewhere = MarketRankingEntry.objects.filter(sku_code=OuterRef("sku_code")).exclude(image_url="")
-        query = query.filter(ranking_dimension="SKU").filter(~Exists(imaged_elsewhere))
     # Keep one latest row per complete market identity.  A SKU code by itself is
     # never sufficient because it can legally exist in another scope/dimension.
     identities: dict[tuple[str, str, str, str], MarketRankingEntry] = {}
@@ -179,6 +176,64 @@ def repair_candidates(params: dict[str, object], *, never_imaged_only: bool = Fa
     }
 
 
+def fill_candidates(params: dict[str, object]) -> dict[str, object]:
+    """SKU identities whose sku_code has no non-empty image_url in ANY row.
+
+    Two cheap steps instead of one correlated NOT EXISTS over every ranking row:
+    1) the latest row of each SKU identity (one row per identity through the
+       unique master identity) whose image is empty, as narrow rows without
+       raw_json;
+    2) for only those sku_codes, the ones that have an image in any row, read in
+       bounded IN chunks through the sku_code index.
+    """
+    page = _integer(params.get("page"), "page", 1, 1, MAX_PAGE)
+    page_size = _integer(params.get("pageSize"), "pageSize", 100, 1, MAX_FILL_PAGE_SIZE)
+    latest_empty = list(
+        MarketRankingEntry.objects.filter(
+            id__in=MarketMasterIdentity.objects.values("latest_entry_id"),
+            image_url="",
+            ranking_dimension="SKU",
+        )
+        .order_by("category", "scope", "ranking_dimension", "sku_code", "-period_end", "-id")
+        .values("category", "scope", "ranking_dimension", "sku_code", "product_name", "brand", "product_url", "period_end")
+    )
+    sku_codes = sorted({row["sku_code"] for row in latest_empty})
+    imaged: set[str] = set()
+    for start in range(0, len(sku_codes), FILL_SKU_CHUNK):
+        chunk = sku_codes[start : start + FILL_SKU_CHUNK]
+        imaged.update(
+            MarketRankingEntry.objects.filter(sku_code__in=chunk)
+            .exclude(image_url="")
+            .values_list("sku_code", flat=True)
+            .distinct()
+        )
+    identities: dict[tuple[str, str, str, str], dict[str, object]] = {}
+    for row in latest_empty:
+        if row["sku_code"] in imaged:
+            continue
+        key = (row["category"], row["scope"], row["ranking_dimension"], row["sku_code"])
+        identities.setdefault(key, row)
+    values = list(identities.values())
+    total = len(values)
+    items = [
+        {
+            "category": row["category"],
+            "scope": row["scope"],
+            "rankingDimension": row["ranking_dimension"],
+            "skuCode": row["sku_code"],
+            "productName": row["product_name"],
+            "brand": row["brand"],
+            "productUrl": row["product_url"],
+            "periodEnd": row["period_end"],
+        }
+        for row in values[(page - 1) * page_size : page * page_size]
+    ]
+    return {
+        "items": items,
+        "pagination": {"page": page, "pageSize": page_size, "total": total, "pageCount": max(1, math.ceil(total / page_size))},
+    }
+
+
 def execute_image_query(payload: dict[str, object]) -> dict[str, object]:
     operation = payload.get("operation")
     if operation == "image_cache_job" and set(payload) == {"operation", "params"} and isinstance(payload["params"], dict):
@@ -188,7 +243,7 @@ def execute_image_query(payload: dict[str, object]) -> dict[str, object]:
     if operation == "image_repair_candidates" and set(payload) == {"operation", "params"} and isinstance(payload["params"], dict):
         return repair_candidates(payload["params"])
     if operation == "image_fill_candidates" and set(payload) == {"operation", "params"} and isinstance(payload["params"], dict):
-        return repair_candidates(payload["params"], never_imaged_only=True)
+        return fill_candidates(payload["params"])
     raise _error("市场图片查询字段无效")
 
 
