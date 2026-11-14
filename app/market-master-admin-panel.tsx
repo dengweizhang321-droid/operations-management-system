@@ -7,34 +7,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { invokeLatestRequest } from "@/lib/market/latest-request";
 import {
-  annotationRequestRetryKind,
-  annotationRetryDelayMs,
-} from "@/lib/market/annotation-retry";
-import {
   canCloseMarketSkuEditor,
   type MarketMasterAdminPanelProps,
 } from "./market-master-admin-contract";
 import Dialog from "./ui/dialog";
-
-const PRICE_RECOGNITION_REQUEST_TIMEOUT_MS = 110_000;
-const PRICE_RECOGNITION_CONCURRENCY = 2;
-const PRICE_RECOGNITION_BATCH_SIZE = 1;
-
-async function postPriceRecognitionAction(body: Record<string, unknown>) {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), PRICE_RECOGNITION_REQUEST_TIMEOUT_MS);
-  try {
-    return await fetch("/api/market/master", {
-      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: controller.signal,
-    });
-  } catch (error) {
-    if (controller.signal.aborted) throw new Error("价格识别请求超时，系统将自动刷新任务状态并续跑原任务");
-    throw error;
-  } finally {
-    window.clearTimeout(timeout);
-  }
-}
-
 
 type FilterOption = { value: string; count: number; label?: string };
 type BrandRecognitionJob = {
@@ -593,89 +569,21 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: Marke
   };
   const recognizePrices = async () => {
     if (!priceCategory || !visionModelId) { setError("请选择类目，并先在 AI 助理配置中启用一个视觉模型"); return; }
-    setBusy("recognize_prices"); setError(""); setNotice("正在创建价格识别任务…");
+    setBusy("recognize_prices"); setError(""); setNotice("正在创建后台识别任务…");
     try {
-      const createResponse = await postPriceRecognitionAction({ action: "create_price_recognition_job", category: priceCategory, modelId: visionModelId, limit: 100 });
-      const created = await createResponse.json().catch(() => null) as { error?: string; result?: { id?: string; totalCount?: number } } | null;
-      if (!createResponse.ok || !created?.result?.id) throw new Error(created?.error || "价格识别任务创建失败");
-      const jobId = created.result.id;
-      const total = Number(created.result.totalCount ?? 0);
-      let processed = 0;
-      let failed = 0;
-      let done = false;
-      let workerLimit = PRICE_RECOGNITION_CONCURRENCY;
-      let blockedUntil = 0;
-      let retryFailures = 0;
-      let successesSinceFailure = 0;
-      let fatalError: unknown = null;
-      const refreshRecognitionProgress = loadLatest;
-      const waitForRetryWindow = async () => {
-        while (!done && Date.now() < blockedUntil) await new Promise<void>((resolve) => window.setTimeout(resolve, Math.min(1_000, blockedUntil - Date.now())));
-      };
-      const scheduleRetry = (kind: "waiting" | "transient" | "rate_limit", retryAfterMs = 0, failureMessage = "") => {
-        workerLimit = 1;
-        successesSinceFailure = 0;
-        if (kind !== "waiting") retryFailures += 1;
-        const delayMs = annotationRetryDelayMs(kind, retryFailures, retryAfterMs);
-        blockedUntil = Math.max(blockedUntil, Date.now() + delayMs);
-        const seconds = Math.ceil(delayMs / 1_000);
-        const cause = failureMessage.trim() ? `（${failureMessage.trim().slice(0, 300)}）` : "";
-        setNotice(kind === "waiting"
-          ? `已有图片正在识别，系统将在 ${seconds} 秒后自动检查。`
-          : kind === "rate_limit"
-            ? `模型供应商限流${cause}，已降为单通道，系统将在 ${seconds} 秒后自动续跑。`
-            : `模型或网络超时${cause}，已降为单通道，系统将在 ${seconds} 秒后自动刷新并续跑。`);
-      };
-      const worker = async (workerIndex: number) => {
-        while (!done && !fatalError) {
-          if (workerIndex >= workerLimit) { await new Promise<void>((resolve) => window.setTimeout(resolve, 1_000)); continue; }
-          await waitForRetryWindow();
-          if (done || fatalError || workerIndex >= workerLimit) continue;
-          let response: Response;
-          try {
-            response = await postPriceRecognitionAction({ action: "run_price_recognition_batch", jobId, limit: PRICE_RECOGNITION_BATCH_SIZE });
-          } catch (reason) {
-            const retryKind = annotationRequestRetryKind(reason);
-            if (retryKind) {
-              scheduleRetry(retryKind);
-              await refreshRecognitionProgress().catch(() => undefined);
-              continue;
-            }
-            fatalError = reason; break;
-          }
-          const payload = await response.json().catch(() => null) as { error?: string; result?: { done?: boolean; waiting?: boolean; processedCount?: number; reusedCount?: number; failedCount?: number; failureKind?: string; failureCode?: string; failureMessage?: string; retryAfterMs?: number } } | null;
-          if (!response.ok) {
-            const retryKind = annotationRequestRetryKind({ status: response.status, message: payload?.error || "AI 价格识别失败" });
-            if (retryKind) { scheduleRetry(retryKind); await refreshRecognitionProgress().catch(() => undefined); continue; }
-            fatalError = new Error(payload?.error || "AI 价格识别失败"); break;
-          }
-          const processedThisCall = Math.max(0, Number(payload?.result?.processedCount ?? 0));
-          const reusedThisCall = Math.max(0, Number(payload?.result?.reusedCount ?? 0));
-          processed += processedThisCall;
-          failed += Math.max(0, Number(payload?.result?.failedCount ?? 0));
-          if (payload?.result?.done) done = true;
-          if (payload?.result?.waiting) { scheduleRetry("waiting"); await refreshRecognitionProgress().catch(() => undefined); }
-          else if (payload?.result?.failureKind === "rate_limit") { scheduleRetry("rate_limit", Number(payload.result.retryAfterMs ?? 0), payload.result.failureMessage); await refreshRecognitionProgress().catch(() => undefined); }
-          else if (payload?.result?.failureKind === "transient") { scheduleRetry("transient", Number(payload.result.retryAfterMs ?? 0), payload.result.failureMessage); await refreshRecognitionProgress().catch(() => undefined); }
-          else if (payload?.result?.failureKind === "permanent" && payload.result.failureMessage) setNotice(`当前图片识别失败（${payload.result.failureMessage}），系统已记录失败并继续处理其他图片。`);
-          else if (!payload?.result?.failureKind && processedThisCall > reusedThisCall) {
-            successesSinceFailure += processedThisCall - reusedThisCall;
-            if (workerLimit === 1 && successesSinceFailure >= 3) {
-              workerLimit = PRICE_RECOGNITION_CONCURRENCY;
-              retryFailures = 0;
-              setNotice("模型连接已稳定，系统已自动恢复双通道价格识别。");
-            } else setNotice(`AI 价格识别 ${Math.min(processed, total)} / ${total}${failed ? `，失败 ${failed}` : ""}`);
-          }
-        }
-      };
-      await Promise.all(Array.from({ length: Math.min(PRICE_RECOGNITION_CONCURRENCY, total || 1) }, (_, index) => worker(index)));
-      if (fatalError) throw fatalError;
-      setNotice(`AI 价格识别完成，已处理 ${count(processed)} 次，结果已进入待确认候选价。`);
+      const response = await fetch("/api/market/annotations", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "start_category_recognition", category: priceCategory, modelId: visionModelId }),
+      });
+      const payload = await response.json().catch(() => null) as { error?: string; result?: { jobId?: string; totalCount?: number; started?: boolean; reused?: boolean } } | null;
+      if (!response.ok || !payload?.result?.jobId) throw new Error(payload?.error || "后台识别任务创建失败");
+      const { jobId, totalCount = 0, started, reused } = payload.result;
+      setNotice(started
+        ? `已转入后台识别：任务 ${jobId}，共 ${count(Number(totalCount))} 条${reused ? "（沿用进行中的同类任务）" : ""}。关闭页面不影响进度，结果进入待确认候选价。`
+        : `任务 ${jobId} 已创建，当前没有可识别的图片（可能图片仍在缓存中或已全部识别）。`);
       await loadLatest();
     } catch (reason) {
-      await loadLatest().catch(() => undefined);
-      setError(reason instanceof Error ? reason.message : "AI 价格识别失败");
-      setNotice("自动识别遇到不可恢复错误，已完成结果仍会保留。请检查模型配置或权限后重试。");
+      setError(reason instanceof Error ? reason.message : "后台识别任务创建失败");
     }
     finally { setBusy(""); }
   };
@@ -776,7 +684,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: Marke
     {mode === "database" && <>{databaseSecondaryRequested && (databaseSecondaryLoaded ? <><article className="panel settings-master-overview">
       <div className="settings-master-cards"><div><strong>{count(data.masterData.pagination.total)}</strong><span>主数据</span></div><div><strong>{count(data.pendingPrices.pagination.total)}</strong><span>待确认价格</span></div><div><strong>{count(data.imageCache.cached)} / {count(data.imageCache.total)}</strong><span>图片缓存</span></div><div><strong>{count(data.statusCounts.confirmedPrices)}</strong><span>已确认价格</span></div></div>
     </article>
-    <article className="panel data-refresh-region" aria-busy={databaseSecondaryLoading}><div className="section-header"><div><h3>待确认价格</h3><p>本表沿用上方三级类目多选，并可叠加候选价来源多选；AI 识别目标仍保持单类目，避免写入任务范围含糊。</p></div><div className="market-master-toolbar"><select aria-label="AI 价格识别目标类目" value={priceCategory} onChange={(event) => setPriceCategory(event.target.value)}><option value="">AI 识别目标类目</option>{data.priceRecognition.prompts.map((item) => <option key={item.category} value={item.category}>{item.category}（可识别 {count(Number(item.pending_count))}）</option>)}</select><SearchMultiFilter label="待确认价来源" values={pendingPriceSources} options={[{ value: "ai", label: "AI 识别价", count: 0 }, { value: "non_ai", label: "非 AI 识别价", count: 0 }]} onChange={(values) => { setPendingPriceSources(values); setPendingPricePage(1); }} /><select aria-label="每页条数" value={pendingPricePageSize} onChange={(event) => { setPendingPricePageSize(Number(event.target.value)); setPendingPricePage(1); }}><option value={20}>每页 20 条</option><option value={50}>每页 50 条</option><option value={100}>每页 100 条</option></select><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)} disabled={!visionModels.length}><option value="">{visionModels.length ? "选择视觉模型" : "暂无已启用视觉模型"}</option>{visionModels.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.modelName}</option>)}</select><button className="primary-button" disabled={Boolean(priceRecognitionBlocker) || !visionModelId || busy !== ""} onClick={() => void recognizePrices()}>{busy === "recognize_prices" ? "AI 识别中…" : "AI 一键识别价格（最多100条）"}</button></div></div>{priceRecognitionBlocker && <p className="market-price-blocker">{priceRecognitionBlocker}</p>}<div className="data-table-wrap"><table className="data-table market-price-review-table"><thead><tr><th>主图</th><th>SKU / 商品链接</th><th>榜单口径</th><th>月份</th><th>候选价</th><th>来源 / AI 依据</th><th>操作</th></tr></thead><tbody>{data.pendingPrices.items.map((row) => { const href = marketProductHref(row.productUrl, row.skuCode); return <tr key={`pending-price-${row.id}`}><td>{href && row.displayImageUrl ? <a href={href} target="_blank" rel="noreferrer"><img className="market-review-image" src={String(row.displayImageUrl)} alt={String(row.productName ?? row.skuCode)} loading="lazy" /></a> : row.displayImageUrl ? <img className="market-review-image" src={String(row.displayImageUrl)} alt="" loading="lazy" /> : <span className="annotation-no-image">无图</span>}</td><td>{href ? <a href={href} target="_blank" rel="noreferrer"><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></a> : <><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></>}<code>{String(row.imageContentSha256 ?? "").slice(0, 16)}</code></td><td>{String(row.scope || row.operationMode || "-")}</td><td>{String(row.month)}</td><td>{money(Number(row.candidatePriceCents ?? 0) || null)}</td><td><strong>{priceSourceLabel(row.candidatePriceSource)}</strong>{row.candidatePriceSource === "ai_suggestion" && <small>{String(row.aiPriceType || "待判断")} · 置信度 {percent(row.aiConfidenceBps === null ? null : Number(row.aiConfidenceBps))}<br />{String(row.aiReason || "未返回识别依据")}</small>}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => confirmPrice(row)}>修改 / 确认价格</button></td></tr>; })}{!data.pendingPrices.items.length && <tr><td colSpan={7}><div className="table-state">当前筛选范围没有待确认价格。</div></td></tr>}</tbody></table></div><div className="market-pagination"><button disabled={pendingPricePage <= 1} onClick={() => setPendingPricePage((current) => Math.max(1, current - 1))}>上一页</button><label>第 <select aria-label="待确认价格页码" value={pendingPricePage} onChange={(event) => setPendingPricePage(Number(event.target.value))}>{Array.from({ length: data.pendingPrices.pagination.pageCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select> / {data.pendingPrices.pagination.pageCount} 页</label><span>共 {count(data.pendingPrices.pagination.total)} 条</span><button disabled={pendingPricePage >= data.pendingPrices.pagination.pageCount} onClick={() => setPendingPricePage((current) => Math.min(data.pendingPrices.pagination.pageCount, current + 1))}>下一页</button></div></article>
+    <article className="panel data-refresh-region" aria-busy={databaseSecondaryLoading}><div className="section-header"><div><h3>待确认价格</h3><p>本表沿用上方三级类目多选，并可叠加候选价来源多选；AI 识别目标仍保持单类目，避免写入任务范围含糊。</p></div><div className="market-master-toolbar"><select aria-label="AI 价格识别目标类目" value={priceCategory} onChange={(event) => setPriceCategory(event.target.value)}><option value="">AI 识别目标类目</option>{data.priceRecognition.prompts.map((item) => <option key={item.category} value={item.category}>{item.category}（可识别 {count(Number(item.pending_count))}）</option>)}</select><SearchMultiFilter label="待确认价来源" values={pendingPriceSources} options={[{ value: "ai", label: "AI 识别价", count: 0 }, { value: "non_ai", label: "非 AI 识别价", count: 0 }]} onChange={(values) => { setPendingPriceSources(values); setPendingPricePage(1); }} /><select aria-label="每页条数" value={pendingPricePageSize} onChange={(event) => { setPendingPricePageSize(Number(event.target.value)); setPendingPricePage(1); }}><option value={20}>每页 20 条</option><option value={50}>每页 50 条</option><option value={100}>每页 100 条</option></select><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)} disabled={!visionModels.length}><option value="">{visionModels.length ? "选择视觉模型" : "暂无已启用视觉模型"}</option>{visionModels.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.modelName}</option>)}</select><button className="primary-button" disabled={Boolean(priceRecognitionBlocker) || !visionModelId || busy !== ""} onClick={() => void recognizePrices()}>{busy === "recognize_prices" ? "AI 识别中…" : "转入后台 AI 识别价格"}</button></div></div>{priceRecognitionBlocker && <p className="market-price-blocker">{priceRecognitionBlocker}</p>}<div className="data-table-wrap"><table className="data-table market-price-review-table"><thead><tr><th>主图</th><th>SKU / 商品链接</th><th>榜单口径</th><th>月份</th><th>候选价</th><th>来源 / AI 依据</th><th>操作</th></tr></thead><tbody>{data.pendingPrices.items.map((row) => { const href = marketProductHref(row.productUrl, row.skuCode); return <tr key={`pending-price-${row.id}`}><td>{href && row.displayImageUrl ? <a href={href} target="_blank" rel="noreferrer"><img className="market-review-image" src={String(row.displayImageUrl)} alt={String(row.productName ?? row.skuCode)} loading="lazy" /></a> : row.displayImageUrl ? <img className="market-review-image" src={String(row.displayImageUrl)} alt="" loading="lazy" /> : <span className="annotation-no-image">无图</span>}</td><td>{href ? <a href={href} target="_blank" rel="noreferrer"><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></a> : <><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></>}<code>{String(row.imageContentSha256 ?? "").slice(0, 16)}</code></td><td>{String(row.scope || row.operationMode || "-")}</td><td>{String(row.month)}</td><td>{money(Number(row.candidatePriceCents ?? 0) || null)}</td><td><strong>{priceSourceLabel(row.candidatePriceSource)}</strong>{row.candidatePriceSource === "ai_suggestion" && <small>{String(row.aiPriceType || "待判断")} · 置信度 {percent(row.aiConfidenceBps === null ? null : Number(row.aiConfidenceBps))}<br />{String(row.aiReason || "未返回识别依据")}</small>}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => confirmPrice(row)}>修改 / 确认价格</button></td></tr>; })}{!data.pendingPrices.items.length && <tr><td colSpan={7}><div className="table-state">当前筛选范围没有待确认价格。</div></td></tr>}</tbody></table></div><div className="market-pagination"><button disabled={pendingPricePage <= 1} onClick={() => setPendingPricePage((current) => Math.max(1, current - 1))}>上一页</button><label>第 <select aria-label="待确认价格页码" value={pendingPricePage} onChange={(event) => setPendingPricePage(Number(event.target.value))}>{Array.from({ length: data.pendingPrices.pagination.pageCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select> / {data.pendingPrices.pagination.pageCount} 页</label><span>共 {count(data.pendingPrices.pagination.total)} 条</span><button disabled={pendingPricePage >= data.pendingPrices.pagination.pageCount} onClick={() => setPendingPricePage((current) => Math.min(data.pendingPrices.pagination.pageCount, current + 1))}>下一页</button></div></article>
     </> : <article className="panel data-state" role="status">{databaseSecondaryLoading && <span className="state-spinner" />}<strong>{databaseSecondaryLoading ? "正在按需读取价格审核与图片统计" : "价格审核数据暂未就绪"}</strong>{!databaseSecondaryLoading && <button className="secondary-button" onClick={() => void loadDatabaseSecondary().catch((reason) => setSecondaryError(reason instanceof Error ? reason.message : "价格审核数据读取失败"))}>重试价格审核</button>}</article>)}
     <article className="panel"><div className="section-header"><div><h3>TOP SKU/SPU 数据库</h3><p>卡片完整呈现商品主图、标题、价格与标签，也可切换为带图片和商品链接的表格。</p></div><div className="market-view-switch"><button className={databaseView === "cards" ? "active" : ""} onClick={() => setDatabaseView("cards")}>卡片</button><button className={databaseView === "table" ? "active" : ""} onClick={() => setDatabaseView("table")}>表格</button></div></div>{databaseView === "cards" ? <div className="market-master-product-grid">{data.masterData.items.map((row) => { const href = marketProductHref(row.productUrl, row.skuCode); return <article key={String(row.id)}><a className="market-master-product-image" href={href || undefined} target={href ? "_blank" : undefined} rel={href ? "noreferrer" : undefined}>{row.displayImageUrl ? <img src={String(row.displayImageUrl)} alt={String(row.productName ?? row.skuCode)} loading="lazy" /> : <span>暂无主图</span>}</a><div className="market-master-product-body">{href ? <a href={href} target="_blank" rel="noreferrer"><h4>{String(row.productName || row.skuCode)}</h4></a> : <h4>{String(row.productName || row.skuCode)}</h4>}<strong className="market-master-price">{money(row.officialMarketPriceCents === null ? Number(row.candidatePriceCents ?? 0) || null : Number(row.officialMarketPriceCents))}</strong><div className="market-master-tags"><span>{String(row.category)}</span><span>{String(row.operationMode)}</span><span>{String(row.rankingDimension)}</span><span>{String(row.brand || "待识别品牌")}</span><span>{String(row.priceBand || "待确认价格")}</span></div><small>#{String(row.rank ?? "-")} · {String(row.skuCode)} · {String(row.scope)}</small><footer><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => modifyProductBrand(row)}>编辑 SKU 数据</button>{href && <a href={href} target="_blank" rel="noreferrer">商品链接</a>}</footer></div></article>; })}</div> : <div className="data-table-wrap"><table className="data-table market-master-database-table"><thead><tr><th>主图</th><th>商品 / 链接</th><th>维度</th><th>POP/自营</th><th>品牌</th><th>细分类目</th><th>确认价</th><th>价格带</th><th>操作</th></tr></thead><tbody>{data.masterData.items.map((row) => { const href = marketProductHref(row.productUrl, row.skuCode); return <tr key={String(row.id)}><td className="market-master-table-image">{row.displayImageUrl ? (href ? <a href={href} target="_blank" rel="noreferrer"><img src={String(row.displayImageUrl)} alt={String(row.productName ?? row.skuCode)} loading="lazy" /></a> : <img src={String(row.displayImageUrl)} alt={String(row.productName ?? row.skuCode)} loading="lazy" />) : <span className="annotation-no-image">无图</span>}</td><td>{href ? <a href={href} target="_blank" rel="noreferrer"><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></a> : <><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></>}{href && <a className="market-master-table-link" href={href} target="_blank" rel="noreferrer">打开商品链接 ↗</a>}</td><td>{String(row.rankingDimension)}</td><td>{String(row.operationMode)}</td><td>{String(row.brand || "待识别")}</td><td>{String(row.subcategory ?? "")}</td><td>{money(row.officialMarketPriceCents === null ? null : Number(row.officialMarketPriceCents))}</td><td>{String(row.priceBand ?? "")}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => modifyProductBrand(row)}>编辑 SKU 数据</button></td></tr>; })}</tbody></table></div>}<div className="market-pagination"><button disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>上一页</button><span>第 {page} / {data.masterData.pagination.pageCount} 页</span><button disabled={page >= data.masterData.pagination.pageCount} onClick={() => setPage((current) => current + 1)}>下一页</button></div></article></>}
     {mode === "brand" && <><article className="panel market-ai-capacity"><div className="section-header"><div><h2>运营管理系统 AI 算力</h2><p>这里直接读取“AI 助理配置”中已启用的模型，不再维护独立密钥或重复配置。</p></div><select value={brandModelId} onChange={(event) => setBrandModelId(event.target.value)} disabled={!textModels.length}>{textModels.length ? textModels.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.modelName}{item.isDefaultTextModel ? "（默认）" : ""}</option>) : <option value="">暂无已启用文本模型</option>}</select></div><div className="market-ai-model-grid">{enabledModels.map((item) => <div key={item.id}><strong>{item.name}</strong><span>{item.modelType} · {item.modelName}</span><small>{item.isDefaultTextModel ? "默认文本算力" : "已接入系统算力"}</small></div>)}{!enabledModels.length && <p>尚未配置可用模型，请先到 AI 助理配置中新增并测试模型。</p>}</div></article>

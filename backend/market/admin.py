@@ -15,6 +15,7 @@ from sales.auth import Principal
 
 from .errors import MarketApiError
 from .models import (
+    AUTO_ANNOTATION_RULE_KIND,
     MarketAnnotationPromptVersion,
     MarketAnnotationItem,
     MarketAnnotationJob,
@@ -370,7 +371,7 @@ def _mapping_items() -> list[dict[str, object]]:
             "createdAt": iso(item.created_at),
             "updatedAt": iso(item.updated_at),
         }
-        for item in MarketMasterMappingRule.objects.order_by("kind", "category", "source_value")[:500]
+        for item in MarketMasterMappingRule.objects.exclude(kind=AUTO_ANNOTATION_RULE_KIND).order_by("kind", "category", "source_value")[:500]
     ]
 
 
@@ -791,6 +792,8 @@ def _upsert_mapping(payload: dict[str, object], principal: Principal) -> dict[st
         raise _error("映射规则类型或状态无效")
     identifier = _text(payload.get("id", ""), "id", 128) or f"market-mapping-{uuid.uuid4()}"
     before = MarketMasterMappingRule.objects.filter(id=identifier).values().first() or {}
+    if before.get("kind") == AUTO_ANNOTATION_RULE_KIND:
+        raise _error("该规则属于自动识别设置，不能作为映射规则修改", code="version_conflict", status=409)
     rule, _ = MarketMasterMappingRule.objects.update_or_create(
         id=identifier,
         defaults={
@@ -812,7 +815,9 @@ def _upsert_mapping(payload: dict[str, object], principal: Principal) -> dict[st
 
 def _apply_mappings(payload: dict[str, object], principal: Principal) -> dict[str, object]:
     category = _text(payload.get("category", ""), "category", 200)
-    rules = MarketMasterMappingRule.objects.filter(status="published", effective_from__lte=timezone.localdate().isoformat())
+    rules = MarketMasterMappingRule.objects.filter(
+        status="published", effective_from__lte=timezone.localdate().isoformat(),
+    ).exclude(kind=AUTO_ANNOTATION_RULE_KIND)
     if category:
         rules = rules.filter(Q(category="") | Q(category=category))
     changed = 0

@@ -20,14 +20,23 @@ const bundled = await build({ entryPoints: [resolve("lib/market/django-annotatio
         if(f.authStatus) throw new AccessControlServiceError(f.authStatus,'service_unavailable','fixture');
         return {data:{user:{email:'owner@example.test',displayName:'Owner',role:'operator',status:'active',scope:null}}};
       }}; }` : `
-      export async function annotationQuery() {
+      export async function annotationQuery(_principal,view) {
         const f=globalThis.__marketResumeFixture; f.queries++;
+        if(view==='auto_annotation_due') {
+          f.dueChecks++;
+          if(f.dueFails) throw new Error('due check unavailable');
+          return {data:{due:f.autoDue}};
+        }
         const ready=!f.gate && f.state==='running' && !f.finished;
         if(f.pauseAfterRead) { f.state='paused'; f.pauseAfterRead=false; }
         return {data:{jobs:ready?[{jobId:'job',ownerEmail:'owner@example.test',availableSlots:1}]:[]}};
       }
       export async function annotationCommand(_principal,c) {
         const f=globalThis.__marketResumeFixture; f.commands.push(c);
+        if(c.action==='ensure_auto_annotation') {
+          if(f.ensureFails) throw new Error('ensure unavailable');
+          return {data:{result:{created:[]}}};
+        }
         if(c.action==='set_cloud_run_state') {f.state=c.state;return {data:{result:{}}};}
         return {data:{result:c.action==='begin_dispatch' && !f.gate && f.state==='running'?{coordinatorToken:'fixture-token'}:{}}};
       }
@@ -40,6 +49,7 @@ const loaded = { exports: {} as { runScheduledDjangoMarketAnnotation: () => Prom
 new Function("require", "module", "exports", bundled.outputFiles![0].text)(createRequire(import.meta.url), loaded, loaded.exports);
 function fixture() {
   const value = { gate: "", state: "running", authStatus: 0, identityReads: 0, queries: 0, models: 0, finished: false,
+    dueChecks: 0, autoDue: false, dueFails: false, ensureFails: false,
     commands: [] as Array<{ action: string; state?: string }>, pauseAfterRead: false };
   (globalThis as typeof globalThis & { __marketResumeFixture?: typeof value }).__marketResumeFixture = value;
   return value;
@@ -80,4 +90,22 @@ test("manual or unknown pause and a pause after dispatch read never start a mode
   await loaded.exports.runScheduledDjangoMarketAnnotation();
   assert.equal(f.state, "paused"); assert.equal(f.models, 0);
   assert.ok(f.commands.every((c) => c.action !== "set_cloud_run_state"));
+});
+test("automatic recognition is checked read-only each tick and only commanded when work is due", async () => {
+  const f = fixture();
+  await loaded.exports.runScheduledDjangoMarketAnnotation();
+  assert.equal(f.dueChecks, 1);
+  assert.ok(f.commands.every((c) => c.action !== "ensure_auto_annotation"), "idle ticks never write");
+  f.autoDue = true; f.finished = false;
+  await loaded.exports.runScheduledDjangoMarketAnnotation();
+  assert.equal(f.dueChecks, 2);
+  assert.equal(f.commands.filter((c) => c.action === "ensure_auto_annotation").length, 1);
+});
+test("a failing automatic-recognition check or command never blocks dispatch of existing jobs", async () => {
+  for (const failure of ["dueFails", "ensureFails"] as const) {
+    const f = fixture(); f.autoDue = true; f[failure] = true;
+    await loaded.exports.runScheduledDjangoMarketAnnotation();
+    assert.equal(f.models, 1, failure + " must not stop the model run");
+    assert.ok(f.commands.every((c) => c.action !== "set_cloud_run_state"));
+  }
 });

@@ -451,6 +451,11 @@ class MarketPriceBandItem(models.Model):
         db_table = "market_price_band_items"
 
 
+# Per-category automatic recognition settings reuse this table (no schema of their own).
+# They are not mapping rules: every mapping reader must exclude this kind.
+AUTO_ANNOTATION_RULE_KIND = "auto_annotation"
+
+
 class MarketMasterMappingRule(models.Model):
     id = models.CharField(primary_key=True, max_length=128)
     kind = models.CharField(max_length=32)

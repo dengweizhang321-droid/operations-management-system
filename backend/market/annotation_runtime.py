@@ -13,8 +13,14 @@ FAILURE_MESSAGES = {
     "model_response": "视觉模型返回格式无效，请检查模型与 Prompt",
     "image_fetch": "模型输入图片读取或处理失败，请检查图片",
     "annotation_failed": "图片识别失败，请检查模型配置后续跑",
-    "inference_result_unknown": "推理租约已过期且结果未知，已暂停并隔离该项；请人工核验后处理下一批",
+    "inference_result_unknown": "推理租约已过期且结果未知，已隔离该项且不会自动重试；请人工核验该项（连续多项未知时整批暂停）",
 }
+
+
+# A lease that expires with no recorded outcome is quarantined on its own. The
+# whole run pauses only after this many such expirations without any success in
+# between, so one stuck lease no longer stops thousands of unrelated images.
+UNKNOWN_EXPIRATION_PAUSE_THRESHOLD = 3
 
 
 def _bounded(value: object, fallback: int, maximum: int, minimum: int = 0) -> int:
@@ -35,6 +41,7 @@ def retry_snapshot(raw: object, configured: int) -> dict:
         "transientIncidentUntil": _bounded(value.get("transientIncidentUntil"), 0, 10**15),
         "globalRateLimitUntil": _bounded(value.get("globalRateLimitUntil"), 0, 10**15),
         "floorFailureCount": _bounded(value.get("floorFailureCount"), 0, 3),
+        "unknownExpiredCount": _bounded(value.get("unknownExpiredCount"), 0, 1000),
         "workerRetryUntil": [],
     }
     workers = value.get("workerRetryUntil", [])
@@ -45,6 +52,9 @@ def retry_snapshot(raw: object, configured: int) -> dict:
                 until = _bounded(entry[1], 0, 10**15)
                 if lane >= 0 and until:
                     result["workerRetryUntil"].append([lane, until])
+    # Set only by an explicit human pause, so automatic recovery never overrides it.
+    if value.get("manualPause") is True:
+        result["manualPause"] = True
     return result
 
 
@@ -54,8 +64,11 @@ def blocked_until(retry: dict, lane: int) -> int:
 
 def record_failure(retry: dict, code: str, lane: int, now_ms: int, retry_after_ms: int = 0) -> bool:
     """Return whether this run must pause; repeated failures in a window count once."""
-    if code in {"authorization_revoked", "model_configuration", "inference_result_unknown"}:
+    if code in {"authorization_revoked", "model_configuration"}:
         return True
+    if code == "inference_result_unknown":
+        # Same rule as an expired lease: quarantine the item, pause only on a streak.
+        return record_unknown_expirations(retry, 1)
     if code not in {"provider_rate_limit", "model_timeout", "model_network"}:
         return False
     rate_limit = code == "provider_rate_limit"
@@ -89,8 +102,15 @@ def record_failure(retry: dict, code: str, lane: int, now_ms: int, retry_after_m
     return retry["floorFailureCount"] >= 3
 
 
+def record_unknown_expirations(retry: dict, count: int) -> bool:
+    """Count expired leases of unknown outcome; return whether the run must pause."""
+    retry["unknownExpiredCount"] = min(1000, retry["unknownExpiredCount"] + max(0, count))
+    return retry["unknownExpiredCount"] >= UNKNOWN_EXPIRATION_PAUSE_THRESHOLD
+
+
 def record_success(retry: dict) -> None:
     retry["floorFailureCount"] = 0
+    retry["unknownExpiredCount"] = 0
     retry["successfulImagesSinceFailure"] += 1
     if retry["successfulImagesSinceFailure"] >= 3 and retry["currentConcurrency"] < retry["configuredConcurrency"]:
         retry["currentConcurrency"] += 1

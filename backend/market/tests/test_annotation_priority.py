@@ -71,7 +71,9 @@ class AnnotationPriorityTests(QueueFixtures, TestCase):
         MarketAnnotationItem.objects.filter(pk=task["itemId"]).update(lease_expires_at=timezone.now() - timedelta(seconds=1))
         result = _set_cloud_run({"jobId": job.id, "state": "running"}, PRINCIPAL)
         self.assertFalse(result["resumeAccepted"])
-        self.assertEqual(result["state"], "paused")
+        self.assertTrue(result["quarantinedExpiredClaims"])
+        # The only item was quarantined, so nothing is left to run and the job settles.
+        self.assertEqual(result["state"], "completed")
         self.assertEqual(MarketAnnotationItem.objects.get(pk="one").attempt_count, 3)
 
     def test_price_states_do_not_make_b_classification_pending(self):

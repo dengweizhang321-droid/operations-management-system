@@ -9,7 +9,27 @@ const INTERNAL_ANNOTATION_PRINCIPAL: AppPrincipal = {
   scope: null,
 };
 
+/**
+ * Imports that finished caching their images may enable automatic recognition. A cheap read-only
+ * check runs every tick; the write command runs only when work is due. Nothing here may delay or
+ * prevent dispatch of jobs that already exist, so every failure is swallowed.
+ */
+async function ensureAutoAnnotation() {
+  try {
+    const due = await annotationQuery<{ due?: boolean }>(
+      INTERNAL_ANNOTATION_PRINCIPAL, "auto_annotation_due", {}, AbortSignal.timeout(3_000),
+    );
+    if (due.data.due !== true) return;
+    await annotationCommand(
+      INTERNAL_ANNOTATION_PRINCIPAL, { action: "ensure_auto_annotation" }, AbortSignal.timeout(20_000),
+    );
+  } catch {
+    // The next scheduler tick re-evaluates from persisted state.
+  }
+}
+
 export async function runScheduledDjangoMarketAnnotation(signal?: AbortSignal) {
+  await ensureAutoAnnotation();
   const response = await annotationQuery<{ jobs: AnnotationDispatchJob[] }>(
     INTERNAL_ANNOTATION_PRINCIPAL, "dispatch", { limit: 5 },
   );

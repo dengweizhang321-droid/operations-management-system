@@ -65,11 +65,12 @@ class AnnotationBlockerTests(QueueFixtures, TestCase):
         task = self.claim(job)["task"]
         self.complete(task, error="POST ended with unknown result", failureCode="inference_result_unknown", timing=TIMING)
         self.assertEqual(set(MarketAnnotationItem.objects.filter(sku_code="same").values_list("status", "attempt_count")), {("failed", 3)})
+        # The first unknown result is quarantined; the run keeps going with the untouched item.
         run = MarketAnnotationCloudRun.objects.get(job_id=job.id)
-        self.assertEqual((run.state, run.last_failure_code), ("paused", "inference_result_unknown"))
-        self.assertIsNone(self.claim(job)["task"])
-        _set_cloud_run({"jobId": job.id, "state": "running"}, PRINCIPAL)
+        self.assertEqual((run.state, run.last_failure_code), ("running", ""))
+        self.assertEqual(run.retry_state_json["unknownExpiredCount"], 1)
         self.assertEqual(self.claim(job)["task"]["itemId"], "untouched")
+        self.assertIsNone(self.claim(job)["task"])
 
     def test_configuration_pauses_same_model_plans_without_touching_existing_results_or_budgets(self):
         failed = self.job("blocked-model", model="shared", concurrency=12)

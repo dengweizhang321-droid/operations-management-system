@@ -11,7 +11,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
-from django.db import connection, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import Avg, BigIntegerField, Case, CharField, Count, Exists, F, Func, JSONField, Max, Min, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Cast, Coalesce, Greatest, Substr
 from django.db.models.fields.json import KeyTextTransform
@@ -19,12 +19,13 @@ from django.utils import timezone
 
 from sales.auth import Principal
 
-from .annotation_runtime import FAILURE_MESSAGES, blocked_until, record_failure, record_success, retry_snapshot
+from .annotation_runtime import FAILURE_MESSAGES, blocked_until, record_failure, record_success, record_unknown_expirations, retry_snapshot
 from . import annotation_activity
 from .annotation_planning import build_job_items, record_human_reviews, record_selected_reviews
 from teruisi_backend.automation_drain import AdmissionClosed, deployed_runtime, read_gate
 from .errors import MarketApiError
 from .models import (
+    AUTO_ANNOTATION_RULE_KIND,
     MarketAnnotationCloudRun,
     MarketAnnotationCommitReceipt,
     MarketAnnotationConcurrencySetting,
@@ -37,8 +38,11 @@ from .models import (
     MarketAnnotationValidationRun,
     MarketAnnotationValidationSample,
     MarketImageCache,
+    MarketImageCacheJob,
+    MarketImportBatch,
     MarketMasterAuditLog,
     MarketMasterIdentity,
+    MarketMasterMappingRule,
     MarketPriceSnapshot,
     MarketRankingEntry,
     MarketSkuAnnotation,
@@ -275,6 +279,13 @@ def _retryable_items():
     return Q(status__in=["queued", "failed"], attempt_count__lt=3)
 
 
+def _has_runnable_items(job_id: str) -> bool:
+    """Same predicate that gates `_set_cloud_run(running)`."""
+    return MarketAnnotationItem.objects.filter(job_id=job_id).filter(
+        _retryable_items() | Q(status__in=["claimed", "inferencing"]),
+    ).exists()
+
+
 def _mode_expression(segments):
     # Existing tasks are classified lazily; quarantined rows are never rewritten.
     return Case(
@@ -362,14 +373,20 @@ def _lock_model(job: MarketAnnotationJob, *, wait: bool = True) -> bool:
     return True if wait else bool(result)
 
 
-def _expire_cloud_claims(job: MarketAnnotationJob, run: MarketAnnotationCloudRun, now) -> bool:
+def _expire_cloud_claims(job: MarketAnnotationJob, run: MarketAnnotationCloudRun, now) -> tuple[bool, bool]:
+    """Quarantine expired leases. Return (quarantined, paused).
+
+    Each expired lease is quarantined exactly as before. The run itself pauses
+    only once UNKNOWN_EXPIRATION_PAUSE_THRESHOLD expirations have accumulated
+    since the last successful item, so one stuck lease does not stop a job.
+    """
     unknown = MarketAnnotationItem.objects.filter(
         job_id=job.id, status__in=["claimed", "inferencing"],
     ).filter(Q(lease_expires_at__lte=now) | Q(lease_expires_at__isnull=True))
     # Most dispatches have no expired inference. Avoid a correlated scan of the
     # entire queued backlog while holding the shared model lock in that case.
     if not unknown.exists():
-        return False
+        return False, False
     same_unknown = unknown.filter(**{field: OuterRef(field) for field in (
         "category", "scope", "sku_code", "ranking_dimension", "image_content_sha256",
     )})
@@ -380,7 +397,13 @@ def _expire_cloud_claims(job: MarketAnnotationJob, run: MarketAnnotationCloudRun
     expired = unknown.update(status="failed", attempt_count=Greatest(F("attempt_count"), Value(3)), lease_token_hash="", lease_agent_id="", lease_expires_at=None,
              error_message=FAILURE_MESSAGES["inference_result_unknown"], version=F("version") + 1, updated_at=now)
     if not expired:
-        return False
+        return False, False
+    retry = _run_retry_snapshot(run, _configured_concurrency(job))
+    pause = record_unknown_expirations(retry, expired)
+    run.retry_state_json = retry
+    if not pause:
+        run.save(update_fields=["retry_state_json", "updated_at"])
+        return True, False
     run.state = "paused"
     run.lease_token_hash = ""
     run.lease_expires_at = None
@@ -389,7 +412,7 @@ def _expire_cloud_claims(job: MarketAnnotationJob, run: MarketAnnotationCloudRun
     run.last_failure_message = FAILURE_MESSAGES["inference_result_unknown"]
     _advance_control_version(run)
     run.save()
-    return True
+    return True, True
 
 
 def _locked_job(job_id: str, *, wait: bool = True, model_lock: bool = True) -> MarketAnnotationJob | None:
@@ -463,6 +486,37 @@ def _model_cooldowns(model_ids: list[str]) -> dict[str, int]:
     return {row["model"]: int(row["until"] or 0) for row in rows}
 
 
+def _model_budgets(candidates: list[MarketAnnotationJob], now) -> tuple[dict[str, int], dict[str, int]]:
+    """Per-model concurrency budget and live claims, across all jobs that share the model.
+
+    One model id is one provider account, so two categories on the same model must not each
+    take a full budget. The budget is the largest configured cloud concurrency (default 10)
+    among the dispatch candidates and the jobs that currently hold live leases on that model.
+    """
+    models = {job.model_id for job in candidates if job.model_id}
+    if not models:
+        return {}, {}
+    # The live-lease set is small (bounded by total concurrency) and uses the lease index.
+    leased = dict(MarketAnnotationItem.objects.filter(
+        status__in=["claimed", "inferencing"], lease_expires_at__gt=now,
+    ).values_list("job_id").annotate(count=Count("id")))
+    holders = list(MarketAnnotationJob.objects.filter(
+        id__in=list(leased), executor="cloud", model_id__in=models,
+    ).values_list("id", "category", "model_id"))
+    members = [(job.category, job.model_id) for job in candidates if job.model_id]
+    members += [(category, model_id) for _, category, model_id in holders]
+    settings = dict(MarketAnnotationConcurrencySetting.objects.filter(
+        executor="cloud", category__in={category for category, _ in members},
+    ).values_list("category", "concurrency"))
+    budgets: dict[str, int] = {}
+    for category, model_id in members:
+        budgets[model_id] = max(budgets.get(model_id, 0), int(settings.get(category, 10)))
+    in_flight: dict[str, int] = {}
+    for job_id, _, model_id in holders:
+        in_flight[model_id] = in_flight.get(model_id, 0) + leased[job_id]
+    return budgets, in_flight
+
+
 def _dispatch(params: dict[str, object]) -> dict[str, object]:
     runtime = deployed_runtime()
     if runtime is not None and read_gate(runtime):
@@ -501,7 +555,8 @@ def _dispatch(params: dict[str, object]) -> dict[str, object]:
     ).values_list("job_id", "lease_agent_id"):
         active.setdefault(job_id, []).append(agent)
     cooldowns = _model_cooldowns(list({job.model_id for job in jobs.values() if job.model_id}))
-    result = []
+    budgets, in_flight = _model_budgets(list(jobs.values()), now)
+    candidates = []
     for run in runs:
         job = jobs[run.job_id]
         configured = settings.get(job.category, 10)
@@ -509,13 +564,33 @@ def _dispatch(params: dict[str, object]) -> dict[str, object]:
         if cooldowns.get(job.model_id, 0) > int(now.timestamp() * 1000):
             continue
         slots = _available_channels(run, configured, active.get(job.id, []), now)
-        if not slots:
+        if slots:
+            candidates.append({"run": run, "job": job, "configured": configured, "retry": retry, "slots": slots, "granted": 0})
+    # Jobs sharing one model share its budget: claims already in flight count first, and the rest
+    # is handed out one slot per job per round so an older job cannot take everything.
+    for model_id in {entry["job"].model_id for entry in candidates}:
+        room = max(0, budgets.get(model_id, 0) - in_flight.get(model_id, 0))
+        group = [entry for entry in candidates if entry["job"].model_id == model_id]
+        while room > 0:
+            progressed = False
+            for entry in group:
+                if room > 0 and entry["granted"] < len(entry["slots"]):
+                    entry["granted"] += 1
+                    room -= 1
+                    progressed = True
+            if not progressed:
+                break
+    result = []
+    for entry in candidates:
+        if not entry["granted"]:
             continue
+        job, run, retry = entry["job"], entry["run"], entry["retry"]
         result.append({
             "jobId": job.id, "category": job.category, "modelId": job.model_id,
             "ownerEmail": job.created_by,
-            "configuredConcurrency": configured, "effectiveConcurrency": retry["currentConcurrency"],
-            "activeClaims": len(active.get(job.id, [])), "availableSlots": len(slots),
+            "configuredConcurrency": entry["configured"], "effectiveConcurrency": retry["currentConcurrency"],
+            "activeClaims": len(active.get(job.id, [])), "availableSlots": entry["granted"],
+            "modelBudget": budgets.get(job.model_id, 0), "modelInFlight": in_flight.get(job.model_id, 0),
             "nextRunAt": iso(run.next_run_at),
         })
     return {"jobs": result[:limit], "hasMore": has_more or len(result) > limit}
@@ -943,6 +1018,7 @@ def annotation_workspace(params: dict[str, object], principal: Principal, *, can
         "jobs": jobs,
         "concurrencySettings": settings,
         "cloudRuns": cloud_runs,
+        "autoAnnotation": auto_annotation_rules(),
         **review,
         "models": [],
         "textModels": [],
@@ -966,6 +1042,8 @@ def execute_annotation_query(payload: dict[str, object], principal: Principal) -
         return _dispatch(params)
     if view == "progress_light":
         return _progress_light(params)
+    if view == "auto_annotation_due":
+        return _auto_annotation_due(params)
     if view == "progress":
         job_id = _text(params.get("jobId"), "jobId", 128, required=True)
         job = MarketAnnotationJob.objects.filter(id=job_id).first()
@@ -1061,6 +1139,15 @@ def _create_prompt(payload: dict[str, object], principal: Principal) -> dict[str
     return _prompt_value(row)
 
 
+def auto_annotation_rules() -> list[dict[str, object]]:
+    """Per-category automatic recognition settings, stored as mapping rules (no schema of its own)."""
+    return [
+        {"category": row.category, "enabled": row.status == "published", "modelId": row.target_value,
+         "updatedBy": row.created_by, "updatedAt": iso(row.updated_at)}
+        for row in MarketMasterMappingRule.objects.filter(kind=AUTO_ANNOTATION_RULE_KIND).order_by("category")[:200]
+    ]
+
+
 def _candidate_rows(category: str):
     return MarketRankingEntry.objects.filter(
         category=category,
@@ -1070,7 +1157,7 @@ def _candidate_rows(category: str):
 
 
 @transaction.atomic
-def _create_job(payload: dict[str, object], principal: Principal) -> dict[str, object]:
+def _create_job(payload: dict[str, object], principal: Principal, *, owner_email: str | None = None) -> dict[str, object]:
     category = _text(payload.get("category"), "category", 200, required=True)
     prompt_id = _text(payload.get("promptVersionId"), "promptVersionId", 128, required=True)
     executor = _text(payload.get("executor", "cloud"), "executor", 16, required=True)
@@ -1109,7 +1196,7 @@ def _create_job(payload: dict[str, object], principal: Principal) -> dict[str, o
         status="queued" if items else "review_ready",
         total_count=len(items),
         completed_count=sum(1 for item in items if item.status == "review_pending"),
-        created_by=principal.email.lower(),
+        created_by=(owner_email or principal.email).lower(),
         completed_at=timezone.now() if not items else None,
     )
     MarketAnnotationItem.objects.bulk_create(items, batch_size=500)
@@ -1173,7 +1260,7 @@ def _set_cloud_run(payload: dict[str, object], principal: Principal) -> dict[str
             logger.info("Market control phase=control_audited operation=%s elapsed_ms=%.3f", operation_id, (time.perf_counter() - started) * 1000)
         return {**result, "auditId": str(audit.id), "committedAt": iso(audit.created_at)}
 
-    quarantined = _expire_cloud_claims(job, run, timezone.now()) if state == "running" else False
+    quarantined = _expire_cloud_claims(job, run, timezone.now())[0] if state == "running" else False
     if operation_id:
         logger.info("Market control phase=expired_claims_checked operation=%s elapsed_ms=%.3f", operation_id, (time.perf_counter() - started) * 1000)
     if state == "running" and not MarketAnnotationItem.objects.filter(job_id=job.id).filter(
@@ -1200,8 +1287,221 @@ def _set_cloud_run(payload: dict[str, object], principal: Principal) -> dict[str
     if failure_code and state == "paused":
         run.last_failure_code = failure_code if failure_code in FAILURE_MESSAGES else "annotation_failed"
         run.last_failure_message = FAILURE_MESSAGES[run.last_failure_code]
+    elif state == "paused":
+        # A pause without a failure reason is a person's decision; automatic recovery must respect it.
+        run.retry_state_json = {**run.retry_state_json, "manualPause": True}
     run.state = state
     return control_result(state == "running", quarantined)
+
+
+ACTIVE_JOB_STATUSES = ["queued", "running", "failed"]
+# Must match INTERNAL_ANNOTATION_PRINCIPAL in lib/market/django-annotation-scheduled.ts.
+INTERNAL_ANNOTATION_RUNNER_EMAIL = "market-annotation-runner@teruisi.internal"
+# A pause that is neither a human decision nor a permanent fault may be lifted automatically,
+# but not sooner than this after it happened, so a failing provider is not retried every minute.
+AUTO_RESUME_COOLDOWN = timedelta(minutes=15)
+AUTO_RESUME_MAX_PER_CALL = 10
+PERMANENT_PAUSE_CODES = {"model_configuration", "authorization_revoked"}
+AUTO_TRIGGER_BATCH_WINDOW = 200
+
+
+def _conflicting_model_job(category: str, model_id: str) -> MarketAnnotationJob | None:
+    """An unfinished job for this category on another model. Progress is derived, not trusted from the row."""
+    others = MarketAnnotationJob.objects.filter(
+        category=category, executor="cloud", status__in=ACTIVE_JOB_STATUSES,
+    ).exclude(model_id=model_id).order_by("created_at")[:20]
+    for job in others:
+        if _summarize_job(job).status in {"queued", "running", "failed"}:
+            return job
+    return None
+
+
+@transaction.atomic
+def _start_category_recognition(
+    payload: dict[str, object], principal: Principal, *, owner_email: str | None = None,
+) -> dict[str, object]:
+    """Create (or reuse) the category's cloud job on the active prompt and let the background runner take it."""
+    category = _text(payload.get("category"), "category", 200, required=True)
+    model_id = _text(payload.get("modelId"), "modelId", 128, required=True)
+    prompt = MarketAnnotationPromptVersion.objects.filter(category=category, status="active").order_by("-version").first()
+    if prompt is None:
+        raise _error("该三级类目没有已激活的 Prompt，请先在 AI 标注中激活后再识别", code="version_conflict", status=409)
+    conflict = _conflicting_model_job(category, model_id)
+    if conflict is not None:
+        raise _error(
+            f"该三级类目已有使用其他模型的未完成识别任务（{conflict.id}），为避免同一批图片重复付费，请先让它完成或在 AI 标注中处理后再切换模型",
+            code="version_conflict", status=409,
+        )
+    created = _create_job({
+        "category": category, "promptVersionId": prompt.id, "executor": "cloud",
+        "modelId": model_id, "limit": MAX_JOB_ITEMS,
+    }, principal, owner_email=owner_email)
+    job_id = str(created["id"])
+    started = False
+    if _has_runnable_items(job_id):
+        started = _set_cloud_run({"jobId": job_id, "state": "running"}, principal)["state"] == "running"
+    return {**created, "jobId": job_id, "started": started}
+
+
+@transaction.atomic
+def _set_auto_annotation(payload: dict[str, object], principal: Principal) -> dict[str, object]:
+    category = _text(payload.get("category"), "category", 200, required=True)
+    enabled = payload.get("enabled")
+    if not isinstance(enabled, bool):
+        raise _error("enabled 必须是布尔值")
+    model_id = _text(payload.get("modelId", ""), "modelId", 128)
+    if not (MarketSubcategoryTaxonomy.objects.filter(category=category).exists()
+            or MarketAnnotationPromptVersion.objects.filter(category=category, status="active").exists()):
+        raise _error("三级类目不存在，请先建立细分品类字典或激活 Prompt", code="not_found", status=404)
+    if enabled and not model_id:
+        raise _error("启用自动识别必须选择视觉模型")
+    rule_id = "market-auto-annotation-" + _digest(category)[:32]
+    rule = MarketMasterMappingRule.objects.select_for_update().filter(id=rule_id).first()
+    if rule is None and not enabled:
+        return {"category": category, "enabled": False, "modelId": "", "updatedBy": "", "updatedAt": None}
+    before = {"enabled": rule.status == "published", "modelId": rule.target_value} if rule else {}
+    status = "published" if enabled else "disabled"
+    if rule is None:
+        rule = MarketMasterMappingRule.objects.create(
+            id=rule_id, kind=AUTO_ANNOTATION_RULE_KIND, category=category, source_value="cloud",
+            target_value=model_id, status=status, created_by=principal.email.lower(),
+        )
+    else:
+        rule.target_value = model_id or rule.target_value
+        rule.status = status
+        rule.version += 1
+        # The saving administrator becomes the owner of jobs created from now on.
+        rule.created_by = principal.email.lower()
+        rule.save()
+    after = {"enabled": enabled, "modelId": rule.target_value}
+    _audit(principal, "set_market_auto_annotation", "market_auto_annotation", category, before, after)
+    return {"category": category, "enabled": enabled, "modelId": rule.target_value,
+            "updatedBy": rule.created_by, "updatedAt": iso(rule.updated_at)}
+
+
+def _auto_trigger_categories(categories: set[str]) -> set[str]:
+    """Categories that an import touched after the category's newest annotation job was created.
+
+    "Touched" means: a batch whose image-cache job has completed lists the category in its
+    `scope_json.ranges`. This reads the small set of finished cache jobs and their batch rows
+    (never the 400k-row ranking table), so the query count is constant however many
+    categories have a rule. Batches without a readable `ranges` list never trigger.
+    """
+    if not categories:
+        return set()
+    newest = dict(MarketAnnotationJob.objects.filter(category__in=categories)
+                  .values_list("category").annotate(newest=Max("created_at")))
+    finished = MarketImageCacheJob.objects.filter(status="completed", completed_at__isnull=False).exclude(batch_id="")
+    if all(category in newest for category in categories):
+        # Every category already has a job: older cache jobs cannot matter to any of them.
+        finished = finished.filter(completed_at__gt=min(newest.values()))
+    rows = list(finished.order_by("-completed_at").values_list("batch_id", "completed_at")[:AUTO_TRIGGER_BATCH_WINDOW])
+    if not rows:
+        return set()
+    scopes = dict(MarketImportBatch.objects.filter(id__in=[batch_id for batch_id, _ in rows]).values_list("id", "scope_json"))
+    touched: set[str] = set()
+    for batch_id, completed_at in rows:
+        scope = scopes.get(batch_id)
+        ranges = scope.get("ranges") if isinstance(scope, dict) else None
+        if not isinstance(ranges, list):
+            continue
+        for item in ranges:
+            category = item.get("category") if isinstance(item, dict) else None
+            if category in categories and (category not in newest or completed_at > newest[category]):
+                touched.add(category)
+    return touched
+
+
+def _auto_annotation_plan(now) -> dict[str, object]:
+    """Read-only decision of what automatic recognition would do now (bounded, one creation at most).
+
+    The number of queries is fixed (rules, unfinished jobs with their runs, newest job per
+    category, finished cache jobs, their batches) whatever the number of rules or jobs.
+    """
+    plan: dict[str, object] = {"rules": 0, "resume": [], "create": []}
+    rules = list(MarketMasterMappingRule.objects.filter(
+        kind=AUTO_ANNOTATION_RULE_KIND, status="published",
+    ).order_by("category")[:200])
+    plan["rules"] = len(rules)
+    rules = [rule for rule in rules if rule.category and rule.target_value and rule.created_by]
+    if not rules:
+        return plan
+    categories = {rule.category for rule in rules}
+    # The stored status is refreshed lazily, so "unfinished" is judged by the items: a job is
+    # active when it still has an item that can run. EXISTS stops at the first such item.
+    runnable = MarketAnnotationItem.objects.filter(job_id=OuterRef("id")).filter(
+        _retryable_items() | Q(status__in=["claimed", "inferencing"]),
+    )
+    active_jobs: dict[str, list[MarketAnnotationJob]] = {}
+    for job in MarketAnnotationJob.objects.filter(
+        category__in=categories, executor="cloud", status__in=ACTIVE_JOB_STATUSES,
+    ).filter(Exists(runnable)).order_by("created_at")[:500]:
+        active_jobs.setdefault(job.category, []).append(job)
+    runs = {run.job_id: run for run in MarketAnnotationCloudRun.objects.filter(
+        job_id__in=[job.id for jobs in active_jobs.values() for job in jobs],
+    )} if active_jobs else {}
+    idle = {rule.category for rule in rules if rule.category not in active_jobs}
+    touched = _auto_trigger_categories(idle)
+    for rule in rules:
+        jobs = active_jobs.get(rule.category)
+        if jobs:
+            for job in jobs:
+                if job.model_id != rule.target_value or len(plan["resume"]) >= AUTO_RESUME_MAX_PER_CALL:
+                    continue
+                run = runs.get(job.id)
+                raw = run.retry_state_json if run is not None and isinstance(run.retry_state_json, dict) else {}
+                # A failure reason is required: a freshly created job and a human pause both have none.
+                if (run is None or run.state != "paused" or not run.last_failure_code
+                        or run.last_failure_code in PERMANENT_PAUSE_CODES or raw.get("manualPause") is True
+                        or run.updated_at > now - AUTO_RESUME_COOLDOWN):
+                    continue
+                plan["resume"].append((rule, job.id))
+        elif not plan["create"] and rule.category in touched:
+            plan["create"].append(rule)
+    return plan
+
+
+def _auto_annotation_due(params: dict[str, object]) -> dict[str, object]:
+    if params:
+        raise _error("自动识别检查不接受参数")
+    plan = _auto_annotation_plan(timezone.now())
+    return {"due": bool(plan["resume"] or plan["create"]), "rules": plan["rules"],
+            "resumeCount": len(plan["resume"]), "createCount": len(plan["create"])}
+
+
+@transaction.atomic
+def _ensure_auto_annotation(payload: dict[str, object], principal: Principal) -> dict[str, object]:
+    """Resume recoverable paused jobs and start at most one new job for enabled auto-recognition rules."""
+    if principal.email.lower() != INTERNAL_ANNOTATION_RUNNER_EMAIL:
+        raise _error("仅后台调度器可以执行自动识别", code="access_denied", status=403)
+    if set(payload) != {"action"}:
+        raise _error("自动识别命令不接受参数")
+    plan = _auto_annotation_plan(timezone.now())
+    summary: dict[str, object] = {"rules": plan["rules"], "resumed": [], "created": [], "errors": []}
+    for rule, job_id in plan["resume"]:
+        try:
+            with transaction.atomic():
+                if _set_cloud_run({"jobId": job_id, "state": "running"}, principal)["state"] == "running":
+                    summary["resumed"].append(job_id)
+        except (MarketApiError, IntegrityError) as error:
+            summary["errors"].append({"category": rule.category, "code": getattr(error, "code", "integrity_error")})
+    for rule in plan["create"]:
+        try:
+            with transaction.atomic():
+                started = _start_category_recognition(
+                    {"category": rule.category, "modelId": rule.target_value}, principal, owner_email=rule.created_by,
+                )
+            if not started["totalCount"]:
+                # Nothing to recognize. The job row stays as the "already checked" marker for this
+                # category (so the scan is not repeated every minute) but is archived from the list.
+                MarketAnnotationJob.objects.filter(id=started["jobId"], total_count=0).update(status="deleted")
+            summary["created"].append({"category": rule.category, "jobId": started["jobId"],
+                                       "totalCount": started["totalCount"], "started": started["started"]})
+        except (MarketApiError, IntegrityError) as error:
+            summary["errors"].append({"category": rule.category, "code": getattr(error, "code", "integrity_error")})
+    if summary["resumed"] or summary["created"] or summary["errors"]:
+        _audit(principal, "ensure_market_auto_annotation", "market_auto_annotation", "*", {}, summary)
+    return summary
 
 
 @transaction.atomic
@@ -1222,7 +1522,7 @@ def _dispatch_lease(payload: dict[str, object], *, release: bool) -> dict[str, o
         return {"released": False}
     if run is None or run.state != "running" or job.status not in {"queued", "running", "failed"}:
         return {"coordinatorToken": None, "waiting": False}
-    if _expire_cloud_claims(job, run, now):
+    if _expire_cloud_claims(job, run, now)[1]:
         return {"coordinatorToken": None, "waiting": False, "paused": True}
     if run.lease_token_hash and run.lease_expires_at and run.lease_expires_at > now:
         return {"coordinatorToken": None, "waiting": True}
@@ -1304,7 +1604,7 @@ def _claim_job_item(
             run = MarketAnnotationCloudRun.objects.select_for_update().filter(job_id=job.id, state="running").first()
             if run is None:
                 continue
-            if _expire_cloud_claims(job, run, now):
+            if _expire_cloud_claims(job, run, now)[1]:
                 continue
             coordinator_active = bool(run.lease_token_hash and run.lease_expires_at and run.lease_expires_at > now)
             if coordinator_token:
@@ -1508,8 +1808,10 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
             retry = _run_retry_snapshot(run, _configured_concurrency(job))
             pause = record_failure(retry, failure_code, lane, int(now.timestamp() * 1000), retry_after)
             run.retry_state_json = retry
-            run.last_failure_code = failure_code
-            run.last_failure_message = item.error_message
+            if pause or failure_code != "inference_result_unknown":
+                # A tolerated unknown result stays on the item; it is not a run-level reason.
+                run.last_failure_code = failure_code
+                run.last_failure_message = item.error_message
             run.last_heartbeat_at = now
             if pause:
                 _advance_control_version(run)
@@ -1963,6 +2265,12 @@ def execute_annotation_command(payload: dict[str, object], principal: Principal)
         return _set_concurrency(payload, principal)
     if action == "set_cloud_run_state":
         return _set_cloud_run(payload, principal)
+    if action == "start_category_recognition":
+        return _start_category_recognition(payload, principal)
+    if action == "set_auto_annotation":
+        return _set_auto_annotation(payload, principal)
+    if action == "ensure_auto_annotation":
+        return _ensure_auto_annotation(payload, principal)
     if action in {"begin_dispatch", "end_dispatch"}:
         return _dispatch_lease(payload, release=action == "end_dispatch")
     if action in {"claim_task", "run_next", "run_batch"}:

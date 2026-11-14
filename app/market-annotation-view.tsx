@@ -26,8 +26,9 @@ type Job = { id: string; category: string; promptVersionId: string; executor: st
 type Item = { id: string; candidateId: string; jobId: string; category: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string; resolvedImageUrl: string; imageSource: string; status: string; classificationStatus?: string; priceStatus?: string; aiPriceType?: string; reviewedPriceType?: string; aiSegment: string; aiImagePriceCents: number | null; aiConfidenceBps: number | null; aiReason: string; modelInputBytes: number; imageLoadMs: number; imagePrepareMs: number; modelCallMs: number; totalInferenceMs: number; reviewedSegment: string; reviewedImagePriceCents: number | null; reviewPriceSource: "history_same_image" | "ai" | "manual"; reviewJobReady: boolean; reviewSegments: string[]; snapshotValid?: boolean; selected: boolean; version: number; errorMessage: string; createdAt: string };
 type ValidationRun = { id: string; category: string; candidatePromptId: string; baselinePromptId?: string; status: string; sampleCount: number; sampleHash: string; metrics: Record<string, unknown>; gate: { passed?: boolean; reasons?: string[] } };
 type ValidationResult = { id: string; runId: string; status: string; skuCode: string; productName: string; goldSegment: string; predictedSegment: string; isCorrect: number; errorMessage: string };
+type AutoAnnotationRule = { category: string; enabled: boolean; modelId: string; updatedBy: string; updatedAt: string | null };
 type CloudRun = { jobId: string; controlVersion: string; state: "running" | "paused" | "completed"; runConcurrency: number; targetConcurrency: number; recovering: boolean; nextRunAt: string | null; lastFailureCode: string; lastFailureMessage: string; lastStartedAt: string | null; lastHeartbeatAt: string | null; completedAt: string | null; updatedAt: string };
-type Workspace = { categories: Array<{ value: string; count: number; candidateCount: number | null }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; cloudRuns: CloudRun[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number; staleSelectedCount?: number }; models: Model[]; textModels: Model[]; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
+type Workspace = { categories: Array<{ value: string; count: number; candidateCount: number | null }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; cloudRuns: CloudRun[]; autoAnnotation?: AutoAnnotationRule[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number; staleSelectedCount?: number }; models: Model[]; textModels: Model[]; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
 type ReviewWorkspace = Pick<Workspace, "items" | "itemPagination" | "reviewSummary" | "selection"> & { error?: string };
 type CandidateCountsPayload = { categories: Array<{ value: string; candidateCount: number }>; error?: string };
 type CandidateCountsStatus = "idle" | "loading" | "ready" | "error";
@@ -101,6 +102,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [localModelName, setLocalModelName] = useState("gemma4");
   const [limit, setLimit] = useState<number>(MARKET_ANNOTATION_JOB_LIMITS.default);
   const [concurrencyDrafts, setConcurrencyDrafts] = useState<Record<string, number>>({});
+  const [autoDrafts, setAutoDrafts] = useState<Record<string, { enabled: boolean; modelId: string }>>({});
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [promptId, setPromptId] = useState("");
   const [promptBody, setPromptBody] = useState("");
@@ -727,6 +729,17 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     }
     await load(jobId); setNotice(`Prompt v${item.version} 草稿已删除`);
   });
+  const saveAutoAnnotation = (targetCategory: string, enabled: boolean, modelId: string) => act("auto-annotation", async () => {
+    if (enabled && !modelId) throw new Error("启用自动识别前请选择视觉模型");
+    const result = await post({ action: "set_auto_annotation", category: targetCategory, enabled, modelId });
+    const saved: AutoAnnotationRule = {
+      category: targetCategory, enabled: result?.enabled === true, modelId: String(result?.modelId ?? modelId),
+      updatedBy: String(result?.updatedBy ?? currentUser?.email ?? ""), updatedAt: typeof result?.updatedAt === "string" ? result.updatedAt : null,
+    };
+    setData((current) => current ? { ...current, autoAnnotation: [...(current.autoAnnotation ?? []).filter((item) => item.category !== targetCategory), saved].sort((a, b) => a.category.localeCompare(b.category)) } : current);
+    setAutoDrafts((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== targetCategory)));
+    setNotice(saved.enabled ? `已开启「${targetCategory}」导入后自动识别` : `已关闭「${targetCategory}」导入后自动识别`);
+  });
   const deleteJob = (item: Job) => act("delete-job", async () => {
     if (!["review_ready", "committed"].includes(item.status)) throw new Error("只能归档推理已结束或已经全部入库的任务记录");
     const pendingReviewCount = Math.max(0, item.totalCount - item.committedCount - item.failedCount);
@@ -848,6 +861,32 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         </>}
       </div>}
       <div className="annotation-job-list">{visibleJobs.map((item) => <div className={`annotation-job-entry ${jobId === item.id ? "active" : ""}`} key={item.id}><button className="annotation-job-select" onClick={() => { dirtyDraftIdsRef.current.clear(); setJobId(item.id); }}><strong>{item.category}</strong><span>{item.executor} · 并发 {concurrencyFor(item.category, item.executor === "local" ? "local" : "cloud")} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>{["review_ready", "committed"].includes(item.status) && <button className="annotation-job-delete" disabled={!isAdmin || busy !== ""} title={isAdmin ? "归档任务记录；正式入库结果、任务明细、回执和审计都会保留" : "仅管理员可归档已结束任务"} onClick={() => void deleteJob(item)}>{busy === "delete-job" ? "归档中…" : item.status === "committed" ? "删除记录" : "归档旧任务"}</button>}</div>)}</div>
+    </section>
+
+    <section className="panel annotation-auto-card">
+      <div className="section-header">
+        <div>
+          <h3>导入后自动识别</h3>
+          <p>导入并完成图片缓存后自动创建并启动云端识别；结果进入待审核，不自动提交正式价格。{isAdmin ? "" : "仅管理员可修改。"}</p>
+        </div>
+      </div>
+      <div className="annotation-auto-list">{[...new Set([...(data.autoAnnotation ?? []).map((item) => item.category), ...(category ? [category] : [])])].map((target) => {
+        const rule = (data.autoAnnotation ?? []).find((item) => item.category === target);
+        const draft = autoDrafts[target] ?? { enabled: rule?.enabled ?? false, modelId: rule?.modelId || visionModelId };
+        const changed = draft.enabled !== (rule?.enabled ?? false) || draft.modelId !== (rule?.modelId || "");
+        const modelKnown = data.models.some((model) => model.id === draft.modelId);
+        return <div className="annotation-auto-row" key={target}>
+          <strong>{target}</strong>
+          <label><input type="checkbox" aria-label={`${target} 导入后自动识别`} checked={draft.enabled} disabled={!isAdmin || busy !== ""} onChange={(event) => setAutoDrafts((current) => ({ ...current, [target]: { ...draft, enabled: event.target.checked } }))} /> 自动识别</label>
+          <select aria-label={`${target} 自动识别视觉模型`} value={draft.modelId} disabled={!isAdmin || busy !== ""} onChange={(event) => setAutoDrafts((current) => ({ ...current, [target]: { ...draft, modelId: event.target.value } }))}>
+            {!modelKnown && <option value={draft.modelId}>{draft.modelId ? "已配置的模型（当前不可用）" : "请选择视觉模型"}</option>}
+            {data.models.map((model) => <option value={model.id} key={model.id}>{model.name} · {model.modelName}</option>)}
+          </select>
+          <button className="secondary-button" disabled={!isAdmin || busy !== "" || !changed} onClick={() => void saveAutoAnnotation(target, draft.enabled, draft.modelId)}>{busy === "auto-annotation" ? "保存中…" : "保存"}</button>
+          {rule && <small>{rule.enabled ? "已开启" : "已关闭"} · {rule.updatedBy}</small>}
+        </div>;
+      })}</div>
+      {!category && !(data.autoAnnotation ?? []).length && <small>在上方选择三级类目后，可为该类目开启自动识别。</small>}
     </section>
 
     <section className="panel annotation-review-card data-refresh-region" aria-busy={reviewLoading}>

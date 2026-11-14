@@ -89,3 +89,11 @@ TypeScript 行为测试覆盖并发总量、任务公平分配、失权拒绝、
 本次先通过正式 API 暂停 4 条原运行计划，00:14:29 与 00:14:49 两次确认包括过期领取在内的在途数为零、helper 空闲，再执行受控停止。恢复后 00:32:52 逐条恢复上述计划；00:34:09 回查自然新增完成 24、23、12、12 条，合计 71 条。全部 74 条既有隔离记录的完整行摘要、已完成第 5 条云端计划记录保持一致。没有重置隔离项、人工模型调用或 n8n 重启。
 
 发布前备份已在独立 55484 端口完整恢复并核对内容摘要，发布后备份及归档摘要复验通过。Django staging 的两次 local R2 自检在上传完成后因 CLI 未退出而超时，均发生在应用原子替换之前；沿用项目已记录的进程级 `WRANGLER_HIDE_BANNER=true` 后，原 operator 的完整 put/get/hash/delete/缺失检查通过，没有扩大时间、修改依赖或跳过门禁。完整证据见 [候选检查](../../evidence/market-stale-candidates-validation-20260914.json) 与 [生产核验](../../evidence/market-stale-candidates-production-20260914.json)。
+
+## 并发预算、未知结果与导入后自动识别（2026-11-14）
+
+- **同模型共享预算**：多个类目任务使用同一个视觉模型时，调度按模型汇总。预算取这些任务所属类目已配置云端并发的最大值（未配置按 10），已在途的租约先占用预算，剩余名额按任务轮流各取一个，旧任务不会独占。读数见派发结果的 `modelBudget` 与 `modelInFlight`。
+- **未知结果不再单项停整批**：租约过期或模型调用结果未知时，该项（含同图其他月份）仍被隔离、不自动重试，但只有自上次成功以来累计出现 3 次时才暂停整个任务。计数保存在运行记录的 `retry_state_json.unknownExpiredCount`，任何一次成功识别清零，人工继续时重置。
+- **启动识别**：`start_category_recognition`（operator/admin）按类目当前激活 Prompt 创建云端任务（上限 10,000 条，沿用 work_key 复用）并启动，由后台定时接管。同类目已有使用其他模型的未完成任务时返回 409，避免同一批图片重复付费。市场主数据页「转入后台 AI 识别价格」调用它；原先该按钮走的 `create_price_recognition_job` 等动作在 Django 侧恒为 409，已移除。
+- **导入后自动识别**：管理员在 系统和 AI 设置 → SKU 数据库 → AI 标注 的「导入后自动识别」按类目开启并选视觉模型（`set_auto_annotation`）。设置存放在 `market_master_mapping_rules`，`kind=auto_annotation`、`source_value=cloud`、`target_value=模型 ID`、`created_by` 为最近保存的管理员并作为自动任务的发起人；不新增迁移，映射规则列表、`upsert_mapping`、`apply_mappings` 均排除该类型。
+- **触发与恢复**：Worker 每分钟先做只读检查 `auto_annotation_due`，仅有待办时才发写命令 `ensure_auto_annotation`（仅内部调度身份可调用，每次最多创建 1 个任务）。触发条件是：该类目最近一次标注任务创建之后，有批次完成图片缓存，该批次 `scope_json.ranges` 列出了该类目，且该类目当前没有仍有可识别项的任务。判断只读取已完成的图片缓存任务（最近 200 个）及其批次，不扫描 `market_ranking_entries`，每轮查询次数与规则数量无关。暂停原因为 `model_configuration`、`authorization_revoked`、无原因（含人工暂停）的任务不会被自动恢复；其余暂停在 15 分钟冷却后自动继续。自动识别的结果仍进入待审核，不提交正式价格。
