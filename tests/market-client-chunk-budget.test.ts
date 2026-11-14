@@ -4,7 +4,7 @@ import test from "node:test";
 
 const MARKET_ENTRY_MAX_BYTES = 640_000;
 const MARKET_MASTER_ADMIN_CHUNK_MAX_BYTES = 180_000;
-const ADMIN_RUNTIME_MARKER = "create_price_recognition_job";
+const ADMIN_RUNTIME_MARKER = "start_category_recognition";
 
 type ClientManifestEntry = {
   file?: string;

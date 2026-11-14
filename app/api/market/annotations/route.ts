@@ -34,6 +34,7 @@ const ADMIN_ACTIONS = new Set([
   "create_agent",
   "revoke_agent",
   "mark_gold",
+  "set_auto_annotation",
 ]);
 
 function text(value: unknown): string {

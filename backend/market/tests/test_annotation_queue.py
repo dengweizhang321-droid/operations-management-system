@@ -139,23 +139,24 @@ class AnnotationQueueTests(QueueFixtures, TestCase):
         self.assertEqual(second.ai_image_price_cents, 10000)
         self.assertTrue(self.complete(task)["duplicate"])
 
-    def test_unknown_expired_lease_quarantines_all_months_and_pauses(self):
+    def test_unknown_expired_lease_quarantines_all_months_and_keeps_running_below_threshold(self):
         job = self.job("unknown")
         self.item(job, "one", sku="same", month="2026-08")
         follower = self.item(job, "two", sku="same")
         self.item(job, "three", sku="different")
         task = self.claim(job)["task"]
         MarketAnnotationItem.objects.filter(id=task["itemId"]).update(lease_expires_at=timezone.now() - timedelta(seconds=1))
-        self.assertIsNone(self.claim(job)["task"])
+        # One unknown lease is quarantined, but it no longer stops the rest of the job.
+        self.assertEqual(self.claim(job)["task"]["itemId"], "three")
         run = MarketAnnotationCloudRun.objects.get(job_id=job.id)
-        self.assertEqual(run.state, "paused")
-        self.assertEqual(run.last_failure_code, "inference_result_unknown")
+        self.assertEqual(run.state, "running")
+        self.assertEqual(run.last_failure_code, "")
+        self.assertEqual(run.retry_state_json["unknownExpiredCount"], 1)
         follower.refresh_from_db()
         self.assertEqual((follower.status, follower.attempt_count), ("failed", 3))
+        self.assertIn("结果未知", follower.error_message)
         with self.assertRaises(MarketApiError):
             self.complete(task)
-        _set_cloud_run({"jobId": job.id, "state": "running"}, PRINCIPAL)
-        self.assertEqual(self.claim(job)["task"]["itemId"], "three")
 
     def test_account_failure_pauses_before_consuming_more_items_and_keeps_retry_budget(self):
         job = self.job("account")
@@ -169,18 +170,19 @@ class AnnotationQueueTests(QueueFixtures, TestCase):
         self.assertEqual(MarketAnnotationItem.objects.get(id=task["itemId"]).attempt_count, 0)
         self.assertIsNone(self.claim(job)["task"])
 
-    def test_last_unknown_group_remains_paused_even_after_progress_refresh(self):
+    def test_last_unknown_group_is_quarantined_never_replayed_and_job_settles(self):
         job = self.job("only-unknown")
         self.item(job, "one", sku="same", month="2026-08", attempt_count=2)
         self.item(job, "two", sku="same", attempt_count=2)
         task = self.claim(job)["task"]
         MarketAnnotationItem.objects.filter(id=task["itemId"]).update(lease_expires_at=timezone.now() - timedelta(seconds=1))
         self.assertEqual([row["jobId"] for row in _dispatch({})["jobs"]], [job.id])
-        self.assertTrue(_dispatch_lease({"jobId": job.id}, release=False)["paused"])
+        # Nothing else remains: no lease is issued and the quarantined group is not replayed.
+        self.assertIsNone(_dispatch_lease({"jobId": job.id}, release=False)["coordinatorToken"])
         _refresh_job(job.id)
-        run = MarketAnnotationCloudRun.objects.get(job_id=job.id)
-        self.assertEqual(run.state, "paused")
-        self.assertEqual(run.last_failure_code, "inference_result_unknown")
+        self.assertEqual(set(MarketAnnotationItem.objects.filter(job_id=job.id).values_list("status", "attempt_count")), {("failed", 3)})
+        self.assertEqual(MarketAnnotationJob.objects.get(id=job.id).status, "review_ready")
+        self.assertIsNone(self.claim(job)["task"])
         with self.assertRaises(MarketApiError):
             _set_cloud_run({"jobId": job.id, "state": "running"}, PRINCIPAL)
 
@@ -200,14 +202,15 @@ class AnnotationQueueTests(QueueFixtures, TestCase):
     def test_late_final_failure_cannot_erase_another_items_unknown_quarantine(self):
         for failure_code in ("image_fetch", "model_timeout"):
             with self.subTest(failure_code=failure_code):
-                job = self.job(f"late-{failure_code}", concurrency=2)
-                self.item(job, f"unknown-{failure_code}")
+                job = self.job(f"late-{failure_code}", concurrency=4)
+                for n in range(3):
+                    self.item(job, f"unknown-{failure_code}-{n}")
                 self.item(job, f"final-failure-{failure_code}", attempt_count=2)
-                claimed = [self.claim(job)["task"], self.claim(job)["task"]]
+                claimed = [self.claim(job)["task"] for _ in range(4)]
                 tasks = {task["itemId"]: task for task in claimed}
-                unknown = tasks[f"unknown-{failure_code}"]
                 late = tasks[f"final-failure-{failure_code}"]
-                MarketAnnotationItem.objects.filter(id=unknown["itemId"]).update(
+                # Three unknown expirations in a row reach the pause threshold.
+                MarketAnnotationItem.objects.filter(id__startswith=f"unknown-{failure_code}").update(
                     lease_expires_at=timezone.now() - timedelta(seconds=1),
                 )
                 self.assertIsNone(self.claim(job)["task"])

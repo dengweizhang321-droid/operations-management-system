@@ -125,6 +125,7 @@ ADMIN_ANNOTATION_ACTIONS = {
     "create_agent",
     "revoke_agent",
     "mark_gold",
+    "set_auto_annotation",
 }
 
 
