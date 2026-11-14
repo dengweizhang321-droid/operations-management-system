@@ -11,7 +11,7 @@ from market.annotation_runtime import (
     UNKNOWN_EXPIRATION_PAUSE_THRESHOLD, record_failure, record_success, record_unknown_expirations, retry_snapshot,
 )
 from market.annotations import (
-    AUTO_RESUME_MAX_PER_CALL, INTERNAL_ANNOTATION_RUNNER_EMAIL, _claim_job_item, _complete_job_item, _dispatch, _ensure_auto_annotation,
+    AUTO_RESUME_MAX_PER_CALL, INTERNAL_ANNOTATION_RUNNER_EMAIL, _auto_trigger_categories, _claim_job_item, _complete_job_item, _dispatch, _ensure_auto_annotation,
     _set_auto_annotation, _set_cloud_run, _start_category_recognition, annotation_workspace, execute_annotation_command,
     execute_annotation_query,
 )
@@ -61,6 +61,17 @@ class AutoRecognitionFixtures(QueueFixtures):
         return MarketImageCacheJob.objects.create(
             id="image-job-" + batch, scope_key="batch:" + batch, batch_id=batch, status="completed",
             completed_at=completed_at or timezone.now())
+
+    def finished_job(self, category, *, created_at):
+        """A finished (nothing runnable) cloud job whose creation time is pinned."""
+        job = MarketAnnotationJob.objects.create(
+            id="finished-" + category + "-" + created_at.isoformat(), category=category, prompt_version_id="prompt-" + category,
+            executor="cloud", model_id="vision-a", status="review_ready", created_by=ADMIN.email)
+        MarketAnnotationJob.objects.filter(id=job.id).update(created_at=created_at)
+        return job
+
+    def due(self):
+        return execute_annotation_query({"operation": "annotations", "view": "auto_annotation_due", "params": {}}, RUNNER)
 
     def enable(self, category=CATEGORY, model="vision-a", principal=ADMIN):
         return _set_auto_annotation({"category": category, "enabled": True, "modelId": model}, principal)
@@ -350,6 +361,94 @@ class EnsureAutoAnnotationTests(AutoRecognitionFixtures, TestCase):
         _set_auto_annotation({"category": CATEGORY, "enabled": False}, ADMIN)
         self.assertEqual(self.ensure()["created"], [])
         self.assertEqual(self.jobs().count(), 0)
+
+    def test_a_finished_job_newer_than_the_only_import_does_not_retrigger(self):
+        # The second rule category has no job, so the "every category has a job" pre-filter is off
+        # and only the per-category comparison can keep the old import from firing again.
+        other = "自动识别类目二"
+        for category in (CATEGORY, other):
+            self.seed_category(category)
+            self.enable(category)
+        now = timezone.now()
+        self.finish_image_job("batch-1", categories=[CATEGORY], completed_at=now - timedelta(hours=2))
+        self.finished_job(CATEGORY, created_at=now - timedelta(hours=1))
+        self.assertEqual(self.due(), {"due": False, "rules": 2, "resumeCount": 0, "createCount": 0})
+        for _ in range(2):
+            self.assertEqual(self.ensure()["created"], [])
+        self.assertEqual((self.jobs(CATEGORY).count(), self.jobs(other).count()), (1, 0))
+
+    def test_a_newer_import_triggers_exactly_once_and_never_again_from_the_same_imports(self):
+        other = "自动识别类目二"
+        for category in (CATEGORY, other):
+            self.seed_category(category)
+            self.enable(category)
+        now = timezone.now()
+        self.finish_image_job("batch-1", categories=[CATEGORY], completed_at=now - timedelta(hours=2))
+        self.finished_job(CATEGORY, created_at=now - timedelta(hours=1))
+        self.finish_image_job("batch-2", categories=[CATEGORY], completed_at=now - timedelta(minutes=5))
+        self.assertEqual(self.due()["createCount"], 1)
+        created = self.ensure()["created"]
+        self.assertEqual([row["category"] for row in created], [CATEGORY])
+        self.assertEqual(self.jobs(CATEGORY).count(), 2)
+        # The new job finishes; both imports are now older than it, so nothing may fire again.
+        MarketAnnotationItem.objects.filter(job_id=created[0]["jobId"]).update(status="review_pending")
+        for _ in range(3):
+            self.assertEqual(self.ensure()["created"], [])
+            self.assertFalse(self.due()["due"])
+        self.assertEqual((self.jobs(CATEGORY).count(), self.jobs(other).count()), (2, 0))
+
+    def test_an_empty_marker_job_stops_repeat_creation_while_another_category_has_no_job(self):
+        other = "自动识别类目二"
+        for category in (CATEGORY, other):
+            self.seed_category(category)
+            self.enable(category)
+        MarketPriceSnapshot.objects.filter(category=CATEGORY).update(image_content_sha256="")
+        self.finish_image_job("batch-1", categories=[CATEGORY], completed_at=timezone.now() - timedelta(minutes=5))
+        first = self.ensure()["created"]
+        self.assertEqual([(row["category"], row["totalCount"]) for row in first], [(CATEGORY, 0)])
+        for _ in range(3):
+            self.assertEqual(self.ensure()["created"], [])
+        self.assertEqual(self.jobs(CATEGORY).count(), 1)
+
+    def test_pre_filter_never_hides_a_batch_relative_to_each_categorys_own_newest_job(self):
+        first, second = CATEGORY, "自动识别类目二"
+        for category in (first, second):
+            self.seed_category(category)
+        now = timezone.now()
+        self.finished_job(first, created_at=now - timedelta(hours=3))
+        self.finished_job(second, created_at=now - timedelta(hours=1))
+        # Newer than the first category's job, older than the second category's job.
+        self.finish_image_job("between", categories=[first, second], completed_at=now - timedelta(hours=2))
+        self.assertEqual(_auto_trigger_categories({first, second}), {first})
+        # Newer than every job: the category with the newest job must still be reachable.
+        self.finish_image_job("after-second", categories=[second], completed_at=now - timedelta(minutes=30))
+        self.assertEqual(_auto_trigger_categories({first, second}), {first, second})
+        self.assertEqual(_auto_trigger_categories({second}), {second})
+        # Categories that were not asked about are ignored, and an import older than every job fires nothing.
+        self.assertEqual(_auto_trigger_categories({"别的类目"}), set())
+        self.assertEqual(_auto_trigger_categories(set()), set())
+
+    def test_a_category_without_any_job_still_sees_an_import_older_than_other_categories_jobs(self):
+        first, second = CATEGORY, "自动识别类目二"
+        for category in (first, second):
+            self.seed_category(category)
+        now = timezone.now()
+        self.finished_job(first, created_at=now - timedelta(hours=1))
+        # Older than the first category's job, but the second category has never had a job.
+        self.finish_image_job("old-import", categories=[second], completed_at=now - timedelta(days=3))
+        self.assertEqual(_auto_trigger_categories({first, second}), {second})
+        self.assertEqual(_auto_trigger_categories({second}), {second})
+
+    def test_an_import_completed_at_the_same_instant_as_the_newest_job_does_not_trigger(self):
+        other = "自动识别类目二"
+        for category in (CATEGORY, other):
+            self.seed_category(category)
+        moment = timezone.now() - timedelta(minutes=10)
+        self.finished_job(CATEGORY, created_at=moment)
+        self.finish_image_job("same-instant", categories=[CATEGORY], completed_at=moment)
+        self.assertEqual(_auto_trigger_categories({CATEGORY, other}), set())
+        self.finish_image_job("a-moment-later", categories=[CATEGORY], completed_at=moment + timedelta(microseconds=1))
+        self.assertEqual(_auto_trigger_categories({CATEGORY, other}), {CATEGORY})
 
     def test_batch_scope_decides_which_category_triggers(self):
         other = "自动识别类目二"
