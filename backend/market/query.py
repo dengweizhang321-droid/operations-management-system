@@ -9,7 +9,8 @@ from datetime import date, timedelta
 from time import monotonic
 
 from django.db import connection, transaction
-from django.db.models import Count, F, Max, Min, Q, Sum
+from django.db.models import Count, F, Max, Min, OuterRef, Q, Subquery, Sum
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Substr
 
 from netshop.sales_client import read_sales_consumer
@@ -344,11 +345,17 @@ def _price_band(
 
 
 def _projection_metrics(rows: list[MarketRankingEntry]) -> tuple[dict[int, int], set[str]]:
+    effective, owned, _real = _projection_metrics_detail(rows)
+    return effective, owned
+
+
+def _projection_metrics_detail(rows: list[MarketRankingEntry]) -> tuple[dict[int, int], set[str], set[int]]:
+    """Return effective GMV, owned codes and the row ids whose GMV is real own-shop sales."""
     if not rows:
-        return {}, set()
+        return {}, set(), set()
     control = MarketNetshopProjectionControl.objects.filter(id=1).first()
     if not control or not control.active_revision:
-        return {}, set()
+        return {}, set(), set()
     sku_codes = {row.sku_code for row in rows if row.ranking_dimension != "SPU"}
     spu_codes = {row.sku_code for row in rows if row.ranking_dimension == "SPU"}
     owned: set[str] = set()
@@ -398,14 +405,17 @@ def _projection_metrics(rows: list[MarketRankingEntry]) -> tuple[dict[int, int],
         series_by_identity[identity] = (dates, prefix)
 
     effective: dict[int, int] = {}
+    real_ids: set[int] = set()
     for row in rows:
         dimension = "SPU" if row.ranking_dimension == "SPU" else "SKU"
         dates, prefix = series_by_identity.get((dimension, row.sku_code), ([], [0]))
         start = bisect_left(dates, row.period_start)
         end = bisect_right(dates, row.period_end)
         real = prefix[end] - prefix[start]
+        if real > 0:
+            real_ids.add(row.id)
         effective[row.id] = real if real > 0 else int(row.gmv_cents)
-    return effective, owned
+    return effective, owned, real_ids
 
 
 def _sales_date_ranges(filters: dict[str, object]) -> list[tuple[str | None, str | None]]:
@@ -1137,6 +1147,103 @@ def _empty_industry_report(filters: dict[str, object]) -> dict[str, object]:
     }
 
 
+ORDER_COUNT_KEY = "成交单量"
+_RANGE_SPLIT = re.compile(r"\s*[~～至]\s*")
+_SCALAR_STRIP = re.compile(r"[,，￥¥元件个次人]")
+_SCALAR_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def _round_half_up(value: float) -> int:
+    return int(math.floor(value + 0.5))
+
+
+def _parse_scalar(text: str) -> float | None:
+    source = _SCALAR_STRIP.sub("", text).strip()
+    match = _SCALAR_NUMBER.search(source)
+    if not match:
+        return None
+    multiplier = 100_000_000 if "亿" in source else 10_000 if "万" in source else 1_000 if "千" in source else 1
+    return float(match.group(0)) * multiplier
+
+
+def parse_order_count(value: object) -> int | None:
+    """Mirror lib/market/parser.ts parseNumericRange for the 成交单量 export cell."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        number = float(value)
+        return _round_half_up(number) if math.isfinite(number) and number >= 0 else None
+    source = str(value).strip()
+    if not source or source == "-":
+        return None
+    parts = [item for item in (_parse_scalar(piece) for piece in _RANGE_SPLIT.split(source)) if item is not None]
+    if len(parts) >= 2:
+        number = (min(parts[0], parts[1]) + max(parts[0], parts[1])) / 2
+    else:
+        number = _parse_scalar(source)
+    if number is None or number < 0:
+        return None
+    return _round_half_up(number)
+
+
+def _order_counts(row_ids: list[int]) -> dict[int, int | None]:
+    """Read only the 成交单量 key of raw_json for the page rows; raw_json stays deferred elsewhere."""
+    if not row_ids:
+        return {}
+    values = (
+        MarketRankingEntry.objects.filter(id__in=row_ids)
+        .annotate(order_cell=KeyTextTransform(ORDER_COUNT_KEY, "raw_json"))
+        .values_list("id", "order_cell")
+    )
+    return {row_id: parse_order_count(cell) for row_id, cell in values}
+
+
+def _image_fallbacks(rows: list[MarketRankingEntry]) -> dict[int, str]:
+    """Display-only fallback for rows without their own image_url (no data writes).
+
+    Prefers the latest non-empty image of the same (category, scope, dimension, sku);
+    SKU-dimension rows then fall back to the latest non-empty image of the same sku_code.
+    """
+    missing = [row for row in rows if not row.image_url]
+    if not missing:
+        return {}
+    candidates = (
+        MarketRankingEntry.objects.exclude(image_url="")
+        .order_by("-period_end", "-period_start", "-id")
+        .values("image_url")
+    )
+    same_identity = candidates.filter(
+        category=OuterRef("category"),
+        scope=OuterRef("scope"),
+        ranking_dimension=OuterRef("ranking_dimension"),
+        sku_code=OuterRef("sku_code"),
+    )
+    same_sku = candidates.filter(ranking_dimension="SKU", sku_code=OuterRef("sku_code"))
+    found = (
+        MarketRankingEntry.objects.filter(id__in=[row.id for row in missing])
+        .annotate(fallback_identity=Subquery(same_identity[:1]), fallback_sku=Subquery(same_sku[:1]))
+        .values_list("id", "ranking_dimension", "fallback_identity", "fallback_sku")
+    )
+    result: dict[int, str] = {}
+    for row_id, dimension, identity_url, sku_url in found:
+        url = identity_url or (sku_url if dimension == "SKU" else "")
+        if url:
+            result[row_id] = url
+    return result
+
+
+def _conversion(
+    stored_bps: int | None, order_count: int | None, visitors: int
+) -> tuple[int | None, bool]:
+    if stored_bps is not None:
+        return stored_bps, False
+    if order_count is None or visitors <= 0:
+        return None, False
+    bps = _round_half_up(order_count / visitors * 10_000)
+    # Midpoint artifacts of two independent ranges can exceed 100%; that is meaningless.
+    return (bps, True) if bps <= 10_000 else (None, False)
+
+
 def overview(
     principal: Principal,
     request: dict[str, object],
@@ -1171,7 +1278,7 @@ def overview(
         rows = _preferred_rows(filters)
     snapshots = _snapshot_map(rows)
     versions = _price_band_versions()
-    effective_gmv, projection_owned = _projection_metrics(rows)
+    effective_gmv, projection_owned, real_gmv_ids = _projection_metrics_detail(rows)
     enriched: list[dict[str, object]] = []
     for row in rows:
         snapshot = snapshots.get(
@@ -1218,17 +1325,24 @@ def overview(
             item["previousRank"] = ranking_details[row.id]["previous_rank"]
     total = int(ranking_stats["total"]) if ranking_stats is not None else len(enriched)
     ranking_source = enriched if ranking_stats is not None else enriched[(page - 1) * page_size : page * page_size]
+    page_entries = [value["row"] for value in ranking_source]
+    order_counts = _order_counts([row.id for row in page_entries])
+    image_fallbacks = _image_fallbacks(page_entries)
+    effective_image_urls = {row.id: row.image_url or image_fallbacks.get(row.id, "") for row in page_entries}
     image_status = {
         item.source_url: item
         for item in MarketImageCache.objects.filter(
-            source_url__in={value["row"].image_url for value in ranking_source if value["row"].image_url}
+            source_url__in={url for url in effective_image_urls.values() if url}
         )
     }
     items: list[dict[str, object]] = []
     for value in ranking_source:
         row = value["row"]
         snapshot = value["snapshot"]
-        cached = image_status.get(row.image_url)
+        display_image_url = effective_image_urls[row.id]
+        cached = image_status.get(display_image_url)
+        order_count = order_counts.get(row.id)
+        conversion_bps, conversion_estimated = _conversion(row.conversion_bps, order_count, int(row.visitors))
         previous = value.get("previousRank")
         official = value["official"]
         average = value["average"]
@@ -1271,16 +1385,22 @@ def overview(
                 "quantity": int(row.quantity),
                 "pageViews": int(row.page_views),
                 "visitors": int(row.visitors),
-                "conversionBps": row.conversion_bps,
+                "orderCount": order_count,
+                "averageOrderValueCents": (
+                    _round_half_up(int(value["gmv"]) / order_count) if order_count else None
+                ),
+                "gmvIsReal": row.id in real_gmv_ids,
+                "conversionBps": conversion_bps,
+                "conversionEstimated": conversion_estimated,
                 "cartCustomers": int(row.cart_customers),
                 "searchClicks": int(row.search_clicks),
                 "imageUrl": (
                     f"/api/market/images/{cached.content_sha256}"
                     if cached and cached.status == "ready" and cached.content_sha256
-                    else row.image_url
+                    else display_image_url
                 ),
                 "sourceImageUrl": row.image_url,
-                "imageCacheStatus": cached.status if cached else "missing" if not row.image_url else "pending",
+                "imageCacheStatus": cached.status if cached else "missing" if not display_image_url else "pending",
                 "productUrl": row.product_url,
                 "periodCount": int(ranking_details[row.id]["period_count"]) if ranking_stats is not None else sum(
                     1

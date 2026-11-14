@@ -12,6 +12,7 @@ import { getJdStore } from "../lib/jd/store-registry";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
 import { ensureJdStoreAuthenticatedSession } from "./jd-saved-login";
+import { fillMissingImagesOnOpenPage, JD_MARKET_IMAGE_FILL_MAX_SKUS, type JdMarketImageFillResult } from "../lib/market/jd-image-fill";
 import {
   isVerifiedJdDateRangeEcho,
   jdCalendarCellState,
@@ -119,6 +120,8 @@ export type JdMarketDailyPlan = {
   endDate: string;
   targets: JdMarketDailyTargetPlan[];
   failure?: { stage: string; message: string; at: string };
+  /** Best-effort image fill outcome; informational only and never part of the import proofs. */
+  imageFill?: { ok: boolean; at: string; warning?: string; result?: JdMarketImageFillResult };
 };
 
 type Coverage = { ok: boolean; presentDates: string[]; missingDates: string[]; cutoffDate: string | null; rowCounts: Record<string, number> };
@@ -842,6 +845,46 @@ async function withRunLock<T>(runId: string, task: () => Promise<T>) {
   }, task);
 }
 
+const imageFillHardTimeoutMs = 15 * 60_000;
+
+/**
+ * Best-effort: fill images of SKUs that never had one, on the already-open jdsz page
+ * and while the caller still holds the market-ranking Chromium lock. It can never
+ * throw: every failure becomes a warning that is stored beside the plan, outside
+ * the import proofs and evidence.
+ */
+export async function fillMissingImagesBestEffort(
+  page: Page,
+  plan: Pick<JdMarketDailyPlan, "baseUrl" | "shopId" | "shopName">,
+  config: Pick<JdMarketDailyConfig, "requestDelayMs">,
+  options: { request?: typeof fetch; fill?: typeof fillMissingImagesOnOpenPage },
+) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const result = await Promise.race([
+      (options.fill ?? fillMissingImagesOnOpenPage)(page, plan, {
+        baseUrl: plan.baseUrl,
+        request: options.request,
+        maxSkus: JD_MARKET_IMAGE_FILL_MAX_SKUS,
+        delayMs: config.requestDelayMs,
+        deadlineMs: imageFillHardTimeoutMs - 60_000,
+      }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("图片补全超过 15 分钟未完成，已放弃")), imageFillHardTimeoutMs);
+      }),
+    ]);
+    return { ok: true as const, at: new Date().toISOString(), result };
+  } catch (error) {
+    return {
+      ok: false as const,
+      at: new Date().toISOString(),
+      warning: (error instanceof Error ? error.message : String(error)).replace(/\s+/g, " ").slice(0, 300),
+    };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan, options: { request?: typeof fetch } = {}) {
   return withJdChromiumRunLock("market-ranking", () => withRunLock(plan.runId, async () => {
     const config = await loadJdMarketDailyConfig();
@@ -974,10 +1017,15 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan, options: { r
         await saveEvidenceScreenshot(page, plan, targetPlan, "imported");
       }
       plan.stage = "executed"; delete plan.failure; await persistPlan(plan);
+      // Imports are final at this point. The fill below only reports warnings.
+      const imageFill = await fillMissingImagesBestEffort(page, plan, config, options);
+      plan.imageFill = imageFill;
+      await persistPlan(plan).catch(() => undefined);
       return {
         ok: true, stage: "run", runId: plan.runId,
         importedFiles: plan.targets.reduce((sum, target) => sum + target.chunks.length, 0),
         rowCount: plan.targets.reduce((sum, target) => sum + target.chunks.reduce((targetSum, chunk) => targetSum + Number(chunk.rowCount ?? 0), 0), 0),
+        imageFill,
       };
     } catch (error) {
       if (activePage && activeTargetPlan) await saveEvidenceScreenshot(activePage, plan, activeTargetPlan, "filters");

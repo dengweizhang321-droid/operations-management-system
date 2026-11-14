@@ -23,7 +23,8 @@ type MarketItem = {
   operationMode: "POP" | "自营" | "未知"; subcategory: string; rank: number | null; previousRank: number | null; rankChange: number | null;
   skuCode: string; productName: string; brand: string; priceCents: number | null; marketPriceCents: number | null; marketPriceSource: string;
   averageTransactionPriceCents: number | null; discountBps: number | null; discountReference: boolean;
-  gmvCents: number; quantity: number; pageViews: number; visitors: number; conversionBps: number | null;
+  gmvCents: number; gmvIsReal: boolean; quantity: number; orderCount: number | null; averageOrderValueCents: number | null;
+  pageViews: number; visitors: number; conversionBps: number | null; conversionEstimated: boolean;
   cartCustomers: number; searchClicks: number; imageUrl: string; productUrl: string; sourceImageUrl: string; imageCacheStatus: string;
   periodCount: number; isOwn: boolean; ownSalesCents: number; gmvOutOfBand?: boolean;
 };
@@ -573,19 +574,21 @@ function RankingTable({ data, compareKeys, loadingMore, onLoadMore, onPrevious, 
   return <section className="panel market-table-panel">
     <div className="section-header"><div><h2>商品榜单</h2><p>每页读取 20 条；翻页时保留已选择的竞品。标题下方展示周期、SKU ID、POP/自营、品牌、细分类目和确认状态。</p></div><div className="market-ranking-actions"><span className="soft-tag">本页 {count(items.length)} 条 · 共 {count(pagination.total)} 条</span><button type="button" className="secondary-button" disabled={compareKeys.length < 2} onClick={onOpenCompare}>进入竞品对比{compareKeys.length ? `（${compareKeys.length}）` : ""}</button></div></div>
     <div className="data-table-wrap"><table className="data-table market-ranking-table market-ranking-table-v2"><thead><tr>
-      <th>对比</th><th>排名</th><th>商品主图和标题</th><th>销售额</th><th>成交件数</th><th>市场定位价（主图）</th><th>成交均价</th><th>访客</th><th>转化率</th><th>排名变化</th><th>趋势操作</th>
+      <th>对比</th><th>排名</th><th>商品主图和标题</th><th>预估销售额</th><th>成交件数</th><th>成交单量</th><th>客单价</th><th>市场定位价（主图）</th><th>成交均价</th><th>访客</th><th>转化率</th><th>排名变化</th><th>趋势操作</th>
     </tr></thead><tbody>{items.map((item) => <tr key={item.id}>
       <td><button type="button" className={`market-compare-check ${compareKeys.includes(marketCompareSelectionKey(item)) ? "active" : ""}`} onClick={() => onToggleCompare(item)} aria-label={`选择对比 ${item.productName || item.skuCode}`}>{compareKeys.includes(marketCompareSelectionKey(item)) ? "✓" : "+"}</button></td>
       <td><strong>{item.rank ? `#${item.rank}` : "-"}</strong><small>{item.rankingDimension}</small></td>
       <td><div className="market-product-cell">{item.imageUrl ? (marketProductHref(item.productUrl, item.skuCode) ? <a href={marketProductHref(item.productUrl, item.skuCode)} target="_blank" rel="noreferrer"><img src={item.imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <span><img src={item.imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></span>) : <span>图</span>}<div>{marketProductHref(item.productUrl, item.skuCode) ? <a className="market-product-title-link" href={marketProductHref(item.productUrl, item.skuCode)} target="_blank" rel="noreferrer">{item.productName || "未命名商品"}</a> : <strong>{item.productName || "未命名商品"}</strong>}<small>{item.periodStart} 至 {item.periodEnd} · 上榜 {count(item.periodCount)} 期 · {item.rankingDimension} {item.skuCode}</small><small>{item.operationMode} · {item.brand || "品牌待识别"} · {item.subcategory || "未分类"} · {item.marketPriceSource}</small></div></div></td>
-      <td><strong>{money(item.gmvCents)}</strong><small>当前 TOP 榜单覆盖口径</small></td>
+      <td><strong>{money(item.gmvCents)}</strong><small>{item.gmvIsReal ? "自有·真实值" : "竞品·估算"}</small></td>
       <td>{count(item.quantity)}</td>
+      <td>{item.orderCount === null ? "-" : count(item.orderCount)}</td>
+      <td>{money(item.averageOrderValueCents)}</td>
       <td><strong>{money(item.marketPriceCents)}</strong><small>{item.marketPriceSource}</small></td>
       <td><strong>{money(item.averageTransactionPriceCents)}</strong><small>{item.discountBps === null ? "无折让率" : `${item.discountReference ? "参考" : "成交"}折让率 ${percent(item.discountBps)}`}</small></td>
-      <td>{count(item.visitors)}</td><td>{percent(item.conversionBps)}</td>
+      <td>{count(item.visitors)}</td><td><strong>{percent(item.conversionBps)}</strong>{item.conversionEstimated && <small>估算</small>}</td>
       <td>{item.rankChange === null ? "-" : item.rankChange > 0 ? `↑${item.rankChange}` : item.rankChange < 0 ? `↓${Math.abs(item.rankChange)}` : "持平"}</td>
       <td><button type="button" className="row-action" onClick={() => onTrend(item)}>查看趋势</button></td>
-    </tr>)}{items.length === 0 && <tr><td colSpan={11}><div className="table-state">当前市场周期和筛选条件下暂无商品数据，请调整条件或选择“全部时间”。</div></td></tr>}</tbody></table></div>
+    </tr>)}{items.length === 0 && <tr><td colSpan={13}><div className="table-state">当前市场周期和筛选条件下暂无商品数据，请调整条件或选择“全部时间”。</div></td></tr>}</tbody></table></div>
     {pagination.total > 0 && <footer className="market-ranking-load-more"><span>第 {pagination.page} / {pagination.pageCount} 页{loadingMore ? " · 正在读取…" : ""}</span><button type="button" className="secondary-button" disabled={pagination.page <= 1 || loadingMore} onClick={onPrevious}>上一页</button><button type="button" className="secondary-button" disabled={!hasMore || loadingMore} onClick={onLoadMore}>下一页</button></footer>}
   </section>;
 }
@@ -618,7 +621,7 @@ function TrendDrawer({ item, onClose }: { item: MarketItem; onClose: () => void 
     <header><div><span>{item.skuCode}</span><h3>{item.productName || item.skuCode}</h3><small>{item.category} · {item.rankingDimension}</small>{data && <small>{`展示 ${count(data.items.length)} 条趋势记录 · 完整历史 ${count(data.totalMonths)} 个月`}</small>}</div><button ref={closeButtonRef} type="button" onClick={onClose} aria-label="关闭商品月度趋势">×</button></header>
     {error && <div className="market-feedback error">{error}<button type="button" className="row-action" onClick={() => setRefreshKey((key) => key + 1)}>重新读取趋势</button></div>}
     {!data && !error && <div className="table-state"><span className="state-spinner" />正在读取商品月度趋势…</div>}
-    {data && <><div className="data-table-wrap"><table className="data-table" data-column-filter-scope={data.items.length >= 60 ? "none" : "full"} data-column-filter-total={data.items.length}><thead><tr><th>月份</th><th>销售额</th><th>成交件数</th><th>市场定位价</th><th>成交均价</th><th>排名</th><th>POP/自营</th><th>价格确认状态</th></tr></thead><tbody>{data.items.map((row, index) => <tr key={`${row.periodStart}-${row.periodEnd}-${row.month}-${row.rank}-${index}`}>
+    {data && <><div className="data-table-wrap"><table className="data-table" data-column-filter-scope={data.items.length >= 60 ? "none" : "full"} data-column-filter-total={data.items.length}><thead><tr><th>月份</th><th>预估销售额</th><th>成交件数</th><th>市场定位价</th><th>成交均价</th><th>排名</th><th>POP/自营</th><th>价格确认状态</th></tr></thead><tbody>{data.items.map((row, index) => <tr key={`${row.periodStart}-${row.periodEnd}-${row.month}-${row.rank}-${index}`}>
       <td>{String(row.month)}</td><td>{money(Number(row.gmvCents ?? 0))}</td><td>{count(Number(row.quantity ?? 0))}</td><td>{money(row.marketPriceCents === null ? null : Number(row.marketPriceCents))}</td><td>{money(row.averageTransactionPriceCents === null ? null : Number(row.averageTransactionPriceCents))}</td><td>{row.rank === null ? "-" : `#${row.rank}`}</td><td>{String(row.operationMode)}</td><td>{String(row.priceStatus)} · {String(row.confirmationStatus)}</td>
     </tr>)}</tbody></table></div></>}
   </Dialog>;

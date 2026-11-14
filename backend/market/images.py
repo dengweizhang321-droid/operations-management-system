@@ -7,7 +7,7 @@ import uuid
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, F, Q
+from django.db.models import Count, Exists, F, OuterRef, Q
 from django.utils import timezone
 
 from sales.auth import Principal
@@ -140,12 +140,17 @@ def image_metadata(content_hash: str) -> dict[str, object]:
     }
 
 
-def repair_candidates(params: dict[str, object]) -> dict[str, object]:
+def repair_candidates(params: dict[str, object], *, never_imaged_only: bool = False) -> dict[str, object]:
     page = _integer(params.get("page"), "page", 1, 1, MAX_PAGE)
     page_size = _integer(params.get("pageSize"), "pageSize", 100, 1, MAX_PAGE_SIZE)
     query = MarketRankingEntry.objects.filter(
         id__in=MarketMasterIdentity.objects.values("latest_entry_id"), image_url=""
     ).order_by("category", "scope", "ranking_dimension", "sku_code", "-period_end", "-id")
+    if never_imaged_only:
+        # Only SKUs whose sku_code has no non-empty image_url in ANY row (any
+        # category, scope, dimension or month) still need a JD lookup.
+        imaged_elsewhere = MarketRankingEntry.objects.filter(sku_code=OuterRef("sku_code")).exclude(image_url="")
+        query = query.filter(ranking_dimension="SKU").filter(~Exists(imaged_elsewhere))
     # Keep one latest row per complete market identity.  A SKU code by itself is
     # never sufficient because it can legally exist in another scope/dimension.
     identities: dict[tuple[str, str, str, str], MarketRankingEntry] = {}
@@ -182,6 +187,8 @@ def execute_image_query(payload: dict[str, object]) -> dict[str, object]:
         return image_metadata(_text(payload.get("contentHash"), "contentHash", 64, required=True))
     if operation == "image_repair_candidates" and set(payload) == {"operation", "params"} and isinstance(payload["params"], dict):
         return repair_candidates(payload["params"])
+    if operation == "image_fill_candidates" and set(payload) == {"operation", "params"} and isinstance(payload["params"], dict):
+        return repair_candidates(payload["params"], never_imaged_only=True)
     raise _error("市场图片查询字段无效")
 
 
@@ -451,6 +458,94 @@ def _repairs(payload: dict[str, object], principal: Principal) -> dict[str, obje
     return {"updated": changed, "queued": changed}
 
 
+MAX_FILLS = 1_000
+
+
+def _fill_missing_images(payload: dict[str, object], principal: Principal) -> dict[str, object]:
+    """Fill ONLY empty image_url values of exact market identities.
+
+    Unlike apply_image_repairs this never overwrites a non-empty URL and never
+    touches prices, AI fields or confirmation state; it only creates a cache job
+    so the newly known images get downloaded.
+    """
+    fills = payload.get("fills")
+    if not isinstance(fills, list) or not fills or len(fills) > MAX_FILLS:
+        raise _error("fills 必须是 1–1000 项的数组")
+    normalized: list[tuple[str, str, str, str, str]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for value in fills:
+        if not isinstance(value, dict):
+            raise _error("图片补全项无效")
+        category = _text(value.get("category"), "category", 200, required=True)
+        scope = _text(value.get("scope"), "scope", 200, required=True)
+        dimension = _text(value.get("rankingDimension"), "rankingDimension", 8, required=True)
+        if dimension not in {"SKU", "SPU"}:
+            raise _error("图片补全维度无效")
+        sku = _text(value.get("skuCode"), "skuCode", 200, required=True)
+        image_url = _text(value.get("imageUrl"), "imageUrl", 2_048, required=True)
+        if not image_url.startswith("https://"):
+            raise _error("图片补全地址必须是 HTTPS")
+        key = (category, scope, dimension, sku)
+        if key in seen:
+            raise _error("图片补全批次包含重复商品身份")
+        seen.add(key)
+        normalized.append((*key, image_url))
+    entries_filled = 0
+    snapshots_filled = 0
+    skipped = 0
+    filled_url_set: set[str] = set()
+    now = timezone.now()
+    with transaction.atomic():
+        for category, scope, dimension, sku, image_url in normalized:
+            rows = MarketRankingEntry.objects.filter(
+                category=category, scope=scope, ranking_dimension=dimension, sku_code=sku, image_url=""
+            )
+            updated = rows.update(image_url=image_url, updated_at=now)
+            snapshot_updated = MarketPriceSnapshot.objects.filter(
+                category=category, scope=scope, ranking_dimension=dimension, sku_code=sku, image_url=""
+            ).update(image_url=image_url, updated_at=now)
+            if not updated and not snapshot_updated:
+                skipped += 1
+            else:
+                filled_url_set.add(image_url)
+            entries_filled += updated
+            snapshots_filled += snapshot_updated
+        job_id = ""
+        if entries_filled or snapshots_filled:
+            scope_key = f"fill:{uuid.uuid4()}"
+            # Seed exactly the filled URLs and mark discovery complete so this job
+            # never rescans every ranking image the way a global job does.
+            filled_urls = sorted(filled_url_set)
+            job = MarketImageCacheJob.objects.create(
+                id=f"market-image-cache-{uuid.uuid4()}",
+                scope_key=scope_key,
+                batch_id="",
+                status="queued",
+                requested_by=principal.email.lower(),
+                discovery_complete=True,
+                discovered_count=len(filled_urls),
+            )
+            MarketImageCacheJobItem.objects.bulk_create(
+                [MarketImageCacheJobItem(job_id=job.id, source_url=url) for url in filled_urls]
+            )
+            job_id = job.id
+            _audit(
+                principal,
+                "fill_market_missing_images",
+                job.id,
+                {},
+                {"identities": len(normalized), "entriesFilled": entries_filled, "snapshotsFilled": snapshots_filled},
+            )
+            bump_revision({"kind": "image_fill", "entriesFilled": entries_filled, "snapshotsFilled": snapshots_filled})
+    return {
+        "identities": len(normalized),
+        "entriesFilled": entries_filled,
+        "snapshotsFilled": snapshots_filled,
+        "skipped": skipped,
+        "jobId": job_id,
+    }
+
+
 def execute_image_command(payload: dict[str, object], principal: Principal) -> object:
     action = payload.get("action")
     if action == "create_image_cache_job":
@@ -463,4 +558,6 @@ def execute_image_command(payload: dict[str, object], principal: Principal) -> o
         return _finish(payload, principal)
     if action == "apply_image_repairs":
         return _repairs(payload, principal)
+    if action == "fill_missing_images":
+        return _fill_missing_images(payload, principal)
     raise _error("不支持的市场图片操作")

@@ -934,7 +934,10 @@ export async function getMarketOverview(
       discountBps: pricePresentation.discountBps, discountReference: pricePresentation.discountReference,
       gmvCents: estimateById.get(row.id)?.effectiveGmvCents ?? row.gmv_cents,
       quantity: estimateById.get(row.id)?.estimatedQuantity ?? row.quantity,
-      pageViews: row.page_views, visitors: row.visitors, conversionBps: estimateById.get(row.id)?.conversionBps ?? row.conversion_bps,
+      pageViews: row.page_views, visitors: row.visitors,
+      // The retired D1 reader has no per-order export data; keep the payload shape aligned with the Django ranking items.
+      orderCount: null, averageOrderValueCents: null, gmvIsReal: false, conversionEstimated: false,
+      conversionBps: estimateById.get(row.id)?.conversionBps ?? row.conversion_bps,
       cartCustomers: row.cart_customers, searchClicks: row.search_clicks, imageUrl: row.image_url,
       sourceImageUrl: row.source_image_url, imageCacheStatus: row.image_cache_status,
       productUrl: row.product_url, periodCount: Number(row.period_count ?? 1),

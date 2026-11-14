@@ -32,7 +32,7 @@ const filterOption: ValueValidator = (value) => fields(value, {
   count: numberValue,
 }, true);
 
-const marketItem: ValueValidator = (value) => fields(value, {
+export const marketItem: ValueValidator = (value) => fields(value, {
   id: numberValue,
   periodStart: stringValue,
   periodEnd: stringValue,
@@ -59,7 +59,11 @@ const marketItem: ValueValidator = (value) => fields(value, {
   quantity: numberValue,
   pageViews: numberValue,
   visitors: numberValue,
+  orderCount: nullableNumber,
+  averageOrderValueCents: nullableNumber,
+  gmvIsReal: booleanValue,
   conversionBps: nullableNumber,
+  conversionEstimated: booleanValue,
   cartCustomers: numberValue,
   searchClicks: numberValue,
   imageUrl: stringValue,
