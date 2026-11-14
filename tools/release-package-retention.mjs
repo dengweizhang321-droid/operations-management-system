@@ -9,11 +9,14 @@
 // The protected set is READ AT RUN TIME from production state and never from a
 // stored list: the installed Django app, its rollback anchor, and everything the
 // publisher re-reads on start (publication catalog source/receipt, the frontend
-// live source, and the latest preparation pointer).
+// live source, and the latest preparation pointer) plus every package the
+// preparation queue still needs native evidence from (see queueProtectedPackages).
 import { execFile } from "node:child_process";
-import { readFile, rm, stat } from "node:fs/promises";
+import { readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { acquireQueueLock, readPreparationQueueStructure, readQueueObject } from "./main-prebuild-queue.mjs";
+import { artifactLossPacketId } from "./prepared-artifact-loss.mjs";
 
 export const packagesRoot = "D:\\codex-isolated\\main-release-packages";
 const djangoRuntimeRoot = "D:\\teruisi-runtime\\django-sales";
@@ -66,12 +69,57 @@ async function directoryExists(root, name) {
   catch (error) { if (error.code === "ENOENT") return false; throw error; }
 }
 
+// Packages the preparation queue still reads natively. Queue normal consumption validates, for every
+// dispatch group, PREPARED.json/main-release-request.json (prepared) or the invocations result file
+// (failed with a native terminal) unless an artifact-loss record retires the whole packet. A deleted
+// package therefore blocks the publisher's first step. Fail closed: any unreadable record throws.
+const winKey = (file) => path.resolve(file).toLowerCase();
+export async function queueProtectedPackages({ queueDirectory, packagesDirectory = packagesRoot }) {
+  try { await stat(queueDirectory); }
+  catch (error) { if (error.code === "ENOENT") return []; throw error; }
+  let inventory;
+  try { inventory = await readPreparationQueueStructure(queueDirectory); }
+  catch (error) { throw new Error(`Preparation queue unreadable; refusing to plan retention: ${error.message}`); }
+  const covered = new Set();
+  const lossDirectory = path.join(queueDirectory, "artifact-losses");
+  let lossNames = [];
+  try { lossNames = await readdir(lossDirectory); }
+  catch (error) { if (error.code !== "ENOENT") throw new Error(`Artifact loss records unreadable: ${error.message}`); }
+  for (const lossName of lossNames) {
+    if (!/^[a-f0-9]{64}\.json$/.test(lossName)) throw new Error(`Unknown artifact loss record name: ${lossName}`);
+    let record;
+    try { record = (await readQueueObject(path.join(lossDirectory, lossName))).value; }
+    catch (error) { throw new Error(`Artifact loss record unreadable: ${lossName}: ${error.message}`); }
+    if (typeof record?.packet !== "string" || !path.isAbsolute(record.packet) || artifactLossPacketId(record.packet) + ".json" !== lossName) {
+      throw new Error(`Artifact loss record does not match its name: ${lossName}`);
+    }
+    covered.add(winKey(record.packet));
+  }
+  const needsNative = (terminal) => terminal?.status === "prepared"
+    || (terminal?.status === "failed" && terminal.preparationTerminal?.kind === "native-preparation-failed");
+  const names = new Set();
+  for (const read of inventory.dispatches) {
+    const packet = read.value.selection.packet;
+    if (covered.has(winKey(packet))) continue;
+    if (!read.value.tickets.some((ref) => needsNative(inventory.terminals.get(ref.requestId)))) continue;
+    const segments = segmentsBelow(packagesDirectory, packet);
+    if (!segments) continue; // not a package under this root; retention never deletes it
+    const name = segments[0].toLowerCase();
+    if (segments.length !== 1 || !packageName.test(name)) {
+      throw new Error(`Queue dispatch packet is not a direct release package: ${packet}`);
+    }
+    names.add(name);
+  }
+  return [...names].sort();
+}
+
 // The root parameters are injection seams for tests; defaults are the production paths.
 export async function resolveProtected({
   djangoRoot = djangoRuntimeRoot,
   stateDirectory = defaultStateDirectory,
   workerRoot = defaultWorkerRuntimeRoot,
   packagesDirectory = packagesRoot,
+  queueDirectory = path.join(stateDirectory, "prebuild-queue-v2"),
 } = {}) {
   const installed = await readSourceRoot(path.join(djangoRoot, "app", "deployment.json"));
   if (!installed) throw new Error("Installed Django manifest is missing; refusing to plan retention");
@@ -149,8 +197,9 @@ export async function resolveProtected({
   }
   const preparedPacketExists = preparedPacket ? await directoryExists(packagesDirectory, preparedPacket) : false;
 
-  const names = [...new Set([installed, previous, catalogSource, catalogReceipt, frontendSource, preparedPacket].filter(Boolean))];
-  return { installed, previous, catalogSource, catalogReceipt, frontendSource, frontendSourceExists, preparedPacket, preparedPacketExists, names };
+  const queueProtected = await queueProtectedPackages({ queueDirectory, packagesDirectory });
+  const names = [...new Set([installed, previous, catalogSource, catalogReceipt, frontendSource, preparedPacket, ...queueProtected].filter(Boolean))];
+  return { installed, previous, catalogSource, catalogReceipt, frontendSource, frontendSourceExists, preparedPacket, preparedPacketExists, queueProtected, names };
 }
 
 export function parseWorktrees(porcelain) {
@@ -200,7 +249,6 @@ export function planRetention({ packages, worktrees, branches, protectedNames, k
 }
 
 async function listPackages() {
-  const { readdir } = await import("node:fs/promises");
   const entries = await readdir(packagesRoot, { withFileTypes: true });
   const packages = [];
   for (const entry of entries) {
@@ -241,6 +289,15 @@ async function apply({ repository, plan }) {
   return removed;
 }
 
+// Execute holds the queue lock across plan and apply so a drain or retirement cannot change the
+// queue between the protected-set read and the deletes. A busy lock refuses; nothing is deleted.
+export async function withQueueLock(queueDirectory, operation) {
+  const unlock = await acquireQueueLock(queueDirectory);
+  if (!unlock) throw new Error("Preparation queue lock is busy; refusing to plan or delete release packages");
+  try { return await operation(); }
+  finally { await unlock(); }
+}
+
 async function main(argv) {
   const dryRun = argv.includes("--dry-run");
   const execute = argv.includes("--execute");
@@ -248,7 +305,11 @@ async function main(argv) {
   const keepIndex = argv.indexOf("--keep-recent");
   const keepRecent = keepIndex === -1 ? 5 : Number(argv[keepIndex + 1]);
   const repository = process.cwd();
-  const { guard, plan } = await collect({ repository, keepRecent });
+  const run = async () => {
+    const { guard, plan } = await collect({ repository, keepRecent });
+    return { guard, plan, removed: execute ? await apply({ repository, plan }) : undefined };
+  };
+  const { guard, plan, removed } = execute ? await withQueueLock(path.join(defaultStateDirectory, "prebuild-queue-v2"), run) : await run();
   const report = {
     version: "teruisi-release-package-retention-v1",
     mode: dryRun ? "dry-run" : "execute",
@@ -262,6 +323,7 @@ async function main(argv) {
       frontendSourceDirectoryExists: guard.frontendSourceExists,
       preparedPacket: guard.preparedPacket,
       preparedPacketDirectoryExists: guard.preparedPacketExists,
+      queueReferenced: guard.queueProtected,
     },
     keep: plan.keep,
     removeDirectoryCount: plan.removeDirectories.length,
@@ -271,7 +333,7 @@ async function main(argv) {
     staleBranchCount: plan.staleBranches.length,
     staleBranches: plan.staleBranches,
   };
-  if (execute) report.removed = await apply({ repository, plan });
+  if (execute) report.removed = removed;
   process.stdout.write(JSON.stringify(report, null, 2) + "\n");
 }
 
