@@ -103,6 +103,8 @@
 
 遇到“登录授权已失效”，管理员应在运行库存服务的同一 Windows 用户下，按配置中的精确 profile 完成 DWS 重新授权，并只读核验目标表；不能只凭 profile 列表的 active 状态判定同步已恢复。随后重试原计划并验证钉钉唯一记录和本地 synced 状态，不重新创建本地计划。重新授权本身不发送记录或群消息。
 
+重新授权完成后，还须重启 Django 库存 reader/writer，长驻的 writer 进程不会取用重新授权后的登录态。2026-10-30 实测：`dws auth login` 成功后，以后端同一命令在命令行连续调用均成功，但页面重试仍按授权失效失败；用现役控制器 `app\tools\django-inventory-service.ps1` 执行 `-Action Stop` 再 `-Action Start` 之后，同一条链路立即全程成功。该控制器必须从受保护的 runtime app 目录执行，`Start` 含就绪门禁，只影响库存 reader/writer。排查前先确认是否真的再次失败：页面状态列持续展示的是已保存的失败原因，`dws auth status` 的刷新对此类失效只会让紧随其后的一次调用成功，`profile list` 的 `expired` 在调用成功后也不会自动改回，三者都不能作为判定依据。以 `logs\django-inventory-writer.<runId>.stderr.log` 是否新增 `dws_sync_failed` 为准，核验命令须与后端一致（`aitable table get --base-id <base> --table-ids <table>`）。
+
 ## 7. 京东入仓监控边界
 
 当前版本提供的是可复核的第一阶段监控：
