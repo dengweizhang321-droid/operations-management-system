@@ -39,6 +39,7 @@ from .models import (
     MarketAnnotationValidationSample,
     MarketImageCache,
     MarketImageCacheJob,
+    MarketImportBatch,
     MarketMasterAuditLog,
     MarketMasterIdentity,
     MarketMasterMappingRule,
@@ -1378,46 +1379,84 @@ def _set_auto_annotation(payload: dict[str, object], principal: Principal) -> di
             "updatedBy": rule.created_by, "updatedAt": iso(rule.updated_at)}
 
 
-def _auto_trigger_pending(category: str) -> bool:
-    """A finished image-cache job touched this category after its newest annotation job was created."""
-    since = MarketAnnotationJob.objects.filter(category=category).order_by("-created_at").values_list("created_at", flat=True).first()
-    finished = MarketImageCacheJob.objects.filter(status="completed").exclude(batch_id="")
-    if since is not None:
-        finished = finished.filter(completed_at__gt=since)
-    batch_ids = list(finished.order_by("-completed_at").values_list("batch_id", flat=True)[:AUTO_TRIGGER_BATCH_WINDOW])
-    return bool(batch_ids) and MarketRankingEntry.objects.filter(
-        category=category, last_import_batch_id__in=batch_ids,
-    ).exists()
+def _auto_trigger_categories(categories: set[str]) -> set[str]:
+    """Categories that an import touched after the category's newest annotation job was created.
+
+    "Touched" means: a batch whose image-cache job has completed lists the category in its
+    `scope_json.ranges`. This reads the small set of finished cache jobs and their batch rows
+    (never the 400k-row ranking table), so the query count is constant however many
+    categories have a rule. Batches without a readable `ranges` list never trigger.
+    """
+    if not categories:
+        return set()
+    newest = dict(MarketAnnotationJob.objects.filter(category__in=categories)
+                  .values_list("category").annotate(newest=Max("created_at")))
+    finished = MarketImageCacheJob.objects.filter(status="completed", completed_at__isnull=False).exclude(batch_id="")
+    if all(category in newest for category in categories):
+        # Every category already has a job: older cache jobs cannot matter to any of them.
+        finished = finished.filter(completed_at__gt=min(newest.values()))
+    rows = list(finished.order_by("-completed_at").values_list("batch_id", "completed_at")[:AUTO_TRIGGER_BATCH_WINDOW])
+    if not rows:
+        return set()
+    scopes = dict(MarketImportBatch.objects.filter(id__in=[batch_id for batch_id, _ in rows]).values_list("id", "scope_json"))
+    touched: set[str] = set()
+    for batch_id, completed_at in rows:
+        scope = scopes.get(batch_id)
+        ranges = scope.get("ranges") if isinstance(scope, dict) else None
+        if not isinstance(ranges, list):
+            continue
+        for item in ranges:
+            category = item.get("category") if isinstance(item, dict) else None
+            if category in categories and (category not in newest or completed_at > newest[category]):
+                touched.add(category)
+    return touched
 
 
 def _auto_annotation_plan(now) -> dict[str, object]:
-    """Read-only decision of what automatic recognition would do now (bounded, one creation at most)."""
+    """Read-only decision of what automatic recognition would do now (bounded, one creation at most).
+
+    The number of queries is fixed (rules, unfinished jobs with their runs, newest job per
+    category, finished cache jobs, their batches) whatever the number of rules or jobs.
+    """
     plan: dict[str, object] = {"rules": 0, "resume": [], "create": []}
     rules = list(MarketMasterMappingRule.objects.filter(
         kind=AUTO_ANNOTATION_RULE_KIND, status="published",
     ).order_by("category")[:200])
     plan["rules"] = len(rules)
+    rules = [rule for rule in rules if rule.category and rule.target_value and rule.created_by]
+    if not rules:
+        return plan
+    categories = {rule.category for rule in rules}
+    # The stored status is refreshed lazily, so "unfinished" is judged by the items: a job is
+    # active when it still has an item that can run. EXISTS stops at the first such item.
+    runnable = MarketAnnotationItem.objects.filter(job_id=OuterRef("id")).filter(
+        _retryable_items() | Q(status__in=["claimed", "inferencing"]),
+    )
+    active_jobs: dict[str, list[MarketAnnotationJob]] = {}
+    for job in MarketAnnotationJob.objects.filter(
+        category__in=categories, executor="cloud", status__in=ACTIVE_JOB_STATUSES,
+    ).filter(Exists(runnable)).order_by("created_at")[:500]:
+        active_jobs.setdefault(job.category, []).append(job)
+    runs = {run.job_id: run for run in MarketAnnotationCloudRun.objects.filter(
+        job_id__in=[job.id for jobs in active_jobs.values() for job in jobs],
+    )} if active_jobs else {}
+    idle = {rule.category for rule in rules if rule.category not in active_jobs}
+    touched = _auto_trigger_categories(idle)
     for rule in rules:
-        if not (rule.category and rule.target_value and rule.created_by):
-            continue
-        # The stored status is refreshed lazily; judge by the items so a finished job cannot block creation.
-        active = [job for job in MarketAnnotationJob.objects.filter(
-            category=rule.category, executor="cloud", status__in=ACTIVE_JOB_STATUSES,
-        ).order_by("created_at")[:20] if _summarize_job(job).status in ACTIVE_JOB_STATUSES]
-        if active:
-            for job in active:
+        jobs = active_jobs.get(rule.category)
+        if jobs:
+            for job in jobs:
                 if job.model_id != rule.target_value or len(plan["resume"]) >= AUTO_RESUME_MAX_PER_CALL:
                     continue
-                run = MarketAnnotationCloudRun.objects.filter(job_id=job.id).first()
+                run = runs.get(job.id)
                 raw = run.retry_state_json if run is not None and isinstance(run.retry_state_json, dict) else {}
                 # A failure reason is required: a freshly created job and a human pause both have none.
                 if (run is None or run.state != "paused" or not run.last_failure_code
                         or run.last_failure_code in PERMANENT_PAUSE_CODES or raw.get("manualPause") is True
-                        or run.updated_at > now - AUTO_RESUME_COOLDOWN or not _has_runnable_items(job.id)):
+                        or run.updated_at > now - AUTO_RESUME_COOLDOWN):
                     continue
                 plan["resume"].append((rule, job.id))
-            continue
-        if not plan["create"] and _auto_trigger_pending(rule.category):
+        elif not plan["create"] and rule.category in touched:
             plan["create"].append(rule)
     return plan
 

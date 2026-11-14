@@ -1,6 +1,8 @@
 from datetime import timedelta
 
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from market import annotations
@@ -9,14 +11,14 @@ from market.annotation_runtime import (
     UNKNOWN_EXPIRATION_PAUSE_THRESHOLD, record_failure, record_success, record_unknown_expirations, retry_snapshot,
 )
 from market.annotations import (
-    INTERNAL_ANNOTATION_RUNNER_EMAIL, _claim_job_item, _complete_job_item, _dispatch, _ensure_auto_annotation,
+    AUTO_RESUME_MAX_PER_CALL, INTERNAL_ANNOTATION_RUNNER_EMAIL, _claim_job_item, _complete_job_item, _dispatch, _ensure_auto_annotation,
     _set_auto_annotation, _set_cloud_run, _start_category_recognition, annotation_workspace, execute_annotation_command,
     execute_annotation_query,
 )
 from market.errors import MarketApiError
 from market.models import (
     AUTO_ANNOTATION_RULE_KIND, MarketAnnotationCloudRun, MarketAnnotationConcurrencySetting, MarketAnnotationItem,
-    MarketAnnotationJob, MarketAnnotationPromptVersion, MarketDataRevision, MarketImageCacheJob, MarketMasterAuditLog,
+    MarketAnnotationJob, MarketAnnotationPromptVersion, MarketDataRevision, MarketImageCacheJob, MarketImportBatch, MarketMasterAuditLog,
     MarketMasterIdentity, MarketMasterMappingRule, MarketPriceSnapshot, MarketRankingEntry, MarketSubcategoryTaxonomy,
 )
 from market.tests.test_annotation_queue import PRINCIPAL, QueueFixtures
@@ -47,7 +49,15 @@ class AutoRecognitionFixtures(QueueFixtures):
                 id=f"snapshot|{category}|{sku}", **identity, month="2026-10", image_content_sha256=f"{number + 1:064x}",
                 image_url=f"https://synthetic.invalid/{category}/{sku}")
 
-    def finish_image_job(self, batch="batch-1", *, completed_at=None):
+    def finish_image_job(self, batch="batch-1", *, completed_at=None, categories=None):
+        """A completed image-cache job for a batch whose scope_json lists the given categories."""
+        categories = [CATEGORY] if categories is None else categories
+        MarketImportBatch.objects.get_or_create(id=batch, defaults={
+            "source_type": "market_ranking", "file_name": batch + ".xlsx", "file_size_bytes": 1, "raw_file_hash": "a" * 64,
+            "content_hash": "b" * 64, "status": "completed",
+            "scope_json": {"sourceType": "market_ranking", "ranges": [
+                {"category": category, "scope": "pop", "rankingDimension": "SKU", "periodStart": "2026-10-01", "periodEnd": "2026-10-31"}
+                for category in categories]}})
         return MarketImageCacheJob.objects.create(
             id="image-job-" + batch, scope_key="batch:" + batch, batch_id=batch, status="completed",
             completed_at=completed_at or timezone.now())
@@ -341,6 +351,56 @@ class EnsureAutoAnnotationTests(AutoRecognitionFixtures, TestCase):
         self.assertEqual(self.ensure()["created"], [])
         self.assertEqual(self.jobs().count(), 0)
 
+    def test_batch_scope_decides_which_category_triggers(self):
+        other = "自动识别类目二"
+        for category in (CATEGORY, other):
+            self.seed_category(category)
+            self.enable(category)
+        self.finish_image_job("batch-scope", categories=[other])
+        summary = self.ensure()
+        self.assertEqual([row["category"] for row in summary["created"]], [other])
+        self.assertEqual(self.jobs(CATEGORY).count(), 0)
+
+    def test_batch_without_a_readable_scope_never_triggers(self):
+        self.seed_category()
+        self.enable()
+        self.finish_image_job()
+        for broken in ({}, {"ranges": "x"}, {"ranges": [None, {"category": 3}]}):
+            MarketImportBatch.objects.filter(id="batch-1").update(scope_json=broken)
+            self.assertEqual(self.ensure()["created"], [], broken)
+
+    def test_due_check_query_count_does_not_grow_with_the_number_of_rules(self):
+        def count_queries():
+            with CaptureQueriesContext(connection) as queries:
+                due = execute_annotation_query({"operation": "annotations", "view": "auto_annotation_due", "params": {}}, RUNNER)
+            return len(queries), [q["sql"] for q in queries.captured_queries], due
+
+        categories = []
+
+        def add_rules(first, last):
+            # Half the rules have a paused, resumable job; half are idle and have an import to look at.
+            for index in range(first, last):
+                category = f"自动识别扩展类目{index}"
+                categories.append(category)
+                self.seed_category(category, batch="batch-q")
+                self.enable(category)
+                if index % 2 == 0:
+                    _start_category_recognition({"category": category, "modelId": "vision-a"}, ADMIN)
+            MarketAnnotationCloudRun.objects.update(state="paused", last_failure_code="inference_result_unknown",
+                                                    updated_at=timezone.now() - timedelta(hours=1))
+            MarketImportBatch.objects.filter(id="batch-q").update(scope_json={"ranges": [{"category": name} for name in categories]})
+
+        self.finish_image_job("batch-q", categories=[])
+        add_rules(0, 4)
+        few, _, due_few = count_queries()
+        add_rules(4, 20)
+        many, statements, due_many = count_queries()
+        self.assertEqual((due_few["resumeCount"], due_few["createCount"]), (2, 1))
+        self.assertEqual((due_many["resumeCount"], due_many["createCount"]), (AUTO_RESUME_MAX_PER_CALL, 1), "work stays bounded")
+        self.assertEqual(many, few, "\n".join(statements))
+        self.assertLessEqual(many, 6)
+        self.assertFalse(any("market_ranking_entries" in sql for sql in statements), "the ranking table must not be read")
+
     def test_no_trigger_before_image_cache_completes(self):
         self.seed_category()
         self.enable()
@@ -351,7 +411,7 @@ class EnsureAutoAnnotationTests(AutoRecognitionFixtures, TestCase):
     def test_no_trigger_for_an_image_job_of_a_batch_that_never_touched_the_category(self):
         self.seed_category()
         self.enable()
-        self.finish_image_job("unrelated-batch")
+        self.finish_image_job("unrelated-batch", categories=["别的类目"])
         self.assertEqual(self.ensure()["created"], [])
 
     def test_no_trigger_when_the_image_job_finished_before_the_latest_annotation_job(self):
@@ -393,7 +453,7 @@ class EnsureAutoAnnotationTests(AutoRecognitionFixtures, TestCase):
         for category, batch in ((CATEGORY, "batch-1"), (other, "batch-2")):
             self.seed_category(category, batch=batch)
             self.enable(category)
-            self.finish_image_job(batch)
+            self.finish_image_job(batch, categories=[category])
         first = self.ensure()
         self.assertEqual(len(first["created"]), 1)
         second = self.ensure()
