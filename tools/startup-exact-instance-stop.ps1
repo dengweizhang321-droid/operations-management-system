@@ -7,7 +7,7 @@ function Read-ExactStopLibrary([string]$Path,[string]$Expected){
 $deadlinePath=Join-Path $PSScriptRoot 'process-deadline.ps1'
 . (Read-ExactStopLibrary $deadlinePath '5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd')
 $nativePath=Join-Path $PSScriptRoot 'watchdog-native-metadata.ps1'
-. (Read-ExactStopLibrary $nativePath 'd8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449')
+. (Read-ExactStopLibrary $nativePath '7bc4bc5e0afe4fa4b2fa0083f84249d69a9b088053e7a515f7b2ab37f4f128aa')
 if(-not ('Teruisi.ExactStop' -as [type])){Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;

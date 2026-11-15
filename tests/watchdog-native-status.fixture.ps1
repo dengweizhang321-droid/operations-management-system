@@ -62,9 +62,17 @@ $script:receipt=[pscustomobject]@{supervisorPid=100};$script:tree=@();$script:ro
 function Read-ProcessReceipt {return $script:receipt}
 function Read-ReadonlyWorkerCimCensus {return $script:rows}
 function Get-ProcessTree {return $script:tree}
+# Stand-in for worker-local-service.ps1 Get-HelperOwnershipContext (loaded before this library by the Worker driver).
+$script:helperPid=0
+function Get-HelperOwnershipContext($Tree,$Identity,$SupervisorId){$ids=[Collections.Generic.HashSet[int]]::new();$helper=$null;if($script:helperPid -ne 0){$helper=@($Tree|Where-Object {[int]$_.Process.ProcessId -eq $script:helperPid}|ForEach-Object {$_.Process})[0];[void]$ids.Add($script:helperPid);foreach($e in @($Tree)){if($ids.Contains([int]$e.Process.ParentProcessId)){[void]$ids.Add([int]$e.Process.ProcessId)}}};return [pscustomobject]@{Helper=$helper;HelperIds=$ids;DescendantIds=$ids}}
 function Complete-ReadonlyProcessMetadata($p){$script:targets+=$p.ProcessId;return $p}
 $script:tree=@([pscustomobject]@{Process=$script:rows[1]})
 $all=@(Get-ReadonlyWorkerCensus @{});Assert ($all.Count -eq 3);Assert (($script:targets -join ',') -ceq '100,101')
+# A helper's descendants are neither completed nor registered as census targets; the helper itself still is.
+$script:helperPid=101;$script:targets=@();$script:rows=@((New-Row 100),(New-Row 101),(New-Row 102),(New-Row 999));$script:rows[1].ParentProcessId=100;$script:rows[2].ParentProcessId=101
+$script:tree=@([pscustomobject]@{Process=$script:rows[0];Depth=0},[pscustomobject]@{Process=$script:rows[1];Depth=1},[pscustomobject]@{Process=$script:rows[2];Depth=2})
+$all=@(Get-ReadonlyWorkerCensus @{});Assert ($all.Count -eq 4);Assert ((@($script:targets|Sort-Object) -join ',') -ceq '100,101')
+$script:helperPid=0
 $script:receipt=$null;$script:targets=@();$all=@(Get-ReadonlyWorkerCensus @{});Assert ($script:targets.Count -eq 0)
 $script:receipt=[pscustomobject]@{supervisorPid=100};$script:tree=@(1..513|ForEach-Object {[pscustomobject]@{Process=(New-Row $_)}});Reject {Get-ReadonlyWorkerCensus @{}}
 [pscustomobject]@{checks=$checks;productionActions=0;nativeCallsWereFixtures=$true;receiptDeletes=$script:removed;previousBootCleanupCalls=$script:previous}|ConvertTo-Json -Compress

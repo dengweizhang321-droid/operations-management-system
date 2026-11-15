@@ -105,12 +105,29 @@ function Get-ReadonlyWorkerCensus([object]$Identity) {
   $receipt=Read-ProcessReceipt $Identity
   $rows=@(Read-ReadonlyWorkerCimCensus)
   if($null -eq $receipt){return $rows}
-  $tree=@(Get-ProcessTree ([int]$receipt.supervisorPid) $rows)
-  if($null -ne $script:ReadonlyCensus){$script:ReadonlyCensus.WorkerRoot=[int]$receipt.supervisorPid;$script:ReadonlyCensus.WorkerTree=@($tree|ForEach-Object {[int]$_.Process.ProcessId})}
+  $supervisorId=[int]$receipt.supervisorPid
+  $tree=@(Get-ProcessTree $supervisorId $rows)
   if($tree.Count -gt 512){throw 'diagnostic_worker_tree_limit'}
-  $targets=[Collections.Generic.HashSet[int]]::new();[void]$targets.Add([int]$receipt.supervisorPid)
-  foreach($item in $tree){[void]$targets.Add([int]$item.Process.ProcessId)}
-  return @($rows|ForEach-Object {if($targets.Contains([int]$_.ProcessId)){Complete-ReadonlyProcessMetadata $_}else{$_}})
+  # The helper is recognised by its command line, so the supervisor and its direct children are completed first.
+  $done=@{}
+  $head=@($tree|ForEach-Object {
+    if([int]$_.Process.ProcessId -eq $supervisorId -or [int]$_.Process.ParentProcessId -eq $supervisorId){
+      $completed=Complete-ReadonlyProcessMetadata $_.Process;$done[[int]$completed.ProcessId]=$completed
+      $entry=$_|Select-Object *;$entry.Process=$completed;$entry
+    }else{$_}
+  })
+  # Helper descendants are business children (chrome, credential probes). Get-HelperOwnershipContext and
+  # Test-AllowedTreeProcess already leave them unjudged, so they are neither targets nor tree members here.
+  # Multiple helpers throw out of Get-HelperOwnershipContext and fail closed.
+  $context=Get-HelperOwnershipContext $head $Identity $supervisorId
+  $helperId=if($null -ne $context.Helper){[int]$context.Helper.ProcessId}else{$null}
+  $skip=[Collections.Generic.HashSet[int]]::new()
+  if($null -ne $helperId){foreach($id in $context.DescendantIds){if([int]$id -ne $helperId){[void]$skip.Add([int]$id)}}}
+  $kept=@($tree|Where-Object {-not $skip.Contains([int]$_.Process.ProcessId)})
+  if($null -ne $script:ReadonlyCensus){$script:ReadonlyCensus.WorkerRoot=$supervisorId;$script:ReadonlyCensus.HelperPid=$helperId;$script:ReadonlyCensus.WorkerTree=@($kept|ForEach-Object {[int]$_.Process.ProcessId})}
+  $targets=[Collections.Generic.HashSet[int]]::new();[void]$targets.Add($supervisorId)
+  foreach($item in $kept){[void]$targets.Add([int]$item.Process.ProcessId)}
+  return @($rows|ForEach-Object {$id=[int]$_.ProcessId;if($done.ContainsKey($id)){$done[$id]}elseif($targets.Contains($id)){Complete-ReadonlyProcessMetadata $_}else{$_}})
 }
 function Read-ReadonlyWorkerCimCensus {
   if($null -ne $script:ReadonlyCensus){return $script:ReadonlyCensus.Rows}
@@ -155,7 +172,7 @@ function Assert-ReadonlyCimPair($Before,$After) {
 function Invoke-ReadonlyMetadataObservation([scriptblock]$ReadStatus) {
  if($null -ne $script:ReadonlyCensus){throw 'diagnostic_census_nested'}
  $rows=@(Read-ReadonlyWholeCensus);$before=New-ReadonlyCensusMap $rows
- $script:ReadonlyCensus=@{Rows=$rows;Before=$before;Targets=[Collections.Generic.HashSet[int]]::new();NativeHolds=[Collections.Generic.List[object]]::new();WorkerRoot=$null;WorkerTree=$null}
+ $script:ReadonlyCensus=@{Rows=$rows;Before=$before;Targets=[Collections.Generic.HashSet[int]]::new();NativeHolds=[Collections.Generic.List[object]]::new();WorkerRoot=$null;WorkerTree=$null;HelperPid=$null}
  try{
   # No result is emitted before the second census and all held identities pass.
   $captured=& $ReadStatus
@@ -171,6 +188,13 @@ function Invoke-ReadonlyMetadataObservation([scriptblock]$ReadStatus) {
   }
   if($null -ne $script:ReadonlyCensus.WorkerRoot){
    $tree=@(Get-ProcessTree $script:ReadonlyCensus.WorkerRoot $afterRows|ForEach-Object {[int]$_.Process.ProcessId})
+   $helperPid=$script:ReadonlyCensus.HelperPid
+   if($null -ne $helperPid){
+    # Same exclusion as the first census: only the helper's descendants, never the helper itself.
+    $skip=[Collections.Generic.HashSet[int]]::new()
+    foreach($entry in @(Get-ProcessTree ([int]$helperPid) $afterRows)){if([int]$entry.Process.ProcessId -ne [int]$helperPid){[void]$skip.Add([int]$entry.Process.ProcessId)}}
+    $tree=@($tree|Where-Object {-not $skip.Contains([int]$_)})
+   }
    if((@($tree|Sort-Object) -join ',') -cne (@($script:ReadonlyCensus.WorkerTree|Sort-Object) -join ',')){throw 'diagnostic_worker_tree_changed'}
   }
   [void](Get-ProcessRemaining (Get-ProcessDeadline))
