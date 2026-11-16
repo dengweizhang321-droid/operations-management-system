@@ -58,7 +58,7 @@ export async function prepareJdLogisticsLogin11037(o: Omit<PreexportOptions, "ta
   if (revisions.length !== 1) fail("HISTORICAL_POLICY_NOT_UNIQUELY_RECONSTRUCTED");
   await io.ordinary(o.databasePath);
   const db = new DatabaseSync(o.databasePath, { readOnly: true });
-  let workflow: Record<string, any>;
+  let workflow: Record<string, unknown>;
   try {
     db.exec("PRAGMA query_only=ON; PRAGMA busy_timeout=3000; BEGIN");
     workflow = io.object(db.prepare("SELECT active,versionId,activeVersionId,nodes,connections,settings FROM workflow_entity WHERE id=?").get(history.workflowId));
@@ -81,7 +81,7 @@ export async function prepareJdLogisticsLogin11037(o: Omit<PreexportOptions, "ta
     departmentId: op.departmentId, businessUnitCode: op.businessUnitCode, storeKey: store.storeKey, debugPort: store.browser.debugPort,
     releaseId: worker.releaseId, releaseManifestSha256: sha(currentManifest), helperReceiptSha256: sha(receiptBytes), helperTreeSha256: receipt.helperTree?.sha256,
     supervisorPid: process.parentPid, supervisorCreationDate: process.supervisorCreationDate, helperPid: process.pid, helperCreationDate: process.creationDate,
-    workflowVersionId: String(workflow.versionId), workflowShapeHash: logisticsHash({ nodes: JSON.parse(workflow.nodes), connections: JSON.parse(workflow.connections), settings: JSON.parse(workflow.settings) }),
+    workflowVersionId: String(workflow.versionId), workflowShapeHash: logisticsHash({ nodes: JSON.parse(String(workflow.nodes)), connections: JSON.parse(String(workflow.connections)), settings: JSON.parse(String(workflow.settings)) }),
     settingsHash: closureSettingsHash(envelope.data), batchesHash: batches.hash, registrySha256: sha(registryBytes), sourceConfigSha256: sha(configBytes),
     originalDepartmentRevision: revisions[0], currentDepartmentRevision: department.revision,
     originalPolicyHashesHash: logisticsHash(plan.operations.map(x => x.policyHash)), activationChain: chain,

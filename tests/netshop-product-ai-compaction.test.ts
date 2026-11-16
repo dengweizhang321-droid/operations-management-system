@@ -5,7 +5,7 @@ import type { AppPrincipal } from "../lib/auth/authorization";
 import type { MetricValue } from "../lib/netshop/insights-contract";
 import { restoreCoverageGaps } from "../lib/ai/netshop-ai-compaction";
 import { completeProductSectionsFixture } from "./netshop-products-test-fixture";
-import { assertView, expectedProductView } from "./netshop-view-oracle";
+import { assertView, expectedProductView, type Plain } from "./netshop-view-oracle";
 
 const environment = { TERUISI_DJANGO_NETSHOP_READER_BASE_URL: "https://product-compact.example.test", TERUISI_DJANGO_NETSHOP_WRITER_BASE_URL: "https://product-compact-writer.example.test", TERUISI_DJANGO_INTERNAL_SECRET: "synthetic-product-compact-secret-0123456789", TERUISI_DJANGO_NETSHOP_TIMEOUT_MS: "120000" };
 (globalThis as typeof globalThis & { __productCompactEnv?: typeof environment }).__productCompactEnv = environment;
@@ -30,7 +30,7 @@ const query = () => new URLSearchParams({ platform: "京东", outlet: "京东\u0
 const envelopeLength = (data: unknown) => JSON.stringify({ ok: true, toolName: name, data }).length;
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
 /** The lightest ladder level whose envelope fits, applied to the FULL decoded DTO (no view): this file tests the ladder itself; views are tested separately. */
-const lightestFitting = (data: unknown) => { for (const level of productCompactionLadder) { const out = compactProductInsightsForAi(data as any, level); if (envelopeLength(out) < BUDGET) return out as any; } throw new Error("no level fits"); };
+const lightestFitting = (data: unknown) => { for (const level of productCompactionLadder) { const out = compactProductInsightsForAi(data as Plain, level); if (envelopeLength(out) < BUDGET) return out as Plain; } throw new Error("no level fits"); };
 const errorIs = (code: string) => (error: unknown) => error instanceof RegistryToolError && error.code === code;
 
 type Payload = ReturnType<typeof fixture>;
@@ -51,14 +51,14 @@ function fixture(rowCount = 1) {
   const item = makeItem(1);
   const pagination = { page: 1, pageSize: 1, total: 1, returned: 1, hasMore: false, truncated: false };
   const rows = Array.from({ length: rowCount }, (_, i) => makeItem(i + 100));
-  const sections = completeProductSectionsFixture(metrics) as Record<string, any>;
+  const sections = completeProductSectionsFixture(metrics) as Plain;
   return { schemaVersion: "netshop-product-insights-v1", context, sectionToken: "a".repeat(64), tableScope: { q: "", category: "", sort: "payment_desc", page: 1, pageSize: 1 }, joinedSourceRevisions: context.sourceRevisions, consistency: "revision_vector_checked", sections: { ...sections, summary: metrics, comparisons, items: [item], pagination, baselineReads: { previous: { state: "ready", data: metrics }, yearAgo: { state: "ready", data: metrics } }, growth: { state: "ready", data: { collection: "paired_full_set_before_pagination", items: rows, pagination: { ...pagination, pageSize: Math.max(rowCount, 1), total: rowCount, returned: rowCount } } } } };
 }
 function response(data: unknown = payload, status = 200, header: string | null = revision) { return Response.json(data, { status, headers: header === null ? {} : { "X-Netshop-Data-Revision": header } }); }
 /** Production-like: growth ranking plus an efficiency watchlist and wide structure buckets. */
 function productionScale(): Payload {
   const p = fixture(6);
-  const s = p.sections as Record<string, any>;
+  const s = p.sections as Plain;
   const bucket = (i: number, kind: string) => ({ ...structuredClone(s.structure.categories[0] ?? { label: "x", payment: s.summary.payment, share: s.summary.conversion, products: s.counts.dataProducts }), label: `${kind}桶${i}` });
   const base = s.structure.categories[0] ?? { label: "x", payment: s.summary.payment, share: { ...s.summary.conversion, unit: "RATIO" }, products: s.counts.dataProducts };
   s.structure.categories = Array.from({ length: 14 }, (_, i) => ({ ...structuredClone(base), label: `类目${i}` }));
@@ -88,17 +88,17 @@ test("oversized valid product response: the ladder's lightest fitting level is u
   assert.equal(data.sectionToken, payload.sectionToken); assert.equal(data.context.snapshotToken, payload.context.snapshotToken);
   assert.deepEqual(data.tableScope, payload.tableScope); assert.deepEqual(data.sections.pagination, payload.sections.pagination);
   assert.deepEqual(data.sections.comparisons, payload.sections.comparisons);
-  assert.deepEqual(data.sections.items.map((i: any) => i.identity), payload.sections.items.map(i => i.identity));
+  assert.deepEqual(data.sections.items.map((i: Plain) => i.identity), payload.sections.items.map(i => i.identity));
   assert.equal(data.sections.summary.payment.value, payload.sections.summary.payment.value);
-  assert.deepEqual(data.sections.efficiency.rules, (payload.sections as any).efficiency.rules);
+  assert.deepEqual(data.sections.efficiency.rules, (payload.sections as Plain).efficiency.rules);
   assert.equal(data.sections.efficiency.scanned, 40); assert.equal(data.sections.efficiency.qualified, 6);
-  assert.deepEqual(data.sections.structure.denominator.value, (payload.sections as any).structure.denominator.value);
+  assert.deepEqual(data.sections.structure.denominator.value, (payload.sections as Plain).structure.denominator.value);
   assert.equal(data.aiCompaction.applied, true);
-  const byPath = new Map<string, any>(data.aiCompaction.sections.map((s: any) => [s.path, s]));
+  const byPath = new Map<string, Plain>(data.aiCompaction.sections.map((s: Plain) => [s.path, s]));
   for (const [path, list, original] of [
     ["sections.growth.data.items", data.sections.growth.data.items, payload.sections.growth.data.items],
-    ["sections.efficiency.watchlist", data.sections.efficiency.watchlist, (payload.sections as any).efficiency.watchlist],
-    ["sections.structure.categories", data.sections.structure.categories, (payload.sections as any).structure.categories],
+    ["sections.efficiency.watchlist", data.sections.efficiency.watchlist, (payload.sections as Plain).efficiency.watchlist],
+    ["sections.structure.categories", data.sections.structure.categories, (payload.sections as Plain).structure.categories],
   ] as const) {
     const mark = byPath.get(path)!;
     if (!mark) { assert.equal(path, "sections.structure.categories"); assert.deepEqual(list.length, original.length); continue; }
@@ -107,7 +107,7 @@ test("oversized valid product response: the ladder's lightest fitting level is u
   // Pagination of a trimmed list still reports the source total, so Top N can't pass as the full set.
   assert.equal(data.sections.growth.data.pagination.total, payload.sections.growth.data.pagination.total);
   assert.equal(data.sections.growth.state, "ready");
-  console.log(`product production-scale: source envelope ${envelopeLength(payload)}, ladder ${productCompactionLadder.map(l => envelopeLength(compactProductInsightsForAi(payload as any, l))).join("/")}, result ${envelopeLength(data)}`);
+  console.log(`product production-scale: source envelope ${envelopeLength(payload)}, ladder ${productCompactionLadder.map(l => envelopeLength(compactProductInsightsForAi(payload as Plain, l))).join("/")}, result ${envelopeLength(data)}`);
 });
 
 test("product coverage gaps survive compaction whole; only complete context entries fold", async () => {
@@ -117,7 +117,7 @@ test("product coverage gaps survive compaction whole; only complete context entr
   // Lossless: grouping and range strings undone, the restored map equals exactly the source's gap entries.
   const restored = restoreCoverageGaps(data.context.coverageBySource);
   assert.deepEqual(restored, Object.fromEntries(gaps));
-  for (const value of Object.values<any>(restored)) assert.equal(value.complete, false);
+  for (const value of Object.values<Plain>(restored)) assert.equal(value.complete, false);
   assert.deepEqual(data.context.calendar, payload.context.calendar);
   assert.deepEqual(data.context.capabilities, payload.context.capabilities);
 });
@@ -142,7 +142,7 @@ test("product still refuses with tool_result_too_large when the heaviest level c
   Object.assign(payload.sections.pagination, { pageSize: 20, total: 20, returned: 20 });
   Object.assign(payload.sections.growth.data.pagination, { pageSize: 20, total: 20, returned: 20 });
   decodeProductInsights(payload, new URLSearchParams({ platform: "京东", outlet: "京东\u001f合成店A", startDate: args.startDate, endDate: args.endDate, pageSize: "20" }), revision);
-  assert.ok(envelopeLength(compactProductInsightsForAi(payload as any, productCompactionLadder.at(-1)!)) > BUDGET);
+  assert.ok(envelopeLength(compactProductInsightsForAi(payload as Plain, productCompactionLadder.at(-1)!)) > BUDGET);
   await assert.rejects(entry.handler({ ...args, pageSize: 20, view: "list" }, execution), errorIs("tool_result_too_large"));
   assert.equal(payload.sections.items.length, 20);
 });
