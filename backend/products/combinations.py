@@ -3,6 +3,11 @@
 No order fact is changed. Shared children are consumed once, preferring bundles
 with more distinct children and then parent code. Positive and return quantities
 are matched separately; unrelated outlets/orders never form a bundle.
+
+`combination_performance` only loads lines whose product code appears in an ERP
+combo relation (as parent or child); other lines can never affect the inferred
+bundles. It returns `(groups, relation_codes)` so callers can source every other
+code from the plain sales aggregate.
 """
 from collections import defaultdict
 from fractions import Fraction
@@ -152,6 +157,10 @@ def combination_performance(principal, start, end_exclusive, platforms, shops, i
         business_date__gte=start, business_date__lt=end_exclusive)
     # Preserve the original product summary's complete ERP/inventory universe;
     # database subqueries avoid sending a 20,000-code IN list or per-SKU reads.
+    # Lines outside every relation never join a bundle, so keep them out of
+    # memory; relation_codes lets the caller aggregate those codes in the DB.
+    facts = facts.filter(Q(product_code__in=Subquery(ErpComboItem.objects.values("child_code")))
+        | Q(product_code__in=Subquery(ErpComboItem.objects.values("parent_code"))))
     facts = facts.filter(Q(product_code__in=Subquery(ErpProductMaster.objects.values("product_code")))
         | Q(product_code__in=Subquery(ProductInventoryProjection.objects.filter(
             projection_revision=inventory_revision).values("product_code"))))
@@ -164,4 +173,5 @@ def combination_performance(principal, start, end_exclusive, platforms, shops, i
         "specification", "category", "supplier", *AMOUNTS.values())[:MAX_FACTS + 1])
     if len(lines) > MAX_FACTS:
         raise ProductsApiError("组合装订单明细超过安全上限，请缩短统计周期", code="service_unavailable", status=503)
-    return infer_combinations(lines, relations)
+    relation_codes = {r["child_code"] for r in relations} | {r["parent_code"] for r in relations}
+    return infer_combinations(lines, relations), relation_codes

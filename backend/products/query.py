@@ -546,13 +546,22 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
         all_rows, combo_rows, outlets = [], [], {}
         if period and period["startDate"] and period["endDate"] and product_codes:
             if options["productKind"]:
-                groups = combination_performance(principal, str(period["startDate"]),
+                groups, relation_codes = combination_performance(principal, str(period["startDate"]),
                     (date.fromisoformat(str(period["endDate"])) + timedelta(days=1)).isoformat(),
                     options["platforms"], options["shops"], loaded_control.active_revision)
                 combo_rows = [_merge(row, erp.get(code), inventory.get(code), shipping.get(code))
                     for code, row in groups["combo"].items()]
                 if options["productKind"] == "combo":
-                    performance = {**groups["single"], **groups["combo"]}
+                    # 关系货品由推断结果（剩余单品+组合装）承担；其余货品直接走 SQL 汇总。
+                    # 此处传入全量货品，使店铺维度与单品视图一致；下面按 relation_codes
+                    # 整体排除是唯一防重复计数的闸，被完全凑成组合装的子件不得经汇总重新出现。
+                    raw_performance, outlets = _sales_performance(principal, product_codes,
+                        str(period["startDate"]), str(period["endDate"]), options["platforms"],
+                        options["shops"], freshness.get("latestBatch"))
+                    performance = {code: {**row, "productKind": "single", "components": []}
+                        for code, row in raw_performance.items() if code not in relation_codes}
+                    performance.update(groups["single"])
+                    performance.update(groups["combo"])
                     for group in groups.values():
                         for row in group.values():
                             for raw in row["outlets"]:

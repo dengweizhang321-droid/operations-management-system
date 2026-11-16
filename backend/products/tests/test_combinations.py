@@ -236,3 +236,91 @@ class CombinationQueryTests(TestCase):
             finally:
                 with connection.cursor() as cursor:
                     cursor.execute("RESET ROLE")
+
+
+class CombinationScopeTests(TestCase):
+    """Only lines of ERP relation codes are loaded for bundle inference."""
+
+    def setUp(self):
+        install_fixture()
+        SalesOrderLine.objects.all().delete()
+        self.unrelated = [f"U{i}" for i in range(6)]
+        for code in ("A", "B", "C", "KIT", "KIT3", *self.unrelated):
+            ErpProductMaster.objects.create(product_code=code, product_name=code,
+                source_row_number=1, last_import_batch_id="fixture")
+        ErpComboItem.objects.bulk_create([
+            ErpComboItem(**relation(), source_row_number=1),
+            ErpComboItem(**relation(child="B"), source_row_number=2),
+            ErpComboItem(**relation("KIT3", "C"), source_row_number=3)])
+        lines = [
+            make_line(101, "A", product_code="A", order_no="kit-order", quantity=3, allocated_amount_cents=1001),
+            make_line(102, "B", product_code="B", order_no="kit-order", quantity=2, allocated_amount_cents=799),
+            make_line(103, "C", product_code="C", order_no="c-order", quantity=2, allocated_amount_cents=500),
+        ]
+        # Unrelated single-SKU lines share the bundle order.
+        lines += [make_line(200 + i, code, product_code=code, order_no="kit-order",
+            quantity=i + 1, allocated_amount_cents=100 * (i + 1)) for i, code in enumerate(self.unrelated)]
+        SalesOrderLine.objects.bulk_create(lines)
+        self.principal = Principal("fixture@example.invalid", "Fixture", "viewer", None)
+        self.options = dict(range="custom", startDate="2026-08-01", endDate="2026-08-02")
+
+    def summary(self, kind):
+        return product_summary(self.principal, {**self.options, "productKind": kind, "pageSize": 100})
+
+    def test_combo_result_unchanged_with_unrelated_lines_mixed_into_order(self):
+        from products.combinations import combination_performance
+        groups, relation_codes = combination_performance(self.principal, "2026-08-01", "2026-08-03",
+            [], [], self.loaded_revision())
+        self.assertEqual(relation_codes, {"A", "B", "C", "KIT", "KIT3"})
+        self.assertEqual(groups["combo"]["KIT"]["netQuantity"], 2)
+        self.assertEqual(groups["combo"]["KIT"]["netSalesCents"], 1466)
+        self.assertEqual(groups["combo"]["KIT3"]["netQuantity"], 2)
+        self.assertEqual(groups["combo"]["KIT3"]["netSalesCents"], 500)
+        self.assertEqual(set(groups["single"]), {"A"})
+        self.assertEqual(groups["single"]["A"]["netQuantity"], 1)
+
+    def loaded_revision(self):
+        from products.models import ProductInventoryProjectionControl
+        return ProductInventoryProjectionControl.objects.get().active_revision
+
+    def test_unrelated_lines_do_not_count_toward_fact_cap(self):
+        # 6 relation-free lines + 3 relation lines: cap 3 fits only relation lines.
+        with patch("products.combinations.MAX_FACTS", 3):
+            single = self.summary("single")
+            combo = self.summary("combo")
+        self.assertEqual({i["productCode"] for i in single["items"]},
+            {"A", "B", "C", *self.unrelated})
+        self.assertIn("items", combo)
+        with patch("products.combinations.MAX_FACTS", 2):
+            with self.assertRaises(ProductsApiError):
+                self.summary("single")
+
+    def test_combo_view_sources_unrelated_from_aggregate_and_relation_codes_from_inference(self):
+        single = {i["productCode"]: i for i in self.summary("single")["items"]}
+        combo = {i["productCode"]: i for i in self.summary("combo")["items"]}
+        for code in self.unrelated:
+            for field in ("netQuantity", "grossSalesCents", "netSalesCents", "costCents", "grossProfitCents"):
+                self.assertEqual(combo[code][field], single[code][field], (code, field))
+            self.assertEqual(combo[code]["productKind"], "single")
+            self.assertEqual(combo[code]["components"], [])
+        # B and C are fully consumed into bundles: no single row, no double count.
+        self.assertNotIn("B", combo)
+        self.assertNotIn("C", combo)
+        # A is partially consumed: only the remainder (3 - 2) is shown.
+        self.assertEqual(combo["A"]["productKind"], "single")
+        self.assertEqual(combo["A"]["netQuantity"], 1)
+        self.assertEqual(combo["KIT"]["netQuantity"], 2)
+        self.assertEqual(combo["KIT3"]["netQuantity"], 2)
+        self.assertEqual(single["A"]["netQuantity"], 3)
+        self.assertEqual(single["B"]["netQuantity"], 2)
+
+    def test_combo_shop_filters_match_single_when_filter_excludes_relation_only_shop(self):
+        # 天猫店 only sells relation code C; a 京东 platform filter excludes it.
+        make_line(300, "C-TM", product_code="C", order_no="tm-order", platform="天猫",
+            shop_name="天猫店", quantity=1, allocated_amount_cents=250).save()
+        options = {**self.options, "platforms": ["京东"], "pageSize": 100}
+        single = product_summary(self.principal, {**options, "productKind": "single"})
+        combo = product_summary(self.principal, {**options, "productKind": "combo"})
+        self.assertEqual(combo["filters"]["shops"], single["filters"]["shops"])
+        self.assertEqual(combo["filters"]["platforms"], single["filters"]["platforms"])
+        self.assertIn("天猫", single["filters"]["platforms"])
