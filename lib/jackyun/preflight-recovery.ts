@@ -4,7 +4,7 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { jackyunCaptureDate, jackyunExportFirstPolicyVersion, type JackyunDateContext } from "./run-contract";
 import { jackyunSalesPeriod } from "./sales-period";
-import { classifyJackyunPreflightFailure } from "./preflight-failure";
+import { classifyJackyunPreflightFailure, jackyunZeroEffectClosurePolicy } from "./preflight-failure";
 import { writeJsonDurable } from "./json-file";
 import type { BoundHumanAuthority } from "./human-retry";
 
@@ -424,7 +424,7 @@ export async function inspectPreflightClosure(root: string, executionId: string,
   const apiPageSelectionOnly = (plan as EmptyPlan & { exportTransport?: string }).exportTransport === "session_api_v1"
     && isApiPageSelectionFailure(evidence.error);
   const genericPreflight = (plan as EmptyPlan & { exportTransport?: string }).exportTransport === "session_api_v1"
-    && classifyJackyunPreflightFailure(evidence.error) !== null;
+    && ![loginFailure, queryFailure, legacyMenuFailure].includes(evidence.error);
   if (apiLoginAudit) {
     if (recoverySha(planRaw) !== apiLoginAudit.planSha256 || !isDeepStrictEqual(evidence, apiLoginAudit.evidence)) throw new Error(`${executionId} 原失败运行身份或证据已变化。`);
   } else if (controlsOnly) {
@@ -433,7 +433,7 @@ export async function inspectPreflightClosure(root: string, executionId: string,
     // Identity, plan bytes and evidence are pinned inside the controller inspection below.
   } else if (apiChallengeOnly) assertEmptyApiChallengePlan(plan, executionId, evidence);
   else if (apiPageSelectionOnly) assertEmptyApiChallengePlan(plan, executionId, evidence, isApiPageSelectionFailure);
-  else if (genericPreflight) assertEmptyApiChallengePlan(plan, executionId, evidence, message => classifyJackyunPreflightFailure(message) !== null);
+  else if (genericPreflight) assertEmptyApiChallengePlan(plan, executionId, evidence, () => true);
   else { assertEmptyPlan(plan, executionId); assertEvidence(evidence, plan); }
   if (!isDeepStrictEqual(active, { runId: plan.runId, executionId }) || policy.version !== plan.protocol
     || !path.isAbsolute(policy.browser.downloadDirectory) || !Number.isFinite(Date.parse(closedAt))
@@ -508,8 +508,8 @@ type HumanPreflightClosure = { version: 5; reason: "verified_human_preflight_for
 
 function assertHumanPreflightAuthority(receipt: HumanPreflightClosure, previousId: string, replacementId: string) {
   const human = receipt.humanAuthority, authority = human?.authority;
-  const policy = classifyJackyunPreflightFailure(receipt.proof?.evidence?.error ?? "");
-  if (!policy || receipt.version !== 5 || receipt.reason !== "verified_human_preflight_for_fresh_execution"
+  const policy = jackyunZeroEffectClosurePolicy(receipt.proof?.evidence?.error ?? "");
+  if (receipt.version !== 5 || receipt.reason !== "verified_human_preflight_for_fresh_execution"
     || receipt.replacementExecutionId !== replacementId || receipt.replacementMode !== "webhook"
     || receipt.proof.executionId !== previousId || human?.executionId !== replacementId
     || authority?.version !== "jackyun-human-retry-authority-v1" || authority.kind !== "retry"
@@ -553,8 +553,8 @@ export async function publishHumanPreflightClosure(root: string, proof: Prefligh
 /** The run-lock owner has verified the failed and replacement n8n executions. */
 export async function publishReplacementPreflightClosure(root: string, proof: PreflightClosure,
   replacement: { executionId: string; mode: ReplacementClosure["replacementMode"] }, credentialReadinessVerified: boolean) {
-  const policy = classifyJackyunPreflightFailure(proof.evidence.error);
-  if (!policy || (policy === "manual" && replacement.mode !== "manual") || (policy === "credential_ready" && !credentialReadinessVerified)
+  const policy = jackyunZeroEffectClosurePolicy(proof.evidence.error);
+  if ((policy === "manual" && replacement.mode !== "manual") || (policy === "credential_ready" && !credentialReadinessVerified)
     || !["manual", "trigger", "webhook"].includes(replacement.mode) || typeof credentialReadinessVerified !== "boolean"
     || !/^[1-9]\d{0,19}$/.test(replacement.executionId) || BigInt(replacement.executionId) <= BigInt(proof.executionId)) throw new Error("旧任务未满足安全恢复条件。");
   const actual = await inspectPreflightClosure(root, proof.executionId, proof.evidence, proof.closedAt);
@@ -598,8 +598,8 @@ export async function assertClosedPreflight(root: string, executionId: string, r
     return;
   }
   if (replacement.version === 3) {
-    const policy = classifyJackyunPreflightFailure(replacement.proof?.evidence?.error ?? "");
-    if (replacement.reason !== "verified_preflight_for_fresh_execution" || !policy || !replacementExecutionId
+    const policy = jackyunZeroEffectClosurePolicy(replacement.proof?.evidence?.error ?? "");
+    if (replacement.reason !== "verified_preflight_for_fresh_execution" || !replacementExecutionId
       || replacement.replacementExecutionId !== replacementExecutionId || replacement.proof.executionId !== executionId
       || !/^[1-9]\d{0,19}$/.test(replacementExecutionId) || BigInt(replacementExecutionId) <= BigInt(executionId)
       || typeof replacement.credentialReadinessVerified !== "boolean"

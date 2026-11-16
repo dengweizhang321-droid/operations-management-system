@@ -80,7 +80,12 @@ test("zero or changing page identities cannot satisfy stable unique selection", 
 
 test("generic page closure requires exact pre-export scope and rejects stale or foreign evidence", async () => {
   const f=await closureFixture();
-  for (const bad of [{error:"API_LOGIN_PAGE_NOT_UNIQUE: export submitted"},{error:"download timeout"},
+  // Unclassified messages are not identity faults on their own: with the full zero-effect proof they only yield the
+  // generic receipt, which jackyunZeroEffectClosurePolicy limits to manual/human reruns. Effects below still reject.
+  for (const error of ["API_LOGIN_PAGE_NOT_UNIQUE: export submitted", "download timeout"]) {
+    assert.equal((await inspectPreflightClosure(f.root,"4102",{...f.evidence,error},"2026-09-23T09:00:00Z")).reason, "verified_api_preflight_without_business_effects");
+  }
+  for (const bad of [
     {status:"running"},{workflowId:"other"},{executionId:"4114"},{activeExecutions:1},{retrySuccessId:"4114"},
     {lastNode:"A·固定采集日和销售日期"},{runNodes:[...f.evidence.runNodes,"D·统一导入运营管理系统"]},
     {httpCode:"502"},{requestUrl:"http://127.0.0.1:5791/jackyun/export-first/import"},

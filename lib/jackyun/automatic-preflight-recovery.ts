@@ -1,7 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import { readN8nReplacementEvidence } from "./n8n-preflight-evidence";
-import { classifyJackyunPreflightFailure } from "./preflight-failure";
+import { classifyJackyunPreflightFailure, jackyunZeroEffectClosurePolicy } from "./preflight-failure";
 import { assertClosedPreflight, inspectPreflightClosure, preflightClosurePath, publishReplacementPreflightClosure, publishHumanPreflightClosure } from "./preflight-recovery";
 import type { BoundHumanAuthority } from "./human-retry";
 import { credentialReadinessFailure, requireJackyunCredentialReadiness } from "./windows-dpapi";
@@ -26,8 +26,8 @@ export async function inspectAutomaticPreflightReplacement(root: string, previou
   deps: AutomaticPreflightDependencies = {}) {
   const readEvidence = deps.readEvidence ?? readN8nReplacementEvidence;
   const context = readEvidence(previousId, replacementId);
-  const policy = classifyJackyunPreflightFailure(context.evidence.error);
-  if (!policy) throw new Error("原失败不属于已证明的零业务效果前置失败，请核查原请求和效果证据。");
+  // Sole caller is gated on an empty plan without exportIntent; inspectPreflightClosure below enforces the rest of the proof.
+  const policy = jackyunZeroEffectClosurePolicy(context.evidence.error);
   if (context.replacement.executionId !== replacementId || Date.parse(context.replacement.startedAt) > Date.parse(closedAt)
     || policy === "manual" && context.replacement.mode !== "manual" && !deps.humanAuthority) throw new Error("原身份或登录障碍须处理后从系统页面人工完整重试。");
   const proof = await inspectPreflightClosure(root, previousId, context.evidence, closedAt);

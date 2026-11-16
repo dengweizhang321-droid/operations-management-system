@@ -307,7 +307,13 @@ test("API login challenge closure rejects any uncertain identity, stage, intent 
     if (fault === "trigger") evidence.runNodes[0] = "未知触发";
     if (fault === "node") evidence.lastNode = "D·统一导入运营管理系统";
     if (fault === "later-node") evidence.runNodes.push("D·统一导入运营管理系统");
-    if (fault === "error") evidence.error = "waiting_login：密码被拒绝。";
+    if (fault === "error") {
+      // An unclassified message is no longer an identity fault on its own: with the full zero-effect proof
+      // it yields the generic receipt (manual-only; see jackyunZeroEffectClosurePolicy). Effects still reject.
+      evidence.error = "waiting_login：密码被拒绝。";
+      assert.equal((await inspectPreflightClosure(f.root, "2879", evidence, "2026-09-17T17:15:00Z")).reason, "verified_api_preflight_without_business_effects");
+      continue;
+    }
     if (fault === "request") evidence.requestUrl = "http://127.0.0.1:5791/jackyun/export-first/import";
     if (fault === "time") evidence.stoppedAt = "2026-09-17T16:10:01.000Z";
     if (fault in effects) await mkdir(effects[fault as keyof typeof effects], { recursive: true });
