@@ -10,6 +10,7 @@ import { PublicApiError } from "@/lib/http/api-error";
 export const CUSTOMER_SERVICE_IMPORTS_PATH = "/api/customer-service/imports";
 export const CUSTOMER_SERVICE_CONVERSATIONS_PATH = "/api/customer-service/conversations";
 export const CUSTOMER_SERVICE_SNAPSHOTS_PATH = "/api/customer-service/conversations/snapshots";
+export const CUSTOMER_SERVICE_AUTO_ANALYSIS_PATH = "/api/customer-service/conversations/auto-analysis";
 export const CUSTOMER_SERVICE_CONSUMER_PATH = "/api/customer-service/consumers/query";
 export const CUSTOMER_SERVICE_UPLOADS_PATH = "/api/customer-service/uploads";
 export const CUSTOMER_SERVICE_UPLOAD_CHUNK_PATH = "/api/customer-service/uploads/chunk";
@@ -17,6 +18,7 @@ export const CUSTOMER_SERVICE_UPLOAD_CHUNK_PATH = "/api/customer-service/uploads
 const readerMethods = new Set([
   `GET ${CUSTOMER_SERVICE_IMPORTS_PATH}`,
   `GET ${CUSTOMER_SERVICE_CONVERSATIONS_PATH}`,
+  `GET ${CUSTOMER_SERVICE_AUTO_ANALYSIS_PATH}`,
   `POST ${CUSTOMER_SERVICE_SNAPSHOTS_PATH}`,
   `POST ${CUSTOMER_SERVICE_CONSUMER_PATH}`,
 ]);
@@ -234,4 +236,33 @@ export function createDjangoCustomerService(config?: DjangoCustomerServiceConfig
     requestJson: <T>(principal: AppPrincipal, input: CustomerServiceRequest, options: Omit<DjangoCustomerServiceOptions, "config"> = {}) => requestDjangoCustomerServiceJson<T>(principal, input, { ...options, config }),
     requestBytes: (principal: AppPrincipal, headers: Record<string, string>, options: Omit<DjangoCustomerServiceOptions, "config"> = {}) => requestDjangoCustomerServiceBytes(principal, headers, { ...options, config }),
   };
+}
+
+export type CustomerServiceAutoAnalysisCandidates = {
+  ids: number[];
+  pendingCount: number;
+  analyzedToday: number;
+  windowHours: number;
+};
+
+function nonNegativeInteger(value: unknown) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+/** Never-analyzed conversations from recently completed imports (read-only, reader process). */
+export async function requestDjangoCustomerServiceAutoAnalysisCandidates(
+  principal: AppPrincipal,
+  limit: number,
+  options: DjangoCustomerServiceOptions = {},
+): Promise<CustomerServiceAutoAnalysisCandidates> {
+  const result = await requestDjangoCustomerServiceJson<Record<string, unknown>>(principal, {
+    method: "GET", path: CUSTOMER_SERVICE_AUTO_ANALYSIS_PATH, service: "reader", rawQuery: `limit=${limit}`,
+  }, options);
+  const { ids, pendingCount, analyzedToday, windowHours } = result.data;
+  const pending = nonNegativeInteger(pendingCount);
+  const today = nonNegativeInteger(analyzedToday);
+  const window = nonNegativeInteger(windowHours);
+  if (!Array.isArray(ids) || ids.length > limit || pending === null || today === null || window === null
+    || ids.some((id) => typeof id !== "number" || !Number.isSafeInteger(id) || id <= 0)) throw unavailable();
+  return { ids: ids as number[], pendingCount: pending, analyzedToday: today, windowHours: window };
 }
