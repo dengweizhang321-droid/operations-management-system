@@ -24,7 +24,7 @@
 | 页面未形成唯一目标、初始页面未确认 | 零效果证明通过后允许原小时完整重试；明确出现其他来源页面时转人工 |
 | 验证码、密码被拒、企业/来源/表单身份异常、人工浏览器占用 | 定时和小时入口停止；人工处理后可由手动完整入口核验并恢复，不自动解验证码或重试密码 |
 | 精确错误「waiting_login：调试端口不属于本次启动的独立浏览器，已停止接管。」 | 2026-10-13 候选补齐人工恢复分类；仅新手动完整执行可在零效果证明通过后接续，定时和 Webhook 不放行。须先采用对应 helper，不能让旧 reader 消费新回执；见[修复与验证](../../jackyun-browser-preflight-20261013/REPORT.md) |
-| 登录提交不明（如「吉客云提交后登录状态未在限定时间内确认」）、网络 fetch failed 等未被分类的错误 | 定时、小时和 Webhook 入口不自动闭合；零效果证明全部成立时，只允许人工 n8n 手动完整重跑或系统页面人工授权闭合，见下节 |
+| 登录提交不明（如「吉客云提交后登录状态未在限定时间内确认」）、网络 fetch failed 等未被分类的错误 | 定时、小时和 Webhook 入口不自动闭合；零效果证明全部成立时，只允许人工路径（n8n 手动完整重跑、系统页面人工授权或运营命令行经批准摘要）闭合，见下节 |
 | 导出提交/绑定/下载已有进展、部分导入、有导出意图或 exports 条目 | 不走通用闭合，保留原任务及原专用续跑机制 |
 | 损坏回执、迟到文件、其他在途执行、原失败证据变化 | 失败关闭，不覆盖回执、不删除现场 |
 
@@ -38,6 +38,7 @@ v3 回执只供绑定的新执行消费。如果闭合后发生磁盘写入失�
 - `classifyJackyunPreflightFailure` 保持原样：未识别文案仍返回 `null`，`recoverPreviousJackyunPreflight` 靠它把带导出或意图的计划交还现有续跑/退役机制。
 - 新增 `jackyunZeroEffectClosurePolicy(message)` = 分类结果 ?? `"manual"`，只用于已受完整零效果证明保护的位置，或复验这些位置产生的回执：`inspectAutomaticPreflightReplacement`、`inspectPreflightClosure` 的通用分支、v3/v5 回执复验及两个发布函数。`=== "automatic"` 的判断不变，未分类绝不会变成自动。
 - 因此未分类错误等同 manual：只有 n8n 手动完整重跑（`replacement.mode === "manual"`）或系统页面人工授权（Webhook + 绑定的人工授权）能闭合；trigger 与非人工 Webhook 仍被拒绝且不写回执。回执沿用 `verified_api_preflight_without_business_effects`，原始错误文案记录在 `evidence.error`。
+- 第三条人工路径：运营命令行 `tools/jackyun-preflight-recovery.ts`（先 `plan`，经人工审阅后带批准摘要 `apply`）。它走同一个 `inspectPreflightClosure` 零效果证明，现在也可为未分类错误发布不绑定新执行的 v1 回执，之后的 trigger 等完整执行可消费该回执。这条路径的安全性来自人工审阅并批准摘要，代码本次未改动。
 - 触发案例：n8n 执行 11680 在 B 节点以「waiting_login：吉客云提交后登录状态未在限定时间内确认。」失败，未导出任何内容；手动完整重跑 11682 曾因该文案未分类而被拒绝。
 
 ## 验证与发布边界
