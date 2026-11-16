@@ -7,8 +7,8 @@ import { syncBuiltinESMExports } from "node:module";
 import { DatabaseSync } from "node:sqlite";
 import { recoverPreviousJackyunPreflight } from "../lib/jackyun/automatic-preflight-recovery";
 import { readN8nReplacementEvidence } from "../lib/jackyun/n8n-preflight-evidence";
-import { classifyJackyunPreflightFailure } from "../lib/jackyun/preflight-failure";
-import { assertClosedPreflight, preflightClosurePath, jackyunWorkflowId, inspectPreflightClosure, publishPreflightClosure, publishAutomatedCredentialClosure, publishAutomatedPageClosure, publishReplacementPreflightClosure, recoverySha } from "../lib/jackyun/preflight-recovery";
+import { classifyJackyunPreflightFailure, jackyunZeroEffectClosurePolicy } from "../lib/jackyun/preflight-failure";
+import { assertClosedPreflight, preflightClosurePath, jackyunWorkflowId, inspectPreflightClosure, publishPreflightClosure, publishAutomatedCredentialClosure, publishAutomatedPageClosure, publishReplacementPreflightClosure, publishHumanPreflightClosure, recoverySha } from "../lib/jackyun/preflight-recovery";
 import { runJackyunExportFirstAction } from "../tools/jackyun-export-first-pipeline";
 import { readRecoveryControl, recoveryProtocol, type RecoveryRequest } from "../lib/jackyun/recovery-control";
 import { importRecoveryScope } from "../lib/jackyun/publication-baseline";
@@ -16,6 +16,8 @@ import type { BoundHumanAuthority, HumanRetryAuthority } from "../lib/jackyun/hu
 
 const missing = "waiting_login：吉客云 DPAPI 凭据配置或解密未完成（missing）。";
 const challenge = "waiting_login：吉客云登录已停止（challenge_present）。";
+// Real incident: n8n execution 11680 failed with this message and nothing was exported.
+const submitUnconfirmed = "waiting_login：吉客云提交后登录状态未在限定时间内确认。";
 const browserPidMismatch = "waiting_login：调试端口不属于本次启动的独立浏览器，已停止接管。";
 const at = "2026-09-28T01:00:02.000Z";
 const nodes = ["每天本机时间 00:10", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"];
@@ -175,9 +177,10 @@ test("intent, files, changed proof and late empty directories cannot be discarde
   }
 });
 
-test("uncertain login submissions and remote export results never enter generic preflight recovery", async t => {
+test("uncertain login submissions and remote export results never enter automatic generic preflight recovery", async t => {
   for (const error of ["fetch failed", "waiting_login：吉客云提交后登录状态未在限定时间内确认。", "waiting_login：吉客云登录表单变化或提交结果未确定，已停止自动提交。", "waiting_login：吉客云 DPAPI 凭据配置或解密未完成（read）。"]) {
     assert.equal(classifyJackyunPreflightFailure(error), null);
+    assert.equal(jackyunZeroEffectClosurePolicy(error), "manual");
     const f = await fixture(t, error); await f.recover();
     await assert.rejects(runJackyunExportFirstAction("plan-api", "9001", f.deps), /尚未闭合/);
     await assert.rejects(readFile(preflightClosurePath(f.root, "9000")), /ENOENT/);
@@ -318,5 +321,107 @@ test("browser PID recovery rejects any business effect, concurrent run, wrong st
   }
   for (const message of [browserPidMismatch + " extra", browserPidMismatch.replace("已停止接管", "已接管"), "waiting_login：专用浏览器进程和 Profile 身份验证未通过。", "fetch failed"]) {
     assert.equal(classifyJackyunPreflightFailure(message), null);
+    assert.equal(jackyunZeroEffectClosurePolicy(message), "manual");
   }
+  for (const message of [missing, challenge, browserPidMismatch, "API_LOGIN_PAGE_NOT_UNIQUE"]) {
+    assert.equal(jackyunZeroEffectClosurePolicy(message), classifyJackyunPreflightFailure(message));
+  }
+});
+
+const humanAuthorityFor = (replacementId: string): BoundHumanAuthority => {
+  const authority: HumanRetryAuthority = { ok: true, version: "jackyun-human-retry-authority-v1", authorizationId: "12345678-1234-4234-8234-123456789abc",
+    workflowId: jackyunWorkflowId, kind: "retry", logicalExecutionId: "9000", failedExecutionId: "9000", createdAt: "2026-09-28T00:59:00.000Z", expiresAt: "2026-09-28T02:00:00.000Z" };
+  return { authority, executionId: replacementId, proofDigest: recoverySha(JSON.stringify(authority)) };
+};
+const retryRequest = (): Extract<RecoveryRequest, { kind: "retry" }> => ({ version: recoveryProtocol, kind: "retry", logicalExecutionId: "9000", failedExecutionId: "9000" });
+const completeRerun = (f: Awaited<ReturnType<typeof fixture>>, extra: Record<string, unknown> = {}) => runJackyunExportFirstAction("plan-api", "9001", { ...f.deps,
+  recoveryRequest: retryRequest(), recoveryEvidence: f.recovery.readEvidence, readOwnerState: () => "error", request: baselineRequest(),
+  runApi: async () => { throw new Error("A must not export"); }, ...extra });
+
+test("unclassified zero-effect failure (11680 message) closes only for a manual full rerun and the receipt re-verifies", async t => {
+  assert.equal(classifyJackyunPreflightFailure(submitUnconfirmed), null);
+  assert.equal(jackyunZeroEffectClosurePolicy(submitUnconfirmed), "manual");
+  const f = await fixture(t, submitUnconfirmed, "manual");
+  const originalPlan = await readFile(f.planPath), originalDb = await readFile(f.database);
+  const result = await completeRerun(f);
+  assert.equal(result.runId, "n8n-export-first-9001");
+  const receiptPath = preflightClosurePath(f.root, "9000");
+  const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+  assert.equal(receipt.version, 3); assert.equal(receipt.replacementMode, "manual"); assert.equal(receipt.replacementExecutionId, "9001");
+  assert.equal(receipt.proof.reason, "verified_api_preflight_without_business_effects");
+  assert.equal(receipt.proof.evidence.error, submitUnconfirmed);
+  assert.equal(JSON.parse(await readFile(f.activePath, "utf8")).executionId, "9001");
+  assert.deepEqual(await readFile(f.planPath), originalPlan); assert.deepEqual(await readFile(f.database), originalDb);
+  // Re-verification needs the old run still active, so publish with the real functions on a fresh fixture.
+  // recoverPreviousJackyunPreflight itself still returns for unclassified failures (it only re-verifies existing receipts).
+  const g = await fixture(t, submitUnconfirmed, "manual");
+  await g.recover();
+  await assert.rejects(readFile(preflightClosurePath(g.root, "9000")), /ENOENT/);
+  const context = g.recovery.readEvidence("9000", "9001");
+  const proof = await inspectPreflightClosure(g.root, "9000", context.evidence, at);
+  await publishReplacementPreflightClosure(g.root, proof, context.replacement, false);
+  const g0 = preflightClosurePath(g.root, "9000"), gReceipt = JSON.parse(await readFile(g0, "utf8"));
+  assert.equal(gReceipt.version, 3);
+  await assertClosedPreflight(g.root, "9000", "9001");
+  const bytes = await readFile(g0);
+  await g.recover();
+  assert.deepEqual(await readFile(g0), bytes);
+  await assert.rejects(assertClosedPreflight(g.root, "9000", "9002"));
+  await assert.rejects(assertClosedPreflight(g.root, "9000"));
+  await writeFile(g0, JSON.stringify({ ...gReceipt, replacementMode: "trigger" }));
+  await assert.rejects(assertClosedPreflight(g.root, "9000", "9001"), /只允许绑定/);
+});
+
+test("unclassified zero-effect failure is refused for trigger and non-human webhook reruns without writing anything", async t => {
+  for (const mode of ["trigger", "webhook"]) {
+    const f = await fixture(t, submitUnconfirmed, mode);
+    const activeBefore = await readFile(f.activePath), planBefore = await readFile(f.planPath);
+    await assert.rejects(completeRerun(f), /人工/);
+    await assert.rejects(readFile(preflightClosurePath(f.root, "9000")), /ENOENT/);
+    assert.deepEqual(await readFile(f.activePath), activeBefore); assert.deepEqual(await readFile(f.planPath), planBefore);
+    await assert.rejects(readFile(path.join(f.pipeline, "n8n-export-first-9001.json")), /ENOENT/);
+    // The lower-level publisher independently refuses a non-manual replacement.
+    const evidence = f.recovery.readEvidence("9000", "9001").evidence;
+    const proof = await inspectPreflightClosure(f.root, "9000", evidence, at);
+    await assert.rejects(publishReplacementPreflightClosure(f.root, proof, { executionId: "9001", mode: mode as "trigger" | "webhook" }, false), /安全恢复条件/);
+    await assert.rejects(readFile(preflightClosurePath(f.root, "9000")), /ENOENT/);
+  }
+});
+
+test("unclassified failure stays refused when the zero-effect proof fails", async t => {
+  for (const fault of ["intent", "export", "events", "imports", "validation", "downloads"]) {
+    const f = await fixture(t, submitUnconfirmed, "manual");
+    const effects = { events: path.join(f.root, "outputs/jackyun-browser-events", f.plan.runId), imports: path.join(f.root, "outputs/jackyun-import-runs", f.plan.runId), validation: path.join(f.root, "outputs/jackyun-export-first-validation", f.plan.runId), downloads: path.join(f.download, "jackyun", f.plan.runId) };
+    if (fault === "intent") await writeFile(f.planPath, JSON.stringify({ ...f.plan, exportIntent: "inventory" }));
+    if (fault === "export") await writeFile(f.planPath, JSON.stringify({ ...f.plan, exports: { inventory: {} } }));
+    if (fault in effects) await mkdir(effects[fault as keyof typeof effects], { recursive: true });
+    const activeBefore = await readFile(f.activePath);
+    await assert.rejects(completeRerun(f));
+    await assert.rejects(readFile(preflightClosurePath(f.root, "9000")), /ENOENT/, fault);
+    assert.deepEqual(await readFile(f.activePath), activeBefore, fault);
+    // recoverPreviousJackyunPreflight keeps handing unclassified failures back to the existing mechanisms.
+    await f.recover();
+    await assert.rejects(readFile(preflightClosurePath(f.root, "9000")), /ENOENT/, fault);
+  }
+});
+
+test("system-page human authority accepts an unclassified zero-effect failure and its v5 receipt re-verifies", async t => {
+  const f = await fixture(t, submitUnconfirmed, "webhook");
+  const humanAuthority = humanAuthorityFor("9001");
+  const result = await completeRerun(f, { humanAuthority });
+  assert.equal(result.runId, "n8n-export-first-9001");
+  const receipt = JSON.parse(await readFile(preflightClosurePath(f.root, "9000"), "utf8"));
+  assert.equal(receipt.version, 5); assert.equal(receipt.replacementMode, "webhook");
+  assert.equal(receipt.proof.evidence.error, submitUnconfirmed);
+  assert.equal(JSON.parse(await readFile(f.activePath, "utf8")).executionId, "9001");
+  // Re-verification needs the old run still active: publish on a fresh fixture with the real publisher.
+  const g = await fixture(t, submitUnconfirmed, "webhook");
+  const context = g.recovery.readEvidence("9000", "9001");
+  const proof = await inspectPreflightClosure(g.root, "9000", context.evidence, at);
+  await publishHumanPreflightClosure(g.root, proof, "9001", humanAuthority, false);
+  assert.equal(JSON.parse(await readFile(preflightClosurePath(g.root, "9000"), "utf8")).version, 5);
+  await assertClosedPreflight(g.root, "9000", "9001");
+  await recoverPreviousJackyunPreflight(g.root, "9000", "9001", at, { ...g.recovery, humanAuthority });
+  await assert.rejects(assertClosedPreflight(g.root, "9000", "9002"));
+  await assert.rejects(publishHumanPreflightClosure(g.root, proof, "9001", { ...humanAuthority, executionId: "9002" }, false));
 });

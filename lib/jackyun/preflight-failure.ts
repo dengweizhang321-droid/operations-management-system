@@ -17,3 +17,16 @@ export function classifyJackyunPreflightFailure(message: string): JackyunPreflig
     || message === "API_SERVER_CLOCK_UNVERIFIED" || message === "API_SERVER_CLOCK_MISSING") return "manual";
   return null;
 }
+
+/**
+ * Policy for closing a previous run whose failure is PROVEN to have had zero business
+ * effect. Any message not classified above is treated as "manual": only a human-initiated
+ * full rerun (manual n8n rerun or system-page human authority) may close it, never an
+ * automatic/trigger rerun. Only valid where the full zero-effect proof is enforced (empty plan,
+ * no exportIntent, every effect path absent via inspectPreflightClosure) or where receipts
+ * produced behind that proof are re-verified. Do not use it as a general failure classifier:
+ * recoverPreviousJackyunPreflight relies on classifyJackyunPreflightFailure returning null.
+ */
+export function jackyunZeroEffectClosurePolicy(message: string): JackyunPreflightRecoveryPolicy {
+  return classifyJackyunPreflightFailure(message) ?? "manual";
+}

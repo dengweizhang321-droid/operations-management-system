@@ -307,12 +307,61 @@ test("API login challenge closure rejects any uncertain identity, stage, intent 
     if (fault === "trigger") evidence.runNodes[0] = "未知触发";
     if (fault === "node") evidence.lastNode = "D·统一导入运营管理系统";
     if (fault === "later-node") evidence.runNodes.push("D·统一导入运营管理系统");
-    if (fault === "error") evidence.error = "waiting_login：密码被拒绝。";
+    if (fault === "error") {
+      // An unclassified message is no longer an identity fault on its own: with the full zero-effect proof
+      // it yields the generic receipt (manual-only; see jackyunZeroEffectClosurePolicy). Effects still reject.
+      evidence.error = "waiting_login：密码被拒绝。";
+      assert.equal((await inspectPreflightClosure(f.root, "2879", evidence, "2026-09-17T17:15:00Z")).reason, "verified_api_preflight_without_business_effects");
+      continue;
+    }
     if (fault === "request") evidence.requestUrl = "http://127.0.0.1:5791/jackyun/export-first/import";
     if (fault === "time") evidence.stoppedAt = "2026-09-17T16:10:01.000Z";
     if (fault in effects) await mkdir(effects[fault as keyof typeof effects], { recursive: true });
     await assert.rejects(inspectPreflightClosure(f.root, "2879", evidence, "2026-09-17T17:15:00Z"));
   }
+});
+
+test("unclassified (11680) failure is verified by inspectPreflightClosure itself against the same fault matrix", async () => {
+  const unclassified = "waiting_login：吉客云提交后登录状态未在限定时间内确认。";
+  const closedAt = "2026-09-17T17:15:00Z", accepted: string[] = [];
+  {
+    const f = await fixture2879();
+    const ok = await inspectPreflightClosure(f.root, "2879", { ...proof2879, error: unclassified }, closedAt);
+    assert.equal(ok.reason, "verified_api_preflight_without_business_effects");
+  }
+  for (const fault of ["intent", "export", "phase", "transport", "extra-key", "version", "active", "live", "retry", "trigger", "node", "later-node", "wrong-first-node", "request", "request-path", "http", "time-early", "time-late", "status", "workflow", "execution", "hash", "events", "imports", "validation", "download"]) {
+    const f = await fixture2879(), evidence: PreflightEvidence = { ...proof2879, error: unclassified, runNodes: [...proof2879.runNodes] };
+    const effects = { events: path.join(f.root, "outputs/jackyun-browser-events", f.runId),
+      imports: path.join(f.root, "outputs/jackyun-import-runs", f.runId),
+      validation: path.join(f.root, "outputs/jackyun-export-first-validation", f.runId), download: path.join(f.download, "jackyun", f.runId) };
+    const plan = JSON.parse(await readFile(f.planPath, "utf8"));
+    if (fault === "intent") plan.exportIntent = "inventory";
+    if (fault === "export") plan.exports.inventory = { taskId: "uncertain" };
+    if (fault === "phase") plan.phase = "exported";
+    if (fault === "transport") plan.exportTransport = "direct_http_v1";
+    if (fault === "extra-key") plan.unexpected = true;
+    if (fault === "version") plan.version = 3;
+    if (["intent", "export", "phase", "transport", "extra-key", "version"].includes(fault)) await writeFile(f.planPath, JSON.stringify(plan));
+    if (fault === "active") await writeFile(f.activePath, JSON.stringify({ runId: "n8n-export-first-2881", executionId: "2881" }));
+    if (fault === "live") evidence.activeExecutions = 1;
+    if (fault === "retry") evidence.retrySuccessId = "2881";
+    if (fault === "trigger") evidence.runNodes[0] = "未知触发";
+    if (fault === "node") evidence.lastNode = "D·统一导入运营管理系统";
+    if (fault === "later-node") evidence.runNodes.push("D·统一导入运营管理系统");
+    if (fault === "wrong-first-node") evidence.lastNode = "A·固定采集日和销售日期";
+    if (fault === "request") evidence.requestUrl = "http://127.0.0.1:5791/jackyun/export-first/import";
+    if (fault === "request-path") evidence.requestUrl = "http://127.0.0.1:5791/jackyun/export-first/export-all/extra";
+    if (fault === "http") evidence.httpCode = "502";
+    if (fault === "time-early") evidence.stoppedAt = "2026-09-17T16:10:01.000Z";
+    if (fault === "time-late") evidence.startedAt = "2026-09-17T16:10:02.000Z";
+    if (fault === "status") evidence.status = "running" as never;
+    if (fault === "workflow") evidence.workflowId = "other";
+    if (fault === "execution") evidence.executionId = "2880";
+    if (fault === "hash") evidence.executionDataSha256 = "bad";
+    if (fault in effects) await mkdir(effects[fault as keyof typeof effects], { recursive: true });
+    await inspectPreflightClosure(f.root, "2879", evidence, closedAt).then(() => accepted.push(fault), () => undefined);
+  }
+  assert.deepEqual(accepted, [], "faults wrongly accepted for an unclassified error");
 });
 
 test("2621 closure preserves original failure and permits only a new full API plan", async () => {
