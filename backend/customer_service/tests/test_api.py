@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.test import SimpleTestCase, TestCase
@@ -165,6 +166,76 @@ class CustomerServiceApiTests(TestCase):
             headers=signed_headers("/api/customer-service/conversations", scope={"warehouses": ["主仓"], "channels": [], "platforms": []}),
         )
         self.assertEqual(denied.status_code, 403)
+
+
+@patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+class CustomerServiceAutoAnalysisTests(TestCase):
+    URL = "/api/customer-service/conversations/auto-analysis"
+
+    def setUp(self) -> None:
+        CustomerServiceWriteAuthority.objects.filter(id=1).update(status="postgres")
+        CustomerServiceDataRevision.objects.filter(domain="customer-service").update(revision=1, source_digest="a" * 64)
+        now = timezone.now()
+        self.batch("fresh", "completed", now - timedelta(hours=1))
+        self.batch("old", "completed", now - timedelta(hours=73))
+        self.batch("processing", "processing", now - timedelta(hours=1))
+
+    def batch(self, batch_id: str, status: str, completed_at) -> None:
+        CustomerServiceImportBatch.objects.create(
+            id=batch_id, shop_name="店", session_file_name="s", chat_file_name="c", raw_file_hash="a" * 64,
+            import_hash=batch_id.ljust(64, "0"), content_hash="b" * 64, identity_set_hash="c" * 64, scope_key="d" * 64,
+            status=status, completed_at=completed_at,
+        )
+
+    def conversation(self, key: str, batch_id: str, *, source: str = "", analyzed_at=None) -> CustomerServiceConversation:
+        return CustomerServiceConversation.objects.create(
+            conversation_key=key, first_import_batch_id=batch_id, last_import_batch_id=batch_id, shop_name="店",
+            consulted_at="2026-11-16 10:00:00", match_status="matched", match_confidence="exact",
+            analysis_source=source, analyzed_at=analyzed_at,
+        )
+
+    def get(self, query: str = "", **kwargs):
+        url = self.URL + query
+        return self.client.get(url, headers=signed_headers(url, **kwargs))
+
+    def test_candidates_exclude_manual_ai_old_and_unfinished_batches(self) -> None:
+        wanted = [self.conversation(f"k{index}", "fresh").id for index in range(3)]
+        self.conversation("manual", "fresh", source="manual")
+        self.conversation("ai", "fresh", source="ai", analyzed_at=timezone.now())
+        self.conversation("old", "old")
+        self.conversation("processing", "processing")
+        self.conversation("nobatch", "missing")
+        response = self.get()
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(sorted(data["ids"]), sorted(wanted))
+        self.assertEqual(data["pendingCount"], 3)
+        self.assertEqual(data["windowHours"], 72)
+        self.assertTrue(response["X-Customer-Service-Data-Revision"])
+
+    def test_limit_bounds_and_unknown_parameters(self) -> None:
+        for index in range(10):
+            self.conversation(f"k{index}", "fresh")
+        self.assertEqual(len(self.get("?limit=3").json()["ids"]), 3)
+        self.assertEqual(len(self.get().json()["ids"]), 8)
+        self.assertEqual(self.get().json()["pendingCount"], 10)
+        for query in ("?limit=0", "?limit=9", "?limit=abc", "?limit=1&limit=2", "?foo=1"):
+            with self.subTest(query=query):
+                self.assertEqual(self.get(query).status_code, 400)
+
+    def test_analyzed_today_counts_only_ai_since_shanghai_midnight(self) -> None:
+        now = timezone.now()
+        self.conversation("today", "fresh", source="ai", analyzed_at=now)
+        self.conversation("manual", "fresh", source="manual", analyzed_at=now)
+        self.conversation("yesterday", "fresh", source="ai", analyzed_at=now - timedelta(days=2))
+        self.assertEqual(self.get().json()["analyzedToday"], 1)
+
+    def test_roles_and_scope(self) -> None:
+        self.assertEqual(self.get(role="operator").status_code, 200)
+        for role in ("viewer", "analyst"):
+            with self.subTest(role=role):
+                self.assertEqual(self.get(role=role).status_code, 403)
+        self.assertEqual(self.get(scope={"warehouses": ["主仓"], "channels": [], "platforms": []}).status_code, 403)
 
 
 def CustomerServiceImportCount() -> int:

@@ -9,6 +9,7 @@ shared_patterns = [
     path("conversations", views.conversations, name="customer-service-conversations"),
 ]
 read_patterns = [
+    path("conversations/auto-analysis", views.auto_analysis, name="customer-service-auto-analysis"),
     path("conversations/snapshots", views.snapshots, name="customer-service-snapshots"),
     path("consumers/query", views.consumers, name="customer-service-consumers"),
 ]

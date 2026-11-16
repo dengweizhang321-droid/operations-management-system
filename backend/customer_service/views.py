@@ -18,6 +18,7 @@ from sales.auth import Principal, PrincipalEnvelopeError, verify_principal
 from .errors import CustomerServiceApiError
 from .import_service import import_customer_service, list_import_batches, record_edge_rejection
 from .query import (
+    auto_analysis_candidates,
     customer_search,
     delete_conversation,
     get_conversation,
@@ -236,6 +237,19 @@ def conversations(request: HttpRequest) -> JsonResponse:
         return _replay_write(request, principal, lambda: ({"ok": True, **delete_conversation(conversation_id, expected, principal.email.strip().lower(), str(body["reason"]))}, 200))
     except Exception as error:
         return _error(error, "客服会话请求失败")
+
+
+@require_GET
+def auto_analysis(request: HttpRequest) -> JsonResponse:
+    try:
+        _require_process("customer_service_reader")
+        _principal(request, {"operator", "admin"})
+        _unknown(request, {"limit"}, "客服自动分析候选")
+        limit = _positive(_one(request, "limit"), 8, "limit", 8)
+        payload, revision = _consistent_read(lambda: auto_analysis_candidates(limit))
+        return _json(payload, revision=revision)
+    except Exception as error:
+        return _error(error, "读取客服自动分析候选失败")
 
 
 @require_POST

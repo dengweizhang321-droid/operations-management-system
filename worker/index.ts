@@ -6,6 +6,7 @@ import handler from "vinext/server/app-router-entry";
 import { runScheduledDjangoMarketAnnotation } from "../lib/market/django-annotation-scheduled";
 import { runDjangoMarketImageCacheBatch } from "../lib/market/django-image-cache-runner";
 import { runDjangoMarketNetshopProjectionSync } from "../lib/market/django-netshop-projection-runner";
+import { runScheduledCustomerServiceAnalysis } from "../lib/customer-service/auto-analysis-scheduled";
 import { enforceDynamicCachePolicy } from "./cache-policy";
 import { evaluateSameOriginWriteGate } from "./same-origin-write-gate";
 
@@ -68,6 +69,11 @@ async function runScheduledMarketMaintenance(
     "AI business file runner failed",
     () => wakeAiQueue("files"),
   );
+  // 客服会话自动 AI 分析每次最多一批，独立推进，失败不得阻塞其余任务。
+  const customerServiceAnalysisPending = runScheduledMarketTask(
+    "customer service auto analysis runner failed",
+    () => runScheduledCustomerServiceAnalysis(),
+  );
   // 证据按时间与页数双重限制采集，不依赖浏览器页面存活。
   const aiEvidence = await runScheduledMarketTask(
     "AI evidence collection runner failed",
@@ -97,7 +103,7 @@ async function runScheduledMarketMaintenance(
     () => wakeAiQueue("space"),
   );
   const annotations = await annotationsPending;
-  return { aiFiles: await aiFilesPending, aiEvidence, aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace };
+  return { aiFiles: await aiFilesPending, aiEvidence, aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace, customerServiceAnalysis: await customerServiceAnalysisPending };
 }
 
 function allowsLoopbackDevelopmentRequest(request: Request, env: Env) {

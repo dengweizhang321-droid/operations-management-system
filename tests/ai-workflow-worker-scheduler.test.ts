@@ -28,7 +28,7 @@ test("scheduled and protected local ticks run one isolated workflow and one form
   assert.ok(netshopProjectionAt < imageCacheAt, "the PostgreSQL market projection refresh must precede derived image work");
   assert.ok(imageCacheAt < aiSpaceAt && aiSpaceAt < annotationsAt, "existing runner order must remain stable");
   assert.match(maintenance, /const aiFilesPending = runScheduledMarketTask\(/);
-  assert.match(maintenance, /return \{ aiFiles: await aiFilesPending, aiEvidence, aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace \};/);
+  assert.match(maintenance, /return \{ aiFiles: await aiFilesPending, aiEvidence, aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace, customerServiceAnalysis: await customerServiceAnalysisPending \};/);
 
   const localScheduled = source.slice(
     source.indexOf("if (url.pathname === localScheduledPath)"),

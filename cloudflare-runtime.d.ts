@@ -78,6 +78,9 @@ declare module "cloudflare:workers" {
     AI_ALLOW_LOCAL_MODEL_ENDPOINTS?: string;
     TERUISI_LOCAL_DIRECT_ACCESS?: string;
     TERUISI_RUNTIME_ENV?: string;
+    CUSTOMER_SERVICE_AUTO_ANALYSIS?: string;
+    CUSTOMER_SERVICE_AUTO_ANALYSIS_OWNER?: string;
+    CUSTOMER_SERVICE_AUTO_ANALYSIS_DAILY_LIMIT?: string;
     [binding: string]: unknown;
   };
 }

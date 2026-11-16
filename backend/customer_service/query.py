@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 import json
 import uuid
+from zoneinfo import ZoneInfo
 
 from django.db import transaction
 from django.db.models import Q, QuerySet, TextField
@@ -192,6 +193,26 @@ def get_conversation(conversation_id: int) -> dict[str, object]:
     if item is None:
         raise CustomerServiceApiError("客服会话不存在", code="not_found", status=404)
     return conversation_payload(item, include_messages=True)
+
+
+AUTO_ANALYSIS_WINDOW_HOURS = 72
+
+
+def auto_analysis_candidates(limit: int) -> dict[str, object]:
+    """Never-analyzed conversations from recently completed import batches.
+
+    Selection uses analysis_source == "" (not analyzed_at IS NULL) because manual edits set
+    analysis_source="manual" without analyzed_at and must never be overwritten by the model.
+    """
+    now = timezone.now()
+    since = now - timedelta(hours=AUTO_ANALYSIS_WINDOW_HOURS)
+    batch_ids = CustomerServiceImportBatch.objects.filter(status="completed", completed_at__gte=since).values("id")
+    pending = CustomerServiceConversation.objects.filter(analysis_source="", last_import_batch_id__in=batch_ids)
+    # Random order so one batch that keeps failing cannot starve the rest every minute.
+    ids = list(pending.order_by("?").values_list("id", flat=True)[:limit])
+    day_start = now.astimezone(ZoneInfo("Asia/Shanghai")).replace(hour=0, minute=0, second=0, microsecond=0)
+    analyzed_today = CustomerServiceConversation.objects.filter(analysis_source="ai", analyzed_at__gte=day_start).count()
+    return {"ids": ids, "pendingCount": pending.count(), "analyzedToday": analyzed_today, "windowHours": AUTO_ANALYSIS_WINDOW_HOURS}
 
 
 def get_conversations_by_ids(ids: list[int], *, message_limit: int = AI_MESSAGE_LIMIT) -> list[dict[str, object]]:
