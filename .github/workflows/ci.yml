@@ -11,6 +11,13 @@ on:
 # comprehensive functional acceptance — those remain the user's job after
 # release, per AGENTS.md 规则 4 and docs/规范/验证与发布.md
 # "发布检查与功能验收分工".
+#
+# Every check after `npm ci` runs even when an earlier check failed (the
+# `if:` on each step), so one red step can no longer hide the others. From
+# 2026-11-02 to 2026-11-16 Lint failed on every main push and the default
+# `success()` condition skipped all twelve checks after it, including the
+# backend boundary audit, which was red underneath. The checks do not depend
+# on each other's output; the job still fails if any of them fails.
 jobs:
   build-and-check:
     runs-on: ubuntu-latest
@@ -27,13 +34,14 @@ jobs:
           python-version: "3.x"
 
       - name: Install dependencies
+        id: install
         run: npm ci
 
       - name: Lint (baseline-gated)
-        # Full-repo `npm run lint` currently has 56 pre-existing errors / 171
-        # warnings spread across app/, tests/, and tools/ (not confined to
-        # tools/ as originally assumed — verified 2026-10-28 against
-        # origin/main @ eee72b72 via two independent counting methods).
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        # Full-repo `npm run lint` has pre-existing errors spread across app/,
+        # lib/, tests/, and tools/ (56 at eee72b72 on 2026-10-28; the current
+        # accepted count and the per-entry list live in the script, not here).
         # Fixing them is out of scope here, and the eslint exit code alone
         # can't distinguish "no new errors" from "still has old errors", so
         # this step compares a structured (JSON, not regex-on-text) count
@@ -45,6 +53,7 @@ jobs:
         run: node .github/workflows/check-lint-baseline.mjs
 
       - name: Read document path literals exist
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # Static filesystem check (no DB, no runtime): fails if code reads a
         # Markdown file that does not exist. docs/规范/文档管理.md:29 already
         # requires updating 代码中的文档路径字面量 when a document moves, but
@@ -63,6 +72,7 @@ jobs:
         run: node .github/workflows/check-doc-path-literals.mjs
 
       - name: Gate's own unit tests (document path literals)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # The gate itself must be tested, or it shares the fate of the prose
         # rule it enforces: able to stop finding anything with nobody noticing.
         # Covers the real dead reference's two-line literal shape, each of the
@@ -72,26 +82,31 @@ jobs:
         run: node --test --test-timeout=30000 tests/doc-path-literal-gate.test.mjs
 
       - name: Frozen policy caller and installer source checks
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: python -B .github/workflows/check-reviewed-policy.py
 
       - name: Frozen catalog OWNER privileges
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # Source-only data check; no runtime/PrepareApp hook or database.
         run: |
           python -B tests/catalog-baselines.py
           python -B tools/check_catalog_baselines.py
 
       - name: Lifecycle controller qualification bytes
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # Static source-byte check only. A controller change must be reviewed
         # and qualified before it can reach a maintenance window.
         run: node --test --test-timeout=30000 tests/maintenance-controller-qualification.test.mjs
 
       - name: Schema addition enumeration consistency
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # Structural-migration generation lists are hand-copied into several
         # files; a missed copy only surfaces at release time. Read-only source
         # text check: no runtime, database, artifact or lifecycle access.
         run: node --test --test-timeout=30000 tests/schema-addition-enumeration-consistency.test.mjs
 
       - name: Current Ai158 schema recipe source bindings
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # Explicit current recipe only. Historical rehearsal recipes are not
         # silently renewed. Import the real inherited gate; never bind a parent,
         # access a database/runtime, prepare artifacts, or run lifecycle actions.
@@ -104,6 +119,7 @@ jobs:
           .runtime/schema-digest-ci/bin/python -B tools/check_schema_code_digest.py --recipe config/main-schema-releases/ai-0090.json
 
       - name: Build (includes type checking)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # tsconfig.json has strict: true and noEmit: true; `vinext build`
         # performs TypeScript compilation as part of the build, so this
         # step covers both the production build and type checking. There is
@@ -111,6 +127,7 @@ jobs:
         run: npm run build
 
       - name: Unit tests (curated subset)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # NOT `npm run test:unit` (that glob is tests/*.test.ts, 494 files).
         # Running the full glob blind was explicitly out of scope: it has
         # known pre-existing failures (tests/market-annotation.test.ts,
@@ -131,6 +148,7 @@ jobs:
           node --import tsx --test --test-timeout=30000 $(grep -v '^#' .github/workflows/ci-unit-test-files.txt | grep -v '^\s*$')
 
       - name: Backend production boundary audit
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # Static import-boundary audit (no DB, no running backend): fails if
         # a frontend/tool module reaches into Django production internals it
         # isn't allowed to import. Guards a build-time contract, not
@@ -138,6 +156,7 @@ jobs:
         run: npm run check:backend-boundary
 
       - name: Pi152 ACL catalog contract
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # Static AST check (no DB, no Django import): fails if the ACL
         # catalog's granted permissions drift from what the migration
         # declares as append-only. Guards a code-level contract that
@@ -146,6 +165,7 @@ jobs:
         run: npm run check:pi152-acl
 
       - name: AI writer privilege coverage
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # Static AST check (no DB, no Django import): fails if an ORM write
         # call (.objects...delete()/.update()) in backend/ai_assistant/
         # needs a privilege database_contract.WRITER_PRIVILEGES does not
