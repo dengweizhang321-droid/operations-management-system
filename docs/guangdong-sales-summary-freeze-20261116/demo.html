@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>广东入仓型号明细：销量汇总列与冻结列演示（合成演示数据）</title>
+<style>
+  :root { --line: #e6eaf0; --text: #526075; --strong: #2f3b4d; --muted: #8b96a6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; color: var(--text); background: #f4f6f9; }
+  .banner { margin-bottom: 14px; padding: 10px 14px; border: 1px solid #f2d9a6; border-radius: 8px; color: #8a5a00; background: #fff8e6; font-size: 13px; }
+  .panel { border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  .toolbar { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .toolbar h3 { margin: 0; font-size: 15px; color: var(--strong); }
+  .toolbar span { font-size: 12px; color: var(--muted); }
+  .wrap { overflow-x: auto; max-width: 100%; }
+  table { width: 100%; min-width: 2300px; border-collapse: collapse; font-size: 12px; }
+  th { padding: 11px 14px; border-bottom: 1px solid var(--line); color: var(--muted); background: #fafbfc; font-size: 11px; font-weight: 600; text-align: left; white-space: nowrap; }
+  td { height: 57px; padding: 8px 14px; border-bottom: 1px solid #eff1f4; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: #fbfcfe; }
+  td strong { color: var(--strong); }
+  small.note { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+  th.new-col, td.new-col { background: #f1f7ff; }
+  th.new-col { color: #3a6bb5; }
+  /* 冻结前两列：与 app/inventory-guangdong.module.css 中 .detailTable 规则一致 */
+  th:nth-child(1), td:nth-child(1) { width: 180px; min-width: 180px; max-width: 180px; position: sticky; left: 0; z-index: 2; background: #fff; white-space: normal; }
+  th:nth-child(2), td:nth-child(2) { width: 150px; min-width: 150px; max-width: 150px; position: sticky; left: 180px; z-index: 2; background: #fff; border-right: 1px solid #e8edf4; box-shadow: 4px 0 6px -4px rgba(22, 34, 54, .18); }
+  thead th:nth-child(-n+2) { z-index: 4; background: #fafbfc; }
+  tbody tr:hover td:nth-child(-n+2) { background: #fbfcfe; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; }
+  .urgent { color: #b42318; background: #fee4e2; }
+  .warn { color: #b54708; background: #fef0c7; }
+  .ok { color: #067647; background: #dcfae6; }
+  .hint { margin: 12px 2px 0; font-size: 12px; color: var(--muted); line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="banner">合成演示数据：以下商品、编码与数字均为虚构，仅用于演示「销量汇总」新列和前两列冻结效果，不代表任何真实库存或销量。</div>
+<section class="panel">
+  <div class="toolbar"><h3>广东入仓型号明细</h3><span id="count"></span></div>
+  <div class="wrap"><table>
+    <thead><tr id="head"></tr></thead>
+    <tbody id="body"></tbody>
+  </table></div>
+</section>
+<p class="hint">
+  1. 请向右拖动表格横向滚动条：「商品」「规格编码」两列固定在左侧，其余列从其下方滑过。<br>
+  2. 浅蓝色列「销量汇总 7 / 15 / 30日」为新增列，位于「京东仓总库存 / 7·15·30日销量」之后、「生产周期 / 安全天数」之前；口径为全部仓库正向出库合计，不含刷刷仓，仅供展示。<br>
+  3. 数据覆盖不足的窗口显示「—」（对应 null）；覆盖足够但无销量显示 0。
+</p>
+<script>
+(function () {
+  var headers = ["商品", "规格编码", "供应商", "运营负责人", "采购负责人", "库存 / 在途", "7 / 15 / 30日出库", "销售周转 / 库龄",
+    "天猫仓总库存 / 7·15·30日销量", "京东仓总库存 / 7·15·30日销量", "销量汇总 7 / 15 / 30日",
+    "生产周期 / 安全天数", "建议下单", "备货数量 / 下单剩余库存", "风险及原因", "创建备货计划", "操作"];
+  var NEW_COL = 10;
+  function n(v) { return v === null || v === undefined ? "—" : String(v); }
+  // 合成演示数据
+  var rows = [
+    { name: "合成演示商品A 静音落地扇", code: "DEMO-0001", spec: "白色 / 标准款", supplier: "演示供应商甲", op: "运营甲", buyer: "采购甲", stock: 320, transit: 200, out: [70, 150, 300], turnover: "32.0 天", age: 20, tmall: [25, [2, 5, 9]], jd: [55, [3, 6, 12]], all: [88, 190, 372], lead: 25, buffer: 7, order: "2026-11-02", plan: 500, remain: 120, risk: ["ok", "健康"], reason: "可售天数充足" },
+    { name: "合成演示商品B 桌面加湿器", code: "DEMO-0002", spec: "灰色 / 大容量", supplier: "演示供应商乙", op: "运营乙", buyer: "采购乙", stock: 40, transit: 0, out: [35, 80, 160], turnover: "7.5 天", age: 45, tmall: [10, [1, 3, 6]], jd: [8, [2, 4, 9]], all: [52, 118, 240], lead: 20, buffer: 7, order: "—", plan: null, remain: null, risk: ["urgent", "紧急补货"], reason: "销售周转不超过生产周期" },
+    { name: "合成演示商品C 便携风扇（长名称用于演示商品列换行效果）", code: "DEMO-0003", spec: "蓝色", supplier: "演示供应商甲", op: "运营甲", buyer: "采购甲", stock: 150, transit: 80, out: [20, 45, null], turnover: "待核算", age: 12, tmall: [0, [0, 0, null]], jd: [30, [1, 2, null]], all: [26, 60, null], lead: 30, buffer: 7, order: "—", plan: 200, remain: -5, risk: ["warn", "关注"], reason: "30日销量覆盖不足" },
+    { name: "合成演示商品D 车载香薰", code: "DEMO-0004", spec: "木质 / 10ml", supplier: "演示供应商丙", op: "运营丙", buyer: "采购丙", stock: 900, transit: 0, out: [0, 0, 0], turnover: "—", age: 90, tmall: [0, [0, 0, 0]], jd: [0, [0, 0, 0]], all: [0, 0, 0], lead: 15, buffer: 7, order: "—", plan: null, remain: null, risk: ["ok", "健康"], reason: "近期无销量" }
+  ];
+  document.getElementById("head").innerHTML = headers.map(function (t, i) {
+    return "<th" + (i === NEW_COL ? ' class="new-col"' : "") + ">" + t + "</th>";
+  }).join("");
+  document.getElementById("count").textContent = rows.length + " 条 · 第 1 / 1 页（合成演示数据）";
+  document.getElementById("body").innerHTML = rows.map(function (r) {
+    return "<tr>" +
+      "<td><strong>" + r.name + "</strong></td>" +
+      "<td><strong>" + r.code + "</strong><small class=\"note\">" + r.spec + "</small></td>" +
+      "<td>" + r.supplier + "<small class=\"note\">ERP档案</small></td>" +
+      "<td>" + r.op + "<small class=\"note\">型号设置</small></td>" +
+      "<td>" + r.buyer + "<small class=\"note\">型号设置</small></td>" +
+      "<td>" + n(r.stock) + "<small class=\"note\">在途 " + n(r.transit) + "</small></td>" +
+      "<td>" + r.out.map(n).join(" / ") + "</td>" +
+      "<td>" + r.turnover + "<small class=\"note\">库龄 " + r.age + " 天</small></td>" +
+      "<td>" + n(r.tmall[0]) + "<small class=\"note\">销量 " + r.tmall[1].map(n).join(" / ") + "</small></td>" +
+      "<td>" + n(r.jd[0]) + "<small class=\"note\">销量 " + r.jd[1].map(n).join(" / ") + "</small></td>" +
+      "<td class=\"new-col\" title=\"全部仓库正向出库合计，不含刷刷仓\">" + r.all.map(n).join(" / ") + "</td>" +
+      "<td>" + r.lead + " 天<small class=\"note\">安全 " + r.buffer + " 天 · 供应商设置</small></td>" +
+      "<td>" + r.order + "</td>" +
+      "<td>" + n(r.plan) + "<small class=\"note\">剩余 " + (r.remain === null ? "待核算" : r.remain) + "</small></td>" +
+      "<td><span class=\"tag " + r.risk[0] + "\">" + r.risk[1] + "</span><small class=\"note\">系统判定 · " + r.reason + "</small></td>" +
+      "<td>创建备货计划</td><td>编辑</td></tr>";
+  }).join("");
+})();
+</script>
+</body>
+</html>

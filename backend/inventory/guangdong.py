@@ -376,6 +376,8 @@ def _uncached_project_items(principal, watched):
         raise InventoryApiError("销售查询超过安全范围，未返回截断结果", status=503)
     channel_stock, key_categories = _channel_stock(latest, codes)
     channel_sales = {code: {channel: {7: 0, 15: 0, 30: 0} for channel in CHANNEL_CATEGORIES} for code in codes}
+    all_outbound = {code: {7: 0, 15: 0, 30: 0} for code in codes}
+    shuashua_key = _warehouse_key("刷刷仓")
     demand = {}
     seen = set()
     for row in sales.get("rows", []):
@@ -384,6 +386,9 @@ def _uncached_project_items(principal, watched):
             raise InventoryApiError("销售响应范围或业务键无效", status=503)
         seen.add((code, warehouse))
         if warehouse == _warehouse_key("广东仓"): demand[code] = row
+        if warehouse != shuashua_key:
+            for days in (7, 15, 30):
+                all_outbound[code][days] += int(row.get(f"sales{days}dQuantity") or 0)
         categories = key_categories.get(warehouse, set())
         for channel, target in CHANNEL_CATEGORIES.items():
             if categories == {target}:
@@ -441,6 +446,8 @@ def _uncached_project_items(principal, watched):
             item[f"{channel}StockQuantity"] = channel_stock[code][channel] if latest is not None else None
             for days in (7, 15, 30):
                 item[f"{channel}Outbound{days}dQuantity"] = channel_sales[code][channel][days] if covered(days) else None
+        for days in (7, 15, 30):
+            item[f"allOutbound{days}dQuantity"] = all_outbound[code][days] if covered(days) else None
         item.update(risk_fields(available=available, sales30=s30, lead=item["leadDays"], buffer=item["bufferDays"], snapshot=latest.snapshot_date if latest else None))
         if stale:
             item["riskReasons"].append("库存快照待更新，估算仅供参考")
@@ -520,7 +527,7 @@ def monitor(principal, options, *, export=False):
         "metrics": {"itemCount": len(filtered), "availableQuantity": sum(row["availableQuantity"] or 0 for row in filtered), "inTransitQuantity": sum(row["inTransitQuantity"] or 0 for row in filtered), "knownStockValueCents": sum(row["knownStockValueCents"] for row in filtered), "missingCostCount": sum(row["costMissing"] for row in filtered), "missingStockCount": sum(row["availableQuantity"] is None for row in filtered)},
         "pagination": {"page": page, "pageSize": size, "total": len(filtered), "totalPages": math.ceil(len(filtered) / size)},
         "items": displayed,
-        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "销售周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "库龄只取最新吉客云库龄表格中仓名精确为广东仓的记录。", "备货数量与最新下单日期取备货计划中同货品、同广东仓的最新非取消计划。", "下单剩余库存=备货数量−下单日期之后广东仓实物库存逐日正向增量之和；下降不抵扣，结果可为负。下单当日为基线，缺失每日快照时待核算；快照增量不等于入库流水。", "新增或增加正数备货量后按健康跟进，广东仓实物库存首次增加后恢复风险检测；库存下降不会重新开启旧备货周期。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。", "天猫仓（映射分类菜鸟仓）与京东仓总库存取最新吉客云库存快照中按仓库映射归类的全部仓库可用库存合计（不含刷刷仓）；7/15/30日销量为吉客云销售明细同类仓库正向出库合计，仅展示、不参与广东仓风险判定。"],
+        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "销售周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "库龄只取最新吉客云库龄表格中仓名精确为广东仓的记录。", "备货数量与最新下单日期取备货计划中同货品、同广东仓的最新非取消计划。", "下单剩余库存=备货数量−下单日期之后广东仓实物库存逐日正向增量之和；下降不抵扣，结果可为负。下单当日为基线，缺失每日快照时待核算；快照增量不等于入库流水。", "新增或增加正数备货量后按健康跟进，广东仓实物库存首次增加后恢复风险检测；库存下降不会重新开启旧备货周期。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。", "天猫仓（映射分类菜鸟仓）与京东仓总库存取最新吉客云库存快照中按仓库映射归类的全部仓库可用库存合计（不含刷刷仓）；7/15/30日销量为吉客云销售明细同类仓库正向出库合计，仅展示、不参与广东仓风险判定。", "销量汇总=全部仓库近7/15/30日正向出库合计，不含刷刷仓，仅供展示。"],
     }
     if version() != before or snapshot() != source_snapshot: _conflict()
     if export and options.get("version") != before: _conflict()
