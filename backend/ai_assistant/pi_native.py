@@ -792,8 +792,29 @@ def handoff_file(handoff_id, operation, principal):
     return {"id": handoff.id, "sizeBytes": source.size_bytes, **value}
 
 
+def _scheduler_principal(owner_email, actor_role, scope_json):
+    return Principal(owner_email, owner_email, actor_role, json.loads(scope_json))
+
+
+def _scheduler_precheck():
+    """Run each distinct root identity's background check once, outside the global lock."""
+    states = list(PiNativeState.objects.all()[:100])
+    roots = PiSession.objects.in_bulk([state.root_session_id for state in states])
+    keys = {(root.owner_email, root.actor_role, root.scope_json) for root in roots.values() if root.status != "frozen"}
+    allowed = {}
+    for key in keys:
+        try:
+            current_principal(_scheduler_principal(*key), write=True, background=True)
+            allowed[key] = True
+        except AiError:
+            allowed[key] = False
+    return allowed
+
+
 def scheduler_tick():
     """Wake durable sets and launch queued follow-ups without a model request."""
+    # Remote background identity checks must finish before taking the domain lock.
+    prechecked = _scheduler_precheck()
     with mutation():
         for state in PiNativeState.objects.select_for_update().all()[:100]:
             wake_waits(state)
@@ -802,8 +823,9 @@ def scheduler_tick():
                 continue
             root = PiSession.objects.get(pk=state.root_session_id)
             if root.status == "frozen": continue
+            if not prechecked.get((root.owner_email, root.actor_role, root.scope_json)): continue
             try:
-                current_principal(Principal(root.owner_email,root.owner_email,root.actor_role,json.loads(root.scope_json)),write=True,background=True)
+                current_principal(_scheduler_principal(root.owner_email, root.actor_role, root.scope_json),write=True)
             except AiError:
                 continue
             for target in _members(state).filter(lifecycle="open"):
