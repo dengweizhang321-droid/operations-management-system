@@ -136,6 +136,31 @@ class GuangdongTests(TestCase):
         for key in ("jdOutbound7dQuantity", "jdOutbound15dQuantity", "jdOutbound30dQuantity", "tmallOutbound7dQuantity", "tmallOutbound15dQuantity", "tmallOutbound30dQuantity"):
             self.assertIsNone(item[key], key)
 
+    def test_all_warehouse_outbound_summary_excludes_shuashua_and_is_display_only(self):
+        self.save_rows([{"productCode": "00123"}, {"productCode": "B"}])
+        self.batch(); self.add_channel_stock()
+        GuangdongSupplierCycle.objects.create(supplier="供应商甲", lead_days=10, updated_by="test")
+        with patch.object(gd, "_sales_query", return_value=self.sales()):
+            plain = {row["productCode"]: row for row in gd.monitor(self.principal, {})["items"]}
+        with patch.object(gd, "_sales_query", return_value=self.channel_sales()):
+            result = gd.monitor(self.principal, {})
+        items = {row["productCode"]: row for row in result["items"]}
+        item = items["00123"]
+        # 广东仓 70 + 欧洲站 7000 + 京东仓 1 + 京东28号库 2 + 京东23号库 4 + 菜鸟 5 + 未知仓 1000; 刷刷仓 100 excluded
+        self.assertEqual((item["allOutbound7dQuantity"], item["allOutbound15dQuantity"], item["allOutbound30dQuantity"]), (8082, 17175, 33347))
+        # no sales rows at all for B but window covered: 0, not None
+        self.assertEqual((items["B"]["allOutbound7dQuantity"], items["B"]["allOutbound15dQuantity"], items["B"]["allOutbound30dQuantity"]), (0, 0, 0))
+        # display only: risk and every 广东仓 field are identical to the run without the extra rows
+        for key in ("risk", "riskReasons", "turnoverDays", "latestOrderDate", "outbound7dQuantity", "outbound15dQuantity", "outbound30dQuantity"):
+            self.assertEqual(item[key], plain["00123"][key], key)
+        self.assertEqual((item["risk"], item["turnoverDays"]), ("urgent", 10))
+        self.assertTrue(any("销量汇总" in text and "不含刷刷仓" in text for text in result["disclosures"]))
+        # start = today - 10 days: 7d covered, 15d and 30d not
+        with patch.object(gd, "_sales_query", return_value=self.channel_sales() | {"dataStartDate": (self.today - timedelta(days=10)).isoformat()}):
+            short = {row["productCode"]: row for row in gd.monitor(self.principal, {})["items"]}
+        self.assertEqual((short["00123"]["allOutbound7dQuantity"], short["00123"]["allOutbound15dQuantity"], short["00123"]["allOutbound30dQuantity"]), (8082, None, None))
+        self.assertEqual((short["B"]["allOutbound7dQuantity"], short["B"]["allOutbound15dQuantity"], short["B"]["allOutbound30dQuantity"]), (0, None, None))
+
     def test_channel_fields_none_without_stock_batch(self):
         self.save_rows([{"productCode": "00123"}])
         with patch.object(gd, "_sales_query", return_value=self.channel_sales()):
