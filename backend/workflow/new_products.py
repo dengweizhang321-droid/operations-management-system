@@ -386,6 +386,7 @@ def list_projects(options: dict[str, object]) -> dict[str, object]:
 
     quick_summary = {
         "total": len(items),
+        "notStarted": sum(item["status"] == "not_started" for item in items),
         "inProgress": sum(item["status"] == "in_progress" for item in items),
         "blocked": sum(item["status"] == "blocked" for item in items),
         "completed": sum(item["status"] == "completed" for item in items),

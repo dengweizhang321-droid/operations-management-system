@@ -154,6 +154,7 @@ class WorkflowApiContractTests(TestCase):
             self.assertEqual(response.status_code, 200, response.content)
             self.assertEqual(response.json()["pagination"]["total"], 1)
             self.assertEqual(response.json()["quickSummary"]["total"], 2)
+            self.assertEqual(response.json()["quickSummary"]["notStarted"], 1)
             self.assertEqual(response.json()["items"][0]["id"], first["id"])
         url = "/api/workflow/launch-projects?overdue=invalid"
         self.assertEqual(self.client.get(url, headers=signed_headers(url)).status_code, 400)

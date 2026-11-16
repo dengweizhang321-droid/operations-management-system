@@ -88,7 +88,9 @@ def _stock(codes):
 def _channel_stock(latest, codes):
     """Raw available totals per product for 天猫仓/京东仓 in the latest stock batch.
 
-    Returns (totals, key_categories). totals[code][channel] sums every row whose
+    Returns (totals, key_categories, all_totals). all_totals[code] holds the
+    non-广东仓 available/in-transit sums over warehouses the mapping counts as
+    inventory (includeInInventory; 刷刷仓/代发仓 etc. excluded). totals[code][channel] sums every row whose
     warehouse classifies to the channel category (刷刷仓 excluded); key_categories
     maps the sales warehouse key to the set of categories sharing that key.
     """
@@ -100,23 +102,28 @@ def _channel_stock(latest, codes):
         if name.strip() != "刷刷仓":
             register(name, classify_warehouse(name, mapping=mapping).category)
     totals = {code: {channel: 0 for channel in CHANNEL_CATEGORIES} for code in codes}
+    all_totals = {code: {"available": 0, "in_transit": 0} for code in codes}
     if latest is None or not codes:
-        return totals, key_categories
+        return totals, key_categories, all_totals
     rows = (InventoryStockLine.objects.filter(batch_id=latest.id, product_code__in=codes)
             .exclude(warehouse="广东仓")
-            .only("product_code", "warehouse", "warehouse_type", "warehouse_category", "include_in_inventory", "available_quantity"))
+            .only("product_code", "warehouse", "warehouse_type", "warehouse_category", "include_in_inventory", "available_quantity", "in_transit_quantity"))
     for row in rows:
         if row.warehouse.strip() == "刷刷仓":
             continue
-        category = classify_warehouse(
+        classified = classify_warehouse(
             row.warehouse, stored_type=row.warehouse_type, stored_category=row.warehouse_category,
             stored_include_in_inventory=bool(row.include_in_inventory), mapping=mapping,
-        ).category
+        )
+        category = classified.category
+        if classified.include_in_inventory:
+            all_totals[row.product_code]["available"] += int(row.available_quantity)
+            all_totals[row.product_code]["in_transit"] += int(row.in_transit_quantity)
         register(row.warehouse, category)
         for channel, target in CHANNEL_CATEGORIES.items():
             if category == target:
                 totals[row.product_code][channel] += int(row.available_quantity)
-    return totals, key_categories
+    return totals, key_categories, all_totals
 
 
 def _ages(codes):
@@ -374,7 +381,8 @@ def _uncached_project_items(principal, watched):
         sales = _sales_query(principal, {"operation": "inventory_inbound_windows", "productCodes": codes, "asOfDate": None, "limit": 10000})
     if sales.get("truncated") is not False:
         raise InventoryApiError("销售查询超过安全范围，未返回截断结果", status=503)
-    channel_stock, key_categories = _channel_stock(latest, codes)
+    channel_stock, key_categories, all_stock = _channel_stock(latest, codes)
+    mapping = effective_mapping()
     channel_sales = {code: {channel: {7: 0, 15: 0, 30: 0} for channel in CHANNEL_CATEGORIES} for code in codes}
     all_outbound = {code: {7: 0, 15: 0, 30: 0} for code in codes}
     shuashua_key = _warehouse_key("刷刷仓")
@@ -446,6 +454,12 @@ def _uncached_project_items(principal, watched):
             item[f"{channel}StockQuantity"] = channel_stock[code][channel] if latest is not None else None
             for days in (7, 15, 30):
                 item[f"{channel}Outbound{days}dQuantity"] = channel_sales[code][channel][days] if covered(days) else None
+        gd_counted = row is not None and classify_warehouse(
+            row.warehouse, stored_type=row.warehouse_type, stored_category=row.warehouse_category,
+            stored_include_in_inventory=bool(row.include_in_inventory), mapping=mapping,
+        ).include_in_inventory
+        item["allStockQuantity"] = all_stock[code]["available"] + (int(row.available_quantity) if gd_counted else 0) if latest is not None else None
+        item["allInTransitQuantity"] = all_stock[code]["in_transit"] + (int(row.in_transit_quantity) if gd_counted else 0) if latest is not None else None
         for days in (7, 15, 30):
             item[f"allOutbound{days}dQuantity"] = all_outbound[code][days] if covered(days) else None
         item.update(risk_fields(available=available, sales30=s30, lead=item["leadDays"], buffer=item["bufferDays"], snapshot=latest.snapshot_date if latest else None))
@@ -527,7 +541,7 @@ def monitor(principal, options, *, export=False):
         "metrics": {"itemCount": len(filtered), "availableQuantity": sum(row["availableQuantity"] or 0 for row in filtered), "inTransitQuantity": sum(row["inTransitQuantity"] or 0 for row in filtered), "knownStockValueCents": sum(row["knownStockValueCents"] for row in filtered), "missingCostCount": sum(row["costMissing"] for row in filtered), "missingStockCount": sum(row["availableQuantity"] is None for row in filtered)},
         "pagination": {"page": page, "pageSize": size, "total": len(filtered), "totalPages": math.ceil(len(filtered) / size)},
         "items": displayed,
-        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "销售周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "库龄只取最新吉客云库龄表格中仓名精确为广东仓的记录。", "备货数量与最新下单日期取备货计划中同货品、同广东仓的最新非取消计划。", "下单剩余库存=备货数量−下单日期之后广东仓实物库存逐日正向增量之和；下降不抵扣，结果可为负。下单当日为基线，缺失每日快照时待核算；快照增量不等于入库流水。", "新增或增加正数备货量后按健康跟进，广东仓实物库存首次增加后恢复风险检测；库存下降不会重新开启旧备货周期。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。", "天猫仓（映射分类菜鸟仓）与京东仓总库存取最新吉客云库存快照中按仓库映射归类的全部仓库可用库存合计（不含刷刷仓）；7/15/30日销量为吉客云销售明细同类仓库正向出库合计，仅展示、不参与广东仓风险判定。", "销量汇总=全部仓库近7/15/30日正向出库合计，不含刷刷仓，仅供展示。"],
+        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "销售周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "库龄只取最新吉客云库龄表格中仓名精确为广东仓的记录。", "备货数量与最新下单日期取备货计划中同货品、同广东仓的最新非取消计划。", "下单剩余库存=备货数量−下单日期之后广东仓实物库存逐日正向增量之和；下降不抵扣，结果可为负。下单当日为基线，缺失每日快照时待核算；快照增量不等于入库流水。", "新增或增加正数备货量后按健康跟进，广东仓实物库存首次增加后恢复风险检测；库存下降不会重新开启旧备货周期。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。", "天猫仓（映射分类菜鸟仓）与京东仓总库存取最新吉客云库存快照中按仓库映射归类的全部仓库可用库存合计（不含刷刷仓）；7/15/30日销量为吉客云销售明细同类仓库正向出库合计，仅展示、不参与广东仓风险判定。", "库存 / 在途汇总=最新吉客云库存快照中按仓库映射计入库存的全部仓库（含广东仓；代发仓、刷刷仓等不计入库存的仓库除外）可用库存与在途合计，仅供展示。", "销量汇总=全部仓库近7/15/30日正向出库合计，不含刷刷仓，仅供展示。"],
     }
     if version() != before or snapshot() != source_snapshot: _conflict()
     if export and options.get("version") != before: _conflict()

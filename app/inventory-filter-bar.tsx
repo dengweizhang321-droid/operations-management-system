@@ -17,6 +17,7 @@ export type InventorySharedFilters = {
   healthStatuses: InventoryHealthStatus[];
   ageStatuses: InventoryAgeStatus[];
   ageBuckets: string[];
+  staleAgeBuckets: string[];
   suppliers: string[];
   planStatus: InventoryPlanStatus;
 };
@@ -46,6 +47,12 @@ const defaultAgeBucketOptions = [
   { value: "361+", label: "1 年以上" },
 ] as const;
 const inventoryAgeBucketKeys = defaultAgeBucketOptions.map((option) => option.value);
+export const staleDefaultAgeBuckets: readonly string[] = ["181-360", "361+"];
+export const allAgeBucketKeys: readonly string[] = defaultAgeBucketOptions.map((option) => option.value);
+export function effectiveAgeBuckets(tab: string, ageBuckets: string[], staleAgeBuckets: string[]): string[] {
+  if (tab !== "stale") return ageBuckets;
+  return staleAgeBuckets.length === 0 ? [...staleDefaultAgeBuckets] : staleAgeBuckets;
+}
 const cleanupAgeStatuses = new Set<InventoryAgeStatus>(["aged", "slow", "stagnant"]);
 
 const warehouseTypeOptions: SearchableSelectOption[] = [
@@ -85,6 +92,7 @@ const filterUrlKeys = [
   "inventoryHealthStatus",
   "inventoryAgeStatus",
   "inventoryAgeBucket",
+  "inventoryStaleAgeBucket",
   "inventorySupplier",
   "inventoryPlanStatus",
 ] as const;
@@ -98,6 +106,7 @@ export const emptyInventorySharedFilters = (): InventorySharedFilters => ({
   healthStatuses: [],
   ageStatuses: [],
   ageBuckets: [],
+  staleAgeBuckets: [],
   suppliers: [],
   planStatus: "",
 });
@@ -128,6 +137,7 @@ export function readInventorySharedFilters(input?: string | URL): InventoryShare
     healthStatuses: boundedSelections(params, "inventoryHealthStatus", inventoryHealthStatuses.length, inventoryHealthStatuses),
     ageStatuses: boundedSelections(params, "inventoryAgeStatus", inventoryAgeStatuses.length, inventoryAgeStatuses),
     ageBuckets: boundedSelections(params, "inventoryAgeBucket", inventoryAgeBucketKeys.length, inventoryAgeBucketKeys),
+    staleAgeBuckets: boundedSelections(params, "inventoryStaleAgeBucket", inventoryAgeBucketKeys.length, inventoryAgeBucketKeys),
     suppliers: boundedSelections(params, "inventorySupplier", 20),
     planStatus: inventoryPlanStatuses.includes(planStatus as ReplenishmentPlanItem["status"])
       ? planStatus as ReplenishmentPlanItem["status"]
@@ -147,6 +157,7 @@ export function writeInventorySharedFilters(filters: InventorySharedFilters, mod
   filters.healthStatuses.forEach((value) => url.searchParams.append("inventoryHealthStatus", value));
   filters.ageStatuses.forEach((value) => url.searchParams.append("inventoryAgeStatus", value));
   filters.ageBuckets.forEach((value) => url.searchParams.append("inventoryAgeBucket", value));
+  filters.staleAgeBuckets.forEach((value) => url.searchParams.append("inventoryStaleAgeBucket", value));
   filters.suppliers.forEach((value) => url.searchParams.append("inventorySupplier", value));
   if (filters.planStatus) url.searchParams.set("inventoryPlanStatus", filters.planStatus);
   window.history[mode === "push" ? "pushState" : "replaceState"](null, "", `${url.pathname}${url.search}${url.hash}`);
@@ -187,6 +198,9 @@ export default function InventoryFilterBar({
     onApply: () => onChange({ ...dimensions, productQuery: appliedFilters.productQuery }) });
   const patch = (next: Partial<InventorySharedFilters>) => setDraft({ ...dimensions, ...next });
   const usesAgeFilters = activeTab === "age" || activeTab === "stale";
+  const shownAgeBuckets = effectiveAgeBuckets(activeTab, filters.ageBuckets, filters.staleAgeBuckets);
+  const allStaleBucketsSelected = allAgeBucketKeys.every((key) => shownAgeBuckets.includes(key));
+  const setShownAgeBuckets = (buckets: string[]) => patch(activeTab === "stale" ? { staleAgeBuckets: buckets } : { ageBuckets: buckets });
   const ageBucketOptions = options.ageBuckets.length > 0 ? options.ageBuckets : defaultAgeBucketOptions;
   const applicableAgeStatuses = activeTab === "stale"
     ? filters.ageStatuses.filter((status) => cleanupAgeStatuses.has(status))
@@ -212,7 +226,7 @@ export default function InventoryFilterBar({
     || filters.categories.length > 0;
   const hasApplicableFilter = extraFilterActive || hasCommonFilter
     || (activeTab === "overview" && (filters.warehouseTypes.length > 0 || filters.healthStatuses.length > 0))
-    || (usesAgeFilters && (filters.ageBuckets.length > 0 || applicableAgeStatuses.length > 0))
+    || (usesAgeFilters && ((activeTab === "stale" ? filters.staleAgeBuckets.length > 0 : filters.ageBuckets.length > 0) || applicableAgeStatuses.length > 0))
     || ((activeTab === "inbound" || activeTab === "guangdong") && filters.suppliers.length > 0)
     || (activeTab === "plan" && Boolean(filters.planStatus));
   const resetApplicable = () => {
@@ -223,7 +237,7 @@ export default function InventoryFilterBar({
       categories: [],
       ...(activeTab === "overview" ? { warehouseTypes: [], healthStatuses: [] } : {}),
       ...(usesAgeFilters ? {
-        ageBuckets: [],
+        ...(activeTab === "stale" ? { staleAgeBuckets: [] } : { ageBuckets: [] }),
         ageStatuses: activeTab === "stale"
           ? filters.ageStatuses.filter((status) => !cleanupAgeStatuses.has(status))
           : [],
@@ -266,9 +280,10 @@ export default function InventoryFilterBar({
       </div>
     </div>
     {usesAgeFilters && <div className="inventory-shared-age-buckets" role="group" aria-label="库龄区间多选">
+      {activeTab === "stale" && <button type="button" className={allStaleBucketsSelected ? "selected" : ""} aria-pressed={allStaleBucketsSelected} onClick={() => setShownAgeBuckets(allStaleBucketsSelected ? [] : [...allAgeBucketKeys])}><i>{allStaleBucketsSelected ? "✓" : ""}</i><span>全部库龄</span></button>}
       {ageBucketOptions.map((bucket) => {
-        const selected = filters.ageBuckets.includes(bucket.value);
-        return <button type="button" key={bucket.value} className={selected ? "selected" : ""} aria-pressed={selected} onClick={() => patch({ ageBuckets: selected ? filters.ageBuckets.filter((value) => value !== bucket.value) : [...filters.ageBuckets, bucket.value] })}><i>{selected ? "✓" : ""}</i><span>{bucket.label}</span></button>;
+        const selected = shownAgeBuckets.includes(bucket.value);
+        return <button type="button" key={bucket.value} className={selected ? "selected" : ""} aria-pressed={selected} onClick={() => setShownAgeBuckets(selected ? shownAgeBuckets.filter((value) => value !== bucket.value) : [...shownAgeBuckets, bucket.value])}><i>{selected ? "✓" : ""}</i><span>{bucket.label}</span></button>;
       })}
     </div>}
     <AutomaticFilterFeedback pending={pending} textPending={text.pending} composing={automatic.composing} />

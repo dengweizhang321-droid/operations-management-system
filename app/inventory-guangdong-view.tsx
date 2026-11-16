@@ -225,7 +225,7 @@ export default function GuangdongInventoryView({ identity, canManage, filters, o
             <div className={styles.editorActions}><button className="primary-button" disabled={busy}>保存</button><small>周期留空继承供应商设置；负责人留空继承最新未取消备货计划；风险与原因都留空时恢复系统判定。</small></div>
           </form>
         </section>}
-        <section hidden={!dataState?.detail} style={dataState?.detail ? undefined : { display: "none" }} className="panel table-panel"><div className="table-toolbar"><h3>广东入仓型号明细</h3><span>{data.pagination.total} 条 · 第 {page} / {Math.max(1, data.pagination.totalPages)} 页</span></div><div className="data-table-wrap" aria-busy={loading}><table className={`data-table ${styles.detailTable}`}><thead><tr>{["商品", "规格编码", "供应商", "运营负责人", "采购负责人", "库存 / 在途", "7 / 15 / 30日出库", "销售周转 / 库龄", "天猫仓总库存 / 7·15·30日销量", "京东仓总库存 / 7·15·30日销量", "销量汇总 7 / 15 / 30日", "生产周期 / 安全天数", "建议下单", "备货数量 / 下单剩余库存", "风险及原因", "创建备货计划", "操作"].map((title) => <th key={title}>{title}</th>)}</tr></thead><tbody>{data.items.map((item) => <tr key={item.productCode}>
+        <section hidden={!dataState?.detail} style={dataState?.detail ? undefined : { display: "none" }} className="panel table-panel"><div className="table-toolbar"><h3>广东入仓型号明细</h3><span>{data.pagination.total} 条 · 第 {page} / {Math.max(1, data.pagination.totalPages)} 页</span></div><div className="data-table-wrap" aria-busy={loading}><table className={`data-table ${styles.detailTable}`}><thead><tr>{["商品", "规格编码", "供应商", "运营负责人", "采购负责人", "库存 / 在途", "7 / 15 / 30日出库", "销售周转 / 库龄", "天猫仓总库存 / 7·15·30日销量", "京东仓总库存 / 7·15·30日销量", "库存 / 在途汇总", "销量汇总 7 / 15 / 30日", "生产周期 / 安全天数", "建议下单", "备货数量 / 下单剩余库存", "风险及原因", "创建备货计划", "操作"].map((title) => <th key={title}>{title}</th>)}</tr></thead><tbody>{data.items.map((item) => <tr key={item.productCode}>
           <td><strong>{item.productName}</strong></td>
           <td><strong>{item.productCode}</strong><small className="cell-note">{item.specification || "无规格"}</small></td>
           <td>{item.supplier}<small className="cell-note">{item.supplierSource}</small></td>
@@ -236,6 +236,7 @@ export default function GuangdongInventoryView({ identity, canManage, filters, o
           <td>{daysText(item.turnoverDays)}<small className="cell-note">库龄 {numberText(item.inventoryAgeDays)} 天</small></td>
           <td>{numberText(item.tmallStockQuantity)}<small className="cell-note">销量 {numberText(item.tmallOutbound7dQuantity)} / {numberText(item.tmallOutbound15dQuantity)} / {numberText(item.tmallOutbound30dQuantity)}</small></td>
           <td>{numberText(item.jdStockQuantity)}<small className="cell-note">销量 {numberText(item.jdOutbound7dQuantity)} / {numberText(item.jdOutbound15dQuantity)} / {numberText(item.jdOutbound30dQuantity)}</small></td>
+          <td title="计入库存的全部仓库可用库存与在途合计">{numberText(item.allStockQuantity ?? null)}<small className="cell-note">在途 {numberText(item.allInTransitQuantity ?? null)}</small></td>
           <td title="全部仓库正向出库合计，不含刷刷仓">{numberText(item.allOutbound7dQuantity)} / {numberText(item.allOutbound15dQuantity)} / {numberText(item.allOutbound30dQuantity)}</td>
           <td>{item.leadDays === null ? "待设置" : `${item.leadDays} 天`}<small className="cell-note">安全 {item.bufferDays} 天 · {item.cycleSource}</small></td>
           <td>{item.latestOrderDate ?? "—"}</td>
@@ -243,7 +244,7 @@ export default function GuangdongInventoryView({ identity, canManage, filters, o
           <td className={styles.reason}><strong>{item.riskLabel}</strong><small className="cell-note">{item.riskSource} · {item.riskReasons.join("；") || "可售天数充足"}</small></td>
           <td>{canManage && onCreatePlan ? <button type="button" className="row-action" disabled={busy || planSaving || Boolean(planActionId)} onClick={() => onCreatePlan(item.productCode)}>{planActionId === item.productCode ? "正在读取…" : "创建备货计划"}</button> : "—"}</td>
           <td>{canManage ? <button className="row-action" aria-label={`${item.productCode}编辑型号设置`} disabled={busy} onClick={() => { setEditing(item); setEditingVersion(data.version); }}>编辑</button> : "—"}</td>
-        </tr>)}{data.items.length === 0 && <tr><td colSpan={17}>当前筛选没有监控结果。</td></tr>}</tbody></table></div><footer className="jd-sku-pagination"><button className="row-action" disabled={page <= 1 || loading} onClick={() => setPageState({ scope, page: page - 1 })}>上一页</button><button className="row-action" disabled={page >= data.pagination.totalPages || loading} onClick={() => setPageState({ scope, page: page + 1 })}>下一页</button></footer></section>
+        </tr>)}{data.items.length === 0 && <tr><td colSpan={18}>当前筛选没有监控结果。</td></tr>}</tbody></table></div><footer className="jd-sku-pagination"><button className="row-action" disabled={page <= 1 || loading} onClick={() => setPageState({ scope, page: page - 1 })}>上一页</button><button className="row-action" disabled={page >= data.pagination.totalPages || loading} onClick={() => setPageState({ scope, page: page + 1 })}>下一页</button></footer></section>
       </>}
     </>}
     </StableReadContent>
