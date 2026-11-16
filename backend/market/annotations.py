@@ -1156,6 +1156,27 @@ def _candidate_rows(category: str):
     ).order_by("-period_end", "rank", "id")
 
 
+def _month_candidate_rows(category: str, month: str):
+    """SKU ranking rows of one month, one row per identity, in _candidate_rows order.
+
+    _candidate_rows only offers each identity's LATEST row, so an identity that is
+    also present in a later month can never be planned for an earlier one.
+    """
+    rows = MarketRankingEntry.objects.filter(
+        category=category,
+        ranking_dimension="SKU",
+        period_end__gte=f"{month}-01",
+        period_end__lte=f"{month}-31",
+    ).defer("raw_json").order_by("-period_end", "rank", "id")
+    seen: set[tuple[str, str, str, str]] = set()
+    for row in rows.iterator(chunk_size=1_000):
+        identity = (row.category, row.scope, row.ranking_dimension, row.sku_code)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        yield row
+
+
 @transaction.atomic
 def _create_job(payload: dict[str, object], principal: Principal, *, owner_email: str | None = None) -> dict[str, object]:
     category = _text(payload.get("category"), "category", 200, required=True)
@@ -1175,7 +1196,14 @@ def _create_job(payload: dict[str, object], principal: Principal, *, owner_email
         raise _error("云端标注必须选择视觉模型")
     if executor == "local" and not local_model:
         raise _error("本地标注必须指定本地模型")
-    work_key = _digest(canonical_json({"category": category, "promptVersionId": prompt_id, "executor": executor, "modelId": model_id if executor == "cloud" else "", "localModelName": local_model if executor == "local" else ""}))
+    month = _text(payload.get("month") if payload.get("month") is not None else "", "month", 7)
+    if month and not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", month):
+        raise _error("month 必须是 YYYY-MM 格式")
+    work_key_fields = {"category": category, "promptVersionId": prompt_id, "executor": executor, "modelId": model_id if executor == "cloud" else "", "localModelName": local_model if executor == "local" else ""}
+    if month:
+        # Month-scoped jobs must never be reused as (or reuse) the all-months job.
+        work_key_fields["month"] = month
+    work_key = _digest(canonical_json(work_key_fields))
     existing = MarketAnnotationJob.objects.filter(work_key=work_key, status__in=["queued", "running", "failed"]).first()
     if existing:
         existing = _locked_job(existing.id)
@@ -1183,7 +1211,8 @@ def _create_job(payload: dict[str, object], principal: Principal, *, owner_email
         if existing.status in {"queued", "running", "failed"}:
             return {**_job_value(existing), "reused": True}
     job_id = f"market-annotation-job-{uuid.uuid4()}"
-    items = build_job_items(_candidate_rows(category), prompt, job_id, model_id=model_id, executor=executor, local_model_name=local_model, limit=limit)
+    candidates = _month_candidate_rows(category, month) if month else _candidate_rows(category)
+    items = build_job_items(candidates, prompt, job_id, model_id=model_id, executor=executor, local_model_name=local_model, limit=limit)
     job = MarketAnnotationJob.objects.create(
         id=job_id,
         category=category,

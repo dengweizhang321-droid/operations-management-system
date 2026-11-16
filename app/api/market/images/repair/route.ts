@@ -69,13 +69,31 @@ export async function POST(request: Request) {
     const body = await readBoundedJsonObject(
       request,
       MARKET_IMAGE_REPAIR_BODY_BYTES_MAX,
-    ) as { repairs?: MarketImageRepairMapping[]; fills?: MarketImageFillMapping[] };
+    ) as {
+      repairs?: MarketImageRepairMapping[];
+      fills?: MarketImageFillMapping[];
+      syncSnapshotImages?: { months?: unknown; dryRun?: unknown; limit?: unknown };
+    };
     if (body.fills !== undefined && body.repairs !== undefined) {
       throw new PublicApiError(400, "invalid_request", "repairs 与 fills 不能同时提交");
     }
-    const command = body.fills !== undefined
-      ? { action: "fill_missing_images", fills: body.fills }
-      : { action: "apply_image_repairs", repairs: body.repairs ?? [] };
+    if (body.syncSnapshotImages !== undefined && (body.fills !== undefined || body.repairs !== undefined)) {
+      throw new PublicApiError(400, "invalid_request", "syncSnapshotImages 不能与 repairs、fills 同时提交");
+    }
+    const sync = body.syncSnapshotImages;
+    if (sync !== undefined && (sync === null || typeof sync !== "object" || Array.isArray(sync))) {
+      throw new PublicApiError(400, "invalid_request", "syncSnapshotImages 必须是对象");
+    }
+    const command = sync !== undefined
+      ? {
+          action: "sync_snapshot_images_from_ranking",
+          months: sync.months,
+          dryRun: sync.dryRun,
+          limit: sync.limit,
+        }
+      : body.fills !== undefined
+        ? { action: "fill_missing_images", fills: body.fills }
+        : { action: "apply_image_repairs", repairs: body.repairs ?? [] };
     const result = await requestDjangoMarketService<{
       ok: boolean;
       result: Record<string, unknown>;
