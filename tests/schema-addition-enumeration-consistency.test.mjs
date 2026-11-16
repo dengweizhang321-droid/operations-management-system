@@ -57,6 +57,8 @@ const MIN = {
   backupGenerations: 13,
   backupCatalogs: 14,
   publishList: 6,
+  psAllowed: 17, // 138,139,140,142,143,146-154,156,158,159
+  psFinance: 15, // 140,142,143,146-154,156,158,159
 };
 
 // 关系 6（Pi 运行账本权限清单）的显式例外表：kind -> 原因与证据位置（必须是非空文字）。
@@ -178,6 +180,7 @@ function snapshot() {
     gate: readRepo('tools/integration_release_gate.py'),
     backup: readRepo('tools/postgres_no_key_backup.py'),
     publish: readRepo('tools/publish-prepared-main.mjs'),
+    maintenance: readRepo('tools/django-postgres-maintenance.ps1'),
   };
 }
 
@@ -323,6 +326,24 @@ function extractPublish(s) {
   const items = [...s.publish.slice(open, at).matchAll(/'([A-Za-z0-9_]+)'/g)].map((m) => m[1]);
   atLeast('publish-prepared-main.mjs 运行账本权限清单', items.length, MIN.publishList);
   return items;
+}
+
+/**
+ * tools/django-postgres-maintenance.ps1 的无新增密钥备份闸：
+ * Assert-MaintenanceNoKeyGeneration 的允许代际清单（`$generation -cnotin @(138,...)` 那一行的第一个清单），
+ * 以及 Assert-MaintenanceEvidence 里要求 finance_erp_targets 表的清单。
+ */
+function extractPsGate(s) {
+  const allowedMatch = s.maintenance.match(/[(][$]generation -cnotin @[(]([0-9,]+)[)][)]/);
+  assert.ok(allowedMatch && allowedMatch[1].startsWith('138,'), 'django-postgres-maintenance.ps1: 找不到 $generation -cnotin @(138, 允许代际清单');
+  const financeMatch = s.maintenance.match(/if [(][$]generation -cin @[(]([0-9,]+)[)][)] [{] [$]requiredTables [+]= 'finance_erp_targets' [}]/);
+  assert.ok(financeMatch, 'django-postgres-maintenance.ps1: 找不到 finance_erp_targets 代际清单');
+  const toNumbers = (text) => text.split(',').map(Number);
+  const allowed = toNumbers(allowedMatch[1]);
+  const finance = toNumbers(financeMatch[1]);
+  atLeast('django-postgres-maintenance.ps1 允许代际清单', allowed.length, MIN.psAllowed);
+  atLeast('django-postgres-maintenance.ps1 finance_erp_targets 清单', finance.length, MIN.psFinance);
+  return {allowed, finance};
 }
 
 // ---------------------------------------------------------------- 关系检查（纯函数）
@@ -582,6 +603,25 @@ export function checkProvisionList(s, exceptions = PROVISION_LIST_EXCEPTIONS) {
 }
 
 /**
+ * 关系 8：main-schema-release.mjs 里每个 toGeneration，必须出现在
+ * tools/django-postgres-maintenance.ps1 备份闸的允许代际清单，以及 finance_erp_targets 清单里。
+ * 漏掉任何一处，生产在该代际上的每日无新增密钥备份会在转储之后以「代际未获核验」失败。
+ */
+export function checkPsBackupGate(s) {
+  const v = [];
+  const {allowed, finance} = extractPsGate(s);
+  for (const to of [...new Set(s.specs.map((x) => x.to))].sort((a, b) => a - b)) {
+    if (!allowed.includes(to)) {
+      v.push('generation' + to + ': 是 tools/main-schema-release.mjs 的 toGeneration，但不在 tools/django-postgres-maintenance.ps1 Assert-MaintenanceNoKeyGeneration 的允许代际清单。补：把 ' + to + ' 加进该清单及其全部累计 -cin/-cnotin 清单，并为本代迁移加计数器与条件');
+    }
+    if (!finance.includes(to)) {
+      v.push('generation' + to + ': 不在 tools/django-postgres-maintenance.ps1 的 finance_erp_targets 代际清单（$requiredTables 那一行）。补：把 ' + to + ' 加进该清单');
+    }
+  }
+  return v;
+}
+
+/**
  * 关系 7：三条「第一个存在的标记命中就返回」的分支链（integration_release_gate.py 的 verify_release、
  * verify_database_complete，django-local-service.ps1 的 Assert-NoUnapprovedProtectedAiMigration）的顺序与配对。
  * 标记文件永久累积，所以最新一代必须排在最前。
@@ -634,7 +674,7 @@ export function checkChainOrder(s) {
   return v;
 }
 
-const RELATIONS = {checkRecipes, checkFiles, checkChain, checkBiAdopt, checkLocalService, checkGate, checkDigest, checkBackup, checkProvisionList, checkChainOrder};
+const RELATIONS = {checkRecipes, checkFiles, checkChain, checkBiAdopt, checkLocalService, checkGate, checkDigest, checkBackup, checkProvisionList, checkChainOrder, checkPsBackupGate};
 
 // ---------------------------------------------------------------- 测试
 
@@ -700,6 +740,7 @@ test('提取数量不低于实测下限（a264880f）', () => {
   extractDigest(s);
   extractBackup(s);
   extractPublish(s);
+  extractPsGate(s);
   floorLog.push({label: 'config/main-schema-releases recipe 文件', size: s.recipeFiles.length, min: MIN.recipeFiles});
   assert.ok(floorLog.length >= 15, '下限记录本身应有足够多项，实际 ' + floorLog.length);
   const low = floorLog.filter((x) => x.size < x.min).map((x) => x.label + ': ' + x.size + ' < ' + x.min);
@@ -707,8 +748,8 @@ test('提取数量不低于实测下限（a264880f）', () => {
 });
 
 test('提取器遇到空文本必须失败而不是返回空集合', () => {
-  const empty = {...s, biAdopt: '', local: '', gate: '', digest: '', backup: '', publish: ''};
-  for (const [name, fn] of [['bi', extractBi], ['local', extractLocal], ['gate', extractGate], ['digest', extractDigest], ['backup', extractBackup], ['publish', extractPublish]]) {
+  const empty = {...s, biAdopt: '', local: '', gate: '', digest: '', backup: '', publish: '', maintenance: ''};
+  for (const [name, fn] of [['bi', extractBi], ['local', extractLocal], ['gate', extractGate], ['digest', extractDigest], ['backup', extractBackup], ['publish', extractPublish], ['psGate', extractPsGate]]) {
     assert.throws(() => fn(empty), undefined, name + ' 对空文本没有失败');
   }
   assert.throws(() => parseFinite('', release));
@@ -968,4 +1009,26 @@ test('反向 4c：automation/ 逐文件复制清单缺项；未知前缀必须�
 test('反向 3b：$biApplicationName 链每个 finite[] 代际都有分支', () => {
   const branch = "elseif($biRequest.AdditionKind -ceq 'PiNative'){'teruisi_pi_native_schema_append'}";
   only(checkBiAdopt({...s, biAdopt: removeNth(s.biAdopt, branch)}), 'PiNative', 'biApplicationName');
+});
+
+test('反向 8：备份闸允许清单或 finance_erp_targets 清单漏掉某个 toGeneration', () => {
+  const allowedHead = '($generation -cnotin @(138,139,140,142,143,146,147,148,149,150,151,152,153,154,156,158,159)';
+  const financeLine = "if ($generation -cin @(140,142,143,146,147,148,149,150,151,152,153,154,156,158,159)) { $requiredTables += 'finance_erp_targets' }";
+  assert.ok(s.maintenance.includes(allowedHead), '反向用例找不到允许代际清单原文');
+  assert.ok(s.maintenance.includes(financeLine), '反向用例找不到 finance_erp_targets 清单原文');
+  // 只从允许清单删最新代：恰好报这一条。
+  const noAllowed = replaceNth(s.maintenance, allowedHead, allowedHead.replace(',159)', ')'));
+  only(checkPsBackupGate({...s, maintenance: noAllowed}), 'generation159', '允许代际清单', 'django-postgres-maintenance.ps1');
+  // 只从 finance 清单删最新代。
+  const noFinance = replaceNth(s.maintenance, financeLine, financeLine.replace(',159)', ')'));
+  only(checkPsBackupGate({...s, maintenance: noFinance}), 'generation159', 'finance_erp_targets');
+  // 回到原始 HEAD 的写法（清单止于 154）：必须报出 156、158、159 在两处都缺。
+  const old = replaceNth(replaceNth(s.maintenance, allowedHead, allowedHead.replace(',156,158,159)', ')')), financeLine, financeLine.replace(',156,158,159)', ')'));
+  const violations = checkPsBackupGate({...s, maintenance: old});
+  assert.equal(violations.length, 6, JSON.stringify(violations));
+  for (const to of [156, 158, 159]) {
+    hit(violations, 'generation' + to, '允许代际清单');
+    hit(violations, 'generation' + to, 'finance_erp_targets');
+  }
+  assert.deepEqual(checkPsBackupGate(s), []);
 });
