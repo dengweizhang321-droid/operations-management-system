@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 import secrets
 import uuid
 from datetime import timedelta
@@ -513,6 +514,143 @@ def _repairs(payload: dict[str, object], principal: Principal) -> dict[str, obje
     return {"updated": changed, "queued": changed}
 
 
+SNAPSHOT_IMAGE_CHUNK = 500
+SNAPSHOT_CACHE_CHUNK = 500
+SYNC_MAX_LIMIT = 5_000
+SYNC_MAX_MONTHS = 6
+SYNC_SAMPLE_SIZE = 20
+SYNC_SOURCE_CHUNK = 2_000
+MONTH_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+
+SnapshotImagePair = tuple[str, str, str, str, "str | None", str]
+
+
+def _chunks(values: list, size: int):
+    for start in range(0, len(values), size):
+        yield values[start : start + size]
+
+
+def _snapshot_predicate(keys: list[tuple]) -> Q:
+    """Exact snapshot identities (optionally one month) as a few SKU IN groups.
+
+    Grouping by (category, scope, dimension, month) keeps the predicate small and
+    lets the database use the unique identity index instead of scanning.
+    """
+    groups: dict[tuple, list[str]] = {}
+    for category, scope, dimension, sku, month in keys:
+        groups.setdefault((category, scope, dimension, month), []).append(sku)
+    predicate = Q(pk__in=[])
+    for (category, scope, dimension, month), skus in groups.items():
+        clause = Q(category=category, scope=scope, ranking_dimension=dimension, sku_code__in=skus)
+        if month is not None:
+            clause &= Q(month=month)
+        predicate |= clause
+    return predicate
+
+
+def _fill_snapshot_images(
+    pairs: list[SnapshotImagePair],
+    *,
+    write: bool = True,
+    limit: int | None = None,
+) -> dict[str, object]:
+    """Fill-empty-only copy of a ranking image onto price snapshots.
+
+    pairs are (category, scope, ranking_dimension, sku_code, month | None, url);
+    month None means every month of that identity.  Per matching snapshot:
+    - empty image_url  -> write the URL (and the hash if its cache is ready);
+    - same URL, empty hash, READY cache with a hash -> write only the hash;
+    - a different non-empty URL -> counted as a conflict and left alone.
+    Only image_url, image_content_sha256 and updated_at are ever written; price,
+    AI and confirmation fields are never touched.  Every write is guarded by the
+    values that were read, so a concurrent change turns it into a no-op.
+    Snapshots that need nothing written are not plans, so a second run is a no-op.
+    """
+    wanted: dict[tuple, str] = {}
+    for category, scope, dimension, sku, month, url in pairs:
+        wanted[(category, scope, dimension, sku, month)] = url
+    keys = sorted(wanted, key=lambda key: (key[0], key[1], key[2], key[3], key[4] or ""))
+    snapshots: list[MarketPriceSnapshot] = []
+    for chunk in _chunks(keys, SNAPSHOT_IMAGE_CHUNK):
+        snapshots.extend(MarketPriceSnapshot.objects.filter(_snapshot_predicate(chunk)))
+    ready: dict[str, str] = {}
+    for chunk in _chunks(sorted(set(wanted.values())), SNAPSHOT_CACHE_CHUNK):
+        ready.update(
+            MarketImageCache.objects.filter(source_url__in=chunk, status="ready")
+            .exclude(content_sha256="")
+            .values_list("source_url", "content_sha256")
+        )
+    conflicts = 0
+    hash_pending = 0
+    plans: list[dict[str, object]] = []
+    for snapshot in snapshots:
+        identity = (snapshot.category, snapshot.scope, snapshot.ranking_dimension, snapshot.sku_code)
+        pair = (*identity, snapshot.month) if (*identity, snapshot.month) in wanted else (*identity, None)
+        url = wanted.get(pair)
+        if url is None:
+            continue
+        if snapshot.image_url == "":
+            kind = "filled"
+        elif snapshot.image_url == url:
+            kind = "hashed"
+        else:
+            conflicts += 1
+            continue
+        new_hash = snapshot.image_content_sha256 or ready.get(url, "")
+        if kind == "hashed" and new_hash == snapshot.image_content_sha256:
+            if not snapshot.image_content_sha256:
+                hash_pending += 1
+            continue
+        plans.append({"snapshot": snapshot, "kind": kind, "url": url, "sha": new_hash, "pair": pair})
+    plans.sort(key=lambda plan: (
+        plan["snapshot"].category, plan["snapshot"].scope, plan["snapshot"].ranking_dimension,
+        plan["snapshot"].sku_code, plan["snapshot"].month))
+    candidates = len(plans)
+    if limit is not None:
+        plans = plans[:limit]
+    filled = hashed = 0
+    changes: list[dict[str, object]] = []
+    written_pairs: dict[tuple, int] = {}
+    not_ready: set[str] = set()
+    samples: list[dict[str, object]] = []
+    for plan in plans:
+        snapshot = plan["snapshot"]
+        if len(samples) < SYNC_SAMPLE_SIZE:
+            samples.append({
+                "category": snapshot.category, "scope": snapshot.scope, "rankingDimension": snapshot.ranking_dimension,
+                "skuCode": snapshot.sku_code, "month": snapshot.month, "kind": plan["kind"],
+                "imageUrl": plan["url"], "hashReady": bool(plan["sha"]),
+            })
+        if not write:
+            continue
+        updated = MarketPriceSnapshot.objects.filter(
+            id=snapshot.id, image_url=snapshot.image_url, image_content_sha256=snapshot.image_content_sha256
+        ).update(image_url=plan["url"], image_content_sha256=plan["sha"], updated_at=timezone.now())
+        if not updated:
+            continue
+        changes.append({"id": snapshot.id, "imageUrl": snapshot.image_url, "imageContentSha256": snapshot.image_content_sha256})
+        written_pairs[plan["pair"]] = written_pairs.get(plan["pair"], 0) + 1
+        if plan["kind"] == "filled":
+            filled += 1
+        else:
+            hashed += 1
+        if not plan["sha"]:
+            not_ready.add(plan["url"])
+    return {
+        "candidates": candidates,
+        "processed": len(plans),
+        "remaining": candidates - len(plans),
+        "filled": filled,
+        "hashed": hashed,
+        "conflicts": conflicts,
+        "hashPending": hash_pending,
+        "notReady": sorted(not_ready),
+        "changes": changes,
+        "writtenPairs": written_pairs,
+        "samples": samples,
+    }
+
+
 MAX_FILLS = 1_000
 
 
@@ -551,20 +689,27 @@ def _fill_missing_images(payload: dict[str, object], principal: Principal) -> di
     filled_url_set: set[str] = set()
     now = timezone.now()
     with transaction.atomic():
+        entry_updates: dict[tuple[str, str, str, str], int] = {}
         for category, scope, dimension, sku, image_url in normalized:
             rows = MarketRankingEntry.objects.filter(
                 category=category, scope=scope, ranking_dimension=dimension, sku_code=sku, image_url=""
             )
-            updated = rows.update(image_url=image_url, updated_at=now)
-            snapshot_updated = MarketPriceSnapshot.objects.filter(
-                category=category, scope=scope, ranking_dimension=dimension, sku_code=sku, image_url=""
-            ).update(image_url=image_url, updated_at=now)
+            entry_updates[(category, scope, dimension, sku)] = rows.update(image_url=image_url, updated_at=now)
+        # Snapshots go through the shared fill-empty-only helper so a URL whose
+        # cache is already ready also gets its content hash right away.
+        snapshot_result = _fill_snapshot_images(
+            [(category, scope, dimension, sku, None, image_url) for category, scope, dimension, sku, image_url in normalized]
+        )
+        written = snapshot_result["writtenPairs"]
+        for category, scope, dimension, sku, image_url in normalized:
+            updated = entry_updates[(category, scope, dimension, sku)]
+            snapshot_updated = written.get((category, scope, dimension, sku, None), 0)
             if not updated and not snapshot_updated:
                 skipped += 1
             else:
                 filled_url_set.add(image_url)
             entries_filled += updated
-            snapshots_filled += snapshot_updated
+        snapshots_filled = int(snapshot_result["filled"])
         job_id = ""
         if entries_filled or snapshots_filled:
             scope_key = f"fill:{uuid.uuid4()}"
@@ -601,6 +746,99 @@ def _fill_missing_images(payload: dict[str, object], principal: Principal) -> di
     }
 
 
+def _sync_snapshot_images_from_ranking(payload: dict[str, object], principal: Principal) -> dict[str, object]:
+    """Copy same-identity, same-month ranking images onto empty price snapshots.
+
+    Fill-empty-only (see _fill_snapshot_images): prices, AI and confirmation
+    state are never touched.  Bounded by `limit` snapshots per call; callers loop
+    until `remaining` is 0.  dryRun reads only.
+    """
+    months = payload.get("months")
+    if not isinstance(months, list) or not 1 <= len(months) <= SYNC_MAX_MONTHS:
+        raise _error(f"months 必须是 1–{SYNC_MAX_MONTHS} 个 YYYY-MM 月份的数组")
+    for month in months:
+        if not isinstance(month, str) or not MONTH_PATTERN.fullmatch(month):
+            raise _error("months 必须是 YYYY-MM 格式")
+    if len(set(months)) != len(months):
+        raise _error("months 包含重复月份")
+    dry_run = payload.get("dryRun", False)
+    if not isinstance(dry_run, bool):
+        raise _error("dryRun 必须是布尔值")
+    limit = _integer(payload.get("limit"), "limit", SYNC_MAX_LIMIT, 1, SYNC_MAX_LIMIT)
+    months = sorted(months)
+
+    month_filter = Q(pk__in=[])
+    for month in months:
+        month_filter |= Q(period_end__gte=f"{month}-01", period_end__lte=f"{month}-31")
+    # Newest row first, so the first URL seen for an identity+month is the one
+    # that wins; a different URL in an older row of the same group is a conflict.
+    source: dict[tuple[str, str, str, str, str], str] = {}
+    source_conflicts: set[tuple[str, str, str, str, str]] = set()
+    rows = (
+        MarketRankingEntry.objects.filter(month_filter, image_url__startswith="https://")
+        .order_by("-period_end", "-id")
+        .values_list("category", "scope", "ranking_dimension", "sku_code", "period_end", "image_url")
+    )
+    for category, scope, dimension, sku, period_end, image_url in rows.iterator(chunk_size=SYNC_SOURCE_CHUNK):
+        key = (category, scope, dimension, sku, period_end[:7])
+        if key not in source:
+            source[key] = image_url
+        elif source[key] != image_url:
+            source_conflicts.add(key)
+    pairs = [(*key, url) for key, url in source.items() if key not in source_conflicts]
+
+    with transaction.atomic():
+        result = _fill_snapshot_images(pairs, write=not dry_run, limit=limit)
+        changes = result.pop("changes")
+        result.pop("writtenPairs")
+        written = int(result["filled"]) + int(result["hashed"])
+        job_id = ""
+        if not dry_run and written:
+            not_ready = list(result["notReady"])
+            if not_ready:
+                # Same pattern as _fill_missing_images: seed exactly these URLs and
+                # skip discovery; _complete_claim writes the hash once cached.
+                job = MarketImageCacheJob.objects.create(
+                    id=f"market-image-cache-{uuid.uuid4()}",
+                    scope_key=f"snapshot-sync:{uuid.uuid4()}",
+                    batch_id="",
+                    status="queued",
+                    requested_by=principal.email.lower(),
+                    discovery_complete=True,
+                    discovered_count=len(not_ready),
+                )
+                MarketImageCacheJobItem.objects.bulk_create(
+                    [MarketImageCacheJobItem(job_id=job.id, source_url=url) for url in not_ready]
+                )
+                job_id = job.id
+            summary = {
+                "months": months,
+                "filled": result["filled"],
+                "hashed": result["hashed"],
+                "conflicts": result["conflicts"] + len(source_conflicts),
+                "notReadyUrls": len(not_ready),
+                "jobId": job_id,
+            }
+            _audit(
+                principal,
+                "sync_market_snapshot_images",
+                job_id or f"snapshot-sync-{uuid.uuid4()}",
+                {"snapshots": changes},
+                summary,
+            )
+            bump_revision({"kind": "snapshot_image_sync", "filled": result["filled"], "hashed": result["hashed"]})
+    result["notReadyUrls"] = len(result.pop("notReady"))
+    result["conflicts"] = int(result["conflicts"]) + len(source_conflicts)
+    result.update({
+        "months": months,
+        "dryRun": dry_run,
+        "limit": limit,
+        "sourceIdentities": len(source),
+        "jobId": job_id,
+    })
+    return result
+
+
 def execute_image_command(payload: dict[str, object], principal: Principal) -> object:
     action = payload.get("action")
     if action == "create_image_cache_job":
@@ -615,4 +853,6 @@ def execute_image_command(payload: dict[str, object], principal: Principal) -> o
         return _repairs(payload, principal)
     if action == "fill_missing_images":
         return _fill_missing_images(payload, principal)
+    if action == "sync_snapshot_images_from_ranking":
+        return _sync_snapshot_images_from_ranking(payload, principal)
     raise _error("不支持的市场图片操作")

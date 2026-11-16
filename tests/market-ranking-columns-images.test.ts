@@ -139,6 +139,15 @@ test("repair route exposes fill candidates and the fill command without changing
   assert.match(route, /图片修复清单模式无效/);
 });
 
+test("repair route passes the snapshot image sync command through as an admin-only images command", async () => {
+  const route = await readFile(new URL("../app/api/market/images/repair/route.ts", import.meta.url), "utf8");
+  assert.match(route, /requireAppPrincipal\(\["admin"\]\);\s*requireUnrestrictedDataScope\(principal, "市场商品图片修复", "修改"\)/);
+  assert.match(route, /action: "sync_snapshot_images_from_ranking",\s*months: sync\.months,\s*dryRun: sync\.dryRun,\s*limit: sync\.limit/);
+  assert.match(route, /domain: "images"/);
+  assert.match(route, /syncSnapshotImages 不能与 repairs、fills 同时提交/);
+  assert.match(route, /syncSnapshotImages 必须是对象/);
+});
+
 test("ranking table renames sales, adds the order columns and keeps the empty-row span equal to the header count", async () => {
   const view = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
   const table = view.slice(view.indexOf("function RankingTable"), view.indexOf("function TrendDrawer"));
