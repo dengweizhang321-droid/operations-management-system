@@ -31,11 +31,24 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          # Pinned, not "3.x": the schema digest step installs the repository's
+          # exact psycopg[binary]==3.3.4 pin, whose wheels stop at cp314. Since
+          # "3.x" moved to 3.15 (by 2026-10-31) that pip install failed on every
+          # run, so the digest gate itself never executed in CI.
+          python-version: "3.14"
 
       - name: Install dependencies
         id: install
         run: npm ci
+
+      - name: Apply xlsx CVE-2023-30533 patch
+        # Since e49d21d4 (2026-10-28) this patch is no longer wired to
+        # postinstall: package.json is a guard-pinned Worker entrypoint, so it
+        # is run by hand after every npm install. CI must do the same, or the
+        # curated unit tests check an unpatched node_modules. The patcher is
+        # hash-locked to xlsx 0.18.5 and refuses any other bytes.
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: node tools/install-xlsx-prototype-patch.mjs
 
       - name: Lint (baseline-gated)
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
