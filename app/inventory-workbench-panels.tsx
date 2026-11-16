@@ -119,7 +119,7 @@ export function InventoryStalePlaybookPanel({ metrics, hasAgeSales }: { metrics:
   ];
 
   return <section className="panel inventory-stale-playbook" aria-labelledby="inventory-stale-playbook-title">
-    <header className="inventory-workbench-heading"><div><span className="eyebrow">CLEANUP PLAYBOOK</span><h2 id="inventory-stale-playbook-title">清理策略与执行闭环</h2><p>先区分风险，再把清理方案、负责人和复盘证据落到运营事项。</p></div><span className="soft-tag">不自动修改库存</span></header>
+    <header className="inventory-workbench-heading"><div><span className="eyebrow">CLEANUP PLAYBOOK</span><h2 id="inventory-stale-playbook-title">清理策略与执行闭环</h2><p>先区分风险，再把清理方案、负责人和复盘证据落到运营事项。下列数字按当前库龄区间统计。</p></div><span className="soft-tag">不自动修改库存</span></header>
     <div className="inventory-playbook-grid">{cards.map((card) => <article className={`tone-${card.tone}`} key={card.label}><span>{card.label}</span><strong>{card.value}</strong><p>{card.note}</p></article>)}</div>
     <div className="inventory-cleanup-rail">{stages.map(([index, label, note]) => <article key={index}><i>{index}</i><div><strong>{label}</strong><p>{note}</p></div></article>)}</div>
   </section>;

@@ -155,6 +155,15 @@ class GuangdongTests(TestCase):
             self.assertEqual(item[key], plain["00123"][key], key)
         self.assertEqual((item["risk"], item["turnoverDays"]), ("urgent", 10))
         self.assertTrue(any("销量汇总" in text and "不含刷刷仓" in text for text in result["disclosures"]))
+        # stock/in-transit summary: 广东仓 100 + 欧洲站 999 + 京东仓 999 + 40 + 15 + 25 = 2178; 刷刷仓 500 excluded
+        self.assertEqual((item["allStockQuantity"], item["allInTransitQuantity"]), (2178, 3000))
+        self.assertEqual((items["B"]["allStockQuantity"], items["B"]["allInTransitQuantity"]), (0, 1000))
+        self.assertTrue(any("库存 / 在途汇总" in text and "含广东仓" in text and "刷刷仓" in text for text in result["disclosures"]))
+        # 不计入库存的仓库（代发仓，includeInInventory=false）有库存也不计入
+        InventoryStockLine.objects.create(batch_id="gd-stock", row_key="00123代发测试仓", source_row_number=1, snapshot_date=self.today, warehouse="某代发测试仓", warehouse_category="dropship", include_in_inventory=False, product_code="00123", available_quantity=777, in_transit_quantity=333)
+        with patch.object(gd, "_sales_query", return_value=self.channel_sales()):
+            excluded = {row["productCode"]: row for row in gd.monitor(self.principal, {})["items"]}
+        self.assertEqual((excluded["00123"]["allStockQuantity"], excluded["00123"]["allInTransitQuantity"]), (2178, 3000))
         # start = today - 10 days: 7d covered, 15d and 30d not
         with patch.object(gd, "_sales_query", return_value=self.channel_sales() | {"dataStartDate": (self.today - timedelta(days=10)).isoformat()}):
             short = {row["productCode"]: row for row in gd.monitor(self.principal, {})["items"]}
@@ -167,6 +176,8 @@ class GuangdongTests(TestCase):
             item = gd.monitor(self.principal, {})["items"][0]
         self.assertIsNone(item["jdStockQuantity"])
         self.assertIsNone(item["tmallStockQuantity"])
+        self.assertIsNone(item["allStockQuantity"])
+        self.assertIsNone(item["allInTransitQuantity"])
         # literal "京东仓" key is neither in the mapping nor in any stock row here, so it is ignored: jd 6+16=22
         self.assertEqual((item["jdOutbound30dQuantity"], item["tmallOutbound30dQuantity"]), (22, 20))
 

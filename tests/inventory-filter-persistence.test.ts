@@ -17,6 +17,7 @@ test("库存公共筛选从 URL 去重、去空并恢复公共与各 Tab 专属�
     healthStatuses: ["warning"],
     ageStatuses: ["stagnant"],
     ageBuckets: ["91-120"],
+    staleAgeBuckets: [],
     suppliers: ["供应商甲"],
     planStatus: "confirmed",
   });

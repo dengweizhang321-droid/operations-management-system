@@ -102,7 +102,7 @@ type LaunchPayload = {
   items?: LaunchProject[];
   pagination?: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
   summary?: LaunchSummary;
-  quickSummary?: Pick<LaunchSummary, 'total' | 'inProgress' | 'blocked' | 'completed' | 'overdue'>;
+  quickSummary?: Pick<LaunchSummary, 'total' | 'notStarted' | 'inProgress' | 'blocked' | 'completed' | 'overdue'>;
   facets?: LaunchFacets;
 };
 
@@ -418,11 +418,11 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
   const requestGeneration = useRef(0);
   const [items, setItems] = useState<LaunchProject[]>([]);
   const [summary, setSummary] = useState<LaunchSummary>({ total: 0, notStarted: 0, inProgress: 0, blocked: 0, completed: 0, paused: 0, cancelled: 0, overdue: 0, stageSummary: [] });
-  const [quickSummary, setQuickSummary] = useState({ total: 0, inProgress: 0, blocked: 0, completed: 0, overdue: 0 });
+  const [quickSummary, setQuickSummary] = useState({ total: 0, notStarted: 0, inProgress: 0, blocked: 0, completed: 0, overdue: 0 });
   const [facets, setFacets] = useState<LaunchFacets>({ suppliers: [], owners: [], categories: [], platforms: [], shopNames: [], sources: [] });
   const [pagination, setPagination] = useState({ page: 1, pageSize: PAGE_SIZE, total: 0, returned: 0, truncated: false });
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<ProjectStatus | "">("");
+  const [status, setStatus] = useState<ProjectStatus | "" | "open">("");
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [supplier, setSupplier] = useState("");
   const [owner, setOwner] = useState("");
@@ -442,14 +442,14 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
   const [stageEditor, setStageEditor] = useState<{ project: LaunchProject; stage: LaunchStage } | null>(null);
   useAiPageDetails("workflow", {
     period: null,
-    filters: { dataset: "workflow_launch_projects", query: query.trim(), status, suppliers: supplier ? [supplier] : [], owner, stageKey, stageStatus, proposedFrom, dueTo: dueTo ? datePlus(dueTo, 1) : "", selectedIds: detail ? [detail.id] : [] },
+    filters: { dataset: "workflow_launch_projects", query: query.trim(), status: status === "open" ? ["not_started", "in_progress"] : status, suppliers: supplier ? [supplier] : [], owner, stageKey, stageStatus, proposedFrom, dueTo: dueTo ? datePlus(dueTo, 1) : "", selectedIds: detail ? [detail.id] : [] },
   });
 
 
   const buildParams = useCallback((page: number) => {
     const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
     if (query.trim()) params.set("q", query.trim());
-    if (status) params.append("status", status);
+    if (status === "open") { params.append("status", "not_started"); params.append("status", "in_progress"); } else if (status) params.append("status", status);
     if (overdueOnly) params.set("overdue", "true");
     if (supplier) params.append("supplier", supplier);
     if (owner) params.append("owner", owner);
@@ -470,7 +470,7 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
       const next = Array.isArray(payload.items) ? payload.items : [];
       setItems((current) => append ? Array.from(new Map([...current, ...next].map((item) => [item.id, item])).values()) : next);
       if (payload.summary) setSummary(payload.summary);
-      if (payload.quickSummary) setQuickSummary(payload.quickSummary);
+      if (payload.quickSummary) setQuickSummary((current) => ({ ...current, notStarted: 0, ...payload.quickSummary }));
       if (payload.facets) setFacets((current) => ({
         suppliers: Array.from(new Set([...current.suppliers, ...payload.facets!.suppliers])).sort((left, right) => left.localeCompare(right, "zh-CN")),
         owners: Array.from(new Set([...current.owners, ...payload.facets!.owners])).sort((left, right) => left.localeCompare(right, "zh-CN")),
@@ -587,10 +587,10 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
   return <div className="launch-workspace">
     <section className="workflow-toolbar workflow-section-hero launch-hero"><div><span className="eyebrow">NEW PRODUCT PIPELINE</span><h2>新品上新</h2><p>从提出到复盘统一管理商品、店铺规划、负责人、工作状态备注与节点状态。</p></div><div className="workflow-hero-actions"><span>{canWrite ? "可协作编辑" : "只读访问"}</span><button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>刷新</button><button type="button" className="primary-button" disabled={!canWrite} onClick={() => setEditor("create")}>{canWrite ? "＋ 新建新品项目" : "仅查看"}</button></div></section>
     {feedback && <div className="workflow-feedback" role="status"><span>i</span><p>{feedback}</p><button type="button" aria-label="关闭新品提示" onClick={() => setFeedback("")}>×</button></div>}
-    <section className="panel launch-controls"><div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索商品、供应商、编码、店铺或负责人" aria-label="搜索新品项目" /><select value={supplier} onChange={(event) => setSupplier(event.target.value)} aria-label="供应商筛选"><option value="">全部供应商</option>{facets.suppliers.map((value) => <option key={value}>{value}</option>)}</select><select value={owner} onChange={(event) => setOwner(event.target.value)} aria-label="负责人筛选"><option value="">全部负责人</option>{facets.owners.map((value) => <option key={value}>{value}</option>)}</select><select value={status} onChange={(event) => { setStatus(event.target.value as ProjectStatus | ""); setOverdueOnly(false); }} aria-label="整体状态筛选"><option value="">全部状态</option>{PROJECT_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><select value={stageKey} onChange={(event) => setStageKey(event.target.value as StageKey | "")} aria-label="阶段筛选"><option value="">全部阶段</option>{STAGES.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}</select><select value={stageStatus} onChange={(event) => setStageStatus(event.target.value as StageStatus | "")} aria-label="阶段状态筛选"><option value="">全部节点状态</option>{STAGE_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><label><span>提出日期起</span><input type="date" value={proposedFrom} onChange={(event) => setProposedFrom(event.target.value)} /></label><label><span>目标上架止</span><input type="date" value={dueTo} onChange={(event) => setDueTo(event.target.value)} /></label><button type="button" className="row-action" onClick={() => { setQuery(""); setStatus(""); setOverdueOnly(false); setSupplier(""); setOwner(""); setStageKey(""); setStageStatus(""); setProposedFrom(""); setDueTo(""); }}>清除筛选</button></div><div className="workflow-view-switch" role="radiogroup" aria-label="新品项目视图"><button type="button" role="radio" aria-checked={view === "matrix"} className={view === "matrix" ? "active" : ""} onClick={() => setView("matrix")}>☷ 阶段矩阵</button><button type="button" role="radio" aria-checked={view === "kanban"} className={view === "kanban" ? "active" : ""} onClick={() => setView("kanban")}>▥ 看板</button></div></section>
+    <section className="panel launch-controls"><div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索商品、供应商、编码、店铺或负责人" aria-label="搜索新品项目" /><select value={supplier} onChange={(event) => setSupplier(event.target.value)} aria-label="供应商筛选"><option value="">全部供应商</option>{facets.suppliers.map((value) => <option key={value}>{value}</option>)}</select><select value={owner} onChange={(event) => setOwner(event.target.value)} aria-label="负责人筛选"><option value="">全部负责人</option>{facets.owners.map((value) => <option key={value}>{value}</option>)}</select><select value={status} onChange={(event) => { setStatus(event.target.value as ProjectStatus | "" | "open"); setOverdueOnly(false); }} aria-label="整体状态筛选"><option value="">全部状态</option><option value="open">进行中+未开始</option>{PROJECT_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><select value={stageKey} onChange={(event) => setStageKey(event.target.value as StageKey | "")} aria-label="阶段筛选"><option value="">全部阶段</option>{STAGES.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}</select><select value={stageStatus} onChange={(event) => setStageStatus(event.target.value as StageStatus | "")} aria-label="阶段状态筛选"><option value="">全部节点状态</option>{STAGE_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><label><span>提出日期起</span><input type="date" value={proposedFrom} onChange={(event) => setProposedFrom(event.target.value)} /></label><label><span>目标上架止</span><input type="date" value={dueTo} onChange={(event) => setDueTo(event.target.value)} /></label><button type="button" className="row-action" onClick={() => { setQuery(""); setStatus(""); setOverdueOnly(false); setSupplier(""); setOwner(""); setStageKey(""); setStageStatus(""); setProposedFrom(""); setDueTo(""); }}>清除筛选</button></div><div className="workflow-view-switch" role="radiogroup" aria-label="新品项目视图"><button type="button" role="radio" aria-checked={view === "matrix"} className={view === "matrix" ? "active" : ""} onClick={() => setView("matrix")}>☷ 阶段矩阵</button><button type="button" role="radio" aria-checked={view === "kanban"} className={view === "kanban" ? "active" : ""} onClick={() => setView("kanban")}>▥ 看板</button></div></section>
     <section className="workflow-summary-grid launch-summary-grid" aria-label="新品项目快捷筛选">
       {([
-        { key: "in_progress", label: "进行中", count: quickSummary.inProgress, note: "正在推进", tone: "blue" },
+        { key: "open", label: "进行中+未开始", count: (quickSummary.inProgress ?? 0) + (quickSummary.notStarted ?? 0), note: "未开始与正在推进", tone: "blue" },
         { key: "blocked", label: "受阻", count: quickSummary.blocked, note: "需优先排障", tone: "red" },
         { key: "overdue", label: "阶段逾期", count: quickSummary.overdue, note: "存在逾期阶段", tone: "orange" },
         { key: "completed", label: "已完成", count: quickSummary.completed, note: "已含上新复盘", tone: "green" },

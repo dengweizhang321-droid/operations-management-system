@@ -165,7 +165,7 @@ test("库龄页面和接口使用重复 ageBucket 参数连接多选与分布图
   const view = readFileSync(new URL("../app/inventory-module-view.tsx", import.meta.url), "utf8");
   const filterBar = readFileSync(new URL("../app/inventory-filter-bar.tsx", import.meta.url), "utf8");
   const route = readFileSync(new URL("../app/api/inventory/age-analysis/route.ts", import.meta.url), "utf8");
-  assert.match(view, /filters\.ageBuckets\.forEach\(\(bucket\) => params\.append\("ageBucket", bucket\)\)/);
+  assert.match(view, /effectiveAgeBuckets\(tab, filters\.ageBuckets, filters\.staleAgeBuckets\)\.forEach\(\(bucket\) => params\.append\("ageBucket", bucket\)\)/);
   assert.match(view, /<InventoryFilterBar/);
   assert.match(filterBar, /aria-label="库龄区间多选"/);
   assert.match(filterBar, /aria-pressed=\{selected\}/);
@@ -186,4 +186,21 @@ test("库龄页面和接口使用重复 ageBucket 参数连接多选与分布图
   assert.match(route, /params\.getAll\("brand"\)/);
   assert.match(route, /params\.getAll\("category"\)/);
   assert.match(route, /allowed: inventoryAgeBuckets\.map\(\(bucket\) => bucket\.key\)/);
+});
+
+test("滞销页签库龄区间独立于库龄分析：默认、显式选择与全部库龄", async () => {
+  const { effectiveAgeBuckets, readInventorySharedFilters, allAgeBucketKeys, staleDefaultAgeBuckets } = await import("../app/inventory-filter-bar");
+  assert.deepEqual(staleDefaultAgeBuckets, ["181-360", "361+"]);
+  // 默认态：滞销页签为空时取默认两档，且不受库龄分析页签的 ageBuckets 影响
+  assert.deepEqual(effectiveAgeBuckets("stale", [], []), ["181-360", "361+"]);
+  assert.deepEqual(effectiveAgeBuckets("stale", ["0-7"], []), ["181-360", "361+"]);
+  // 显式选择
+  assert.deepEqual(effectiveAgeBuckets("stale", [], ["91-120"]), ["91-120"]);
+  // 全部库龄
+  assert.deepEqual(effectiveAgeBuckets("stale", [], [...allAgeBucketKeys]), [...allAgeBucketKeys]);
+  assert.equal(allAgeBucketKeys.length, 10);
+  // 库龄分析页签保持原行为，不使用滞销字段
+  assert.deepEqual(effectiveAgeBuckets("age", [], ["91-120"]), []);
+  assert.deepEqual(effectiveAgeBuckets("age", ["0-7"], []), ["0-7"]);
+  assert.deepEqual(readInventorySharedFilters("https://x.test/?inventoryStaleAgeBucket=361%2B&inventoryStaleAgeBucket=bad&inventoryAgeBucket=0-7").staleAgeBuckets, ["361+"]);
 });

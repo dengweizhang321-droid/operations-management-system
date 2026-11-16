@@ -16,6 +16,7 @@ import JdLogisticsCwarehouseView from "./jd-logistics-cwarehouse-view";
 import TmallWarehouseView from "./tmall-warehouse-view";
 import { canonicalizeJdLogisticsLocation, readJdLogisticsLocation } from "@/lib/inventory/jd-logistics-contract";
 import InventoryFilterBar, {
+  effectiveAgeBuckets,
   readInventorySharedFilters,
   writeInventorySharedFilters,
   type InventorySharedFilters,
@@ -546,7 +547,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       query: debouncedInventoryQuery.trim(), warehouses: filters.warehouses, brands: filters.brands, categories: filters.categories,
       ...(activeTab === "overview" ? { warehouseTypes: filters.warehouseTypes, healthStatuses: filters.healthStatuses } : {}),
       ...(activeTab === "plan" ? { status: filters.planStatus, selectedIds: [...selectedPlanIds] } : {}),
-      ...(activeTab === "age" || activeTab === "stale" ? { status: aiInventoryAgeStatuses, ageBuckets: filters.ageBuckets } : {}),
+      ...(activeTab === "age" || activeTab === "stale" ? { status: aiInventoryAgeStatuses, ageBuckets: effectiveAgeBuckets(activeTab, filters.ageBuckets, filters.staleAgeBuckets) } : {}),
       ...(activeTab === "inbound" ? { suppliers: filters.suppliers } : {}),
     },
   }, activeTab !== "guangdong");
@@ -574,7 +575,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     brands: [...filters.brands].sort(),
     categories: [...filters.categories].sort(),
     statuses: [...filters.ageStatuses].sort(),
-    ageBuckets: [...filters.ageBuckets].sort(),
+    ageBuckets: [...effectiveAgeBuckets(activeTab, filters.ageBuckets, filters.staleAgeBuckets)].sort(),
   }) : "inactive";
   const inboundPageScopeKey = usesInboundMonitor ? JSON.stringify({
     cardFilter: inboundCard,
@@ -773,7 +774,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       filters.brands.forEach((brand) => params.append("brand", brand));
       filters.categories.forEach((category) => params.append("category", category));
       if (ageCard) params.set("cardFilter", ageCard);
-      filters.ageBuckets.forEach((bucket) => params.append("ageBucket", bucket));
+      effectiveAgeBuckets(tab, filters.ageBuckets, filters.staleAgeBuckets).forEach((bucket) => params.append("ageBucket", bucket));
       const cleanupStatuses = ["stagnant", "slow", "aged"];
       const selectedCleanupStatuses = filters.ageStatuses.filter((status) => cleanupStatuses.includes(status));
       const selectedAgeStatuses = tab === "stale"
@@ -803,7 +804,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         if (ageControllerRef.current === controller) ageControllerRef.current = null;
       }
     }
-  }, [ageRequestKey, ageCard, debouncedInventoryQuery, effectiveAgePage, filters.ageBuckets, filters.ageStatuses, filters.brands, filters.categories, filters.warehouses]);
+  }, [ageRequestKey, ageCard, debouncedInventoryQuery, effectiveAgePage, filters.ageBuckets, filters.staleAgeBuckets, filters.ageStatuses, filters.brands, filters.categories, filters.warehouses]);
 
   useEffect(() => {
     if (!usesInventoryAgeAnalysis) return;
@@ -1789,7 +1790,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           nativeComparisonAvailable={inboundMonitor.scope.nativeComparisonAvailable}
           onShowMissingSuppliers={() => updateFilters({ ...filters, suppliers: ["未映射供应商"] })}
           onOpenStale={() => {
-            updateFilters({ ...filters, ageStatuses: ["stagnant", "slow", "aged"], ageBuckets: [] });
+            updateFilters({ ...filters, ageStatuses: ["stagnant", "slow", "aged"], staleAgeBuckets: [] });
             onModuleViewChange("stale");
           }}
         />}
@@ -1832,11 +1833,11 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
         </>}
         {ageAnalysis?.hasInventory && activeTab === "stale" && <>
-          <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard selected={ageCard === "stagnant"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "stagnant", ""))} label="优先清理项" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note="库龄≥90天且近30日无销量" tone="orange" icon="清" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "待处理货值" : "已覆盖待处理货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.stagnantValueCents)} note={ageAnalysis.metrics.stockValueComplete ? "按固定成本价与可用库存计算" : "缺少成本的库存未计入货值"} tone="purple" icon="值" /><InventoryKpiCard selected={ageCard === "aged90"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "aged90", ""))} label="高库龄商品" value={`${formatCount(ageAnalysis.metrics.aged90Count)} 项`} note="库龄超过90天且仍有可用库存" tone="blue" icon="龄" /><InventoryKpiCard selected={ageCard === "zero_sales"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "zero_sales", ""))} label="零销量库存" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="前30天销量为0" tone="green" icon="零" /></section>
+          <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard selected={ageCard === "stagnant"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "stagnant", ""))} label="优先清理项" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note="库龄≥90天且近30日无销量；按当前库龄区间统计" tone="orange" icon="清" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "待处理货值" : "已覆盖待处理货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.stagnantValueCents)} note={ageAnalysis.metrics.stockValueComplete ? "按固定成本价与可用库存计算；按当前库龄区间统计" : "缺少成本的库存未计入货值；按当前库龄区间统计"} tone="purple" icon="值" /><InventoryKpiCard selected={ageCard === "aged90"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "aged90", ""))} label="高库龄商品" value={`${formatCount(ageAnalysis.metrics.aged90Count)} 项`} note="库龄超过90天且仍有可用库存；按当前库龄区间统计" tone="blue" icon="龄" /><InventoryKpiCard selected={ageCard === "zero_sales"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "zero_sales", ""))} label="零销量库存" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="前30天销量为0；按当前库龄区间统计" tone="green" icon="零" /></section>
           {summaryReady && <InventoryStalePlaybookPanel metrics={ageAnalysis.metrics} hasAgeSales={ageAnalysis.sync.hasAgeSales} />}
           <section hidden={!detailReady} style={detailReady ? undefined : { display: "none" }} className="panel table-panel stale-cleanup-panel data-refresh-region" aria-busy={ageLoading}>
             <div className="table-toolbar">
-              <div><h2>滞销清理清单</h2><p>创建清理事项后进入“运营事务”跟进；系统不会自动改库存或删除数据。</p></div>
+              <div><h2>滞销清理清单</h2><p>创建清理事项后进入“运营事务”跟进；系统不会自动改库存或删除数据。{filters.staleAgeBuckets.length === 0 ? "默认仅列库龄 181 天以上（含 1 年以上）。" : ""}</p></div>
               <span className="soft-tag">优先处理 {formatCount(ageAnalysis.metrics.cleanupCount)} 项</span>
               <button type="button" className="row-action" disabled={cleanupItems.length === 0} onClick={() => downloadInventoryCsv(`滞销清理_${ageAnalysis.sync.inventoryAsOf ?? "snapshot"}_第${ageAnalysis.pagination.page}页.csv`, [["货品编码", "货品名称", "品牌", "品类", "仓库类型", "仓库", "计入库存", "库龄天数", "前30天销量", "可用库存", "库存货值（元）", "清理策略", "清理建议", "风险状态"], ...cleanupItems.map((item) => {
                 const strategy = getInventoryCleanupStrategy(item.status);
