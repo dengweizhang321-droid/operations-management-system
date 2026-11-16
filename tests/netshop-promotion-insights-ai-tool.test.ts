@@ -6,6 +6,7 @@ import { registerHooks } from "node:module";
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { AiToolEntry } from "../lib/ai/tool-registry-contract";
 import type { PromotionInsightsResponse, PromotionDetailResponse } from "../lib/netshop/promotion-insights-contract";
+import type { Plain } from "./netshop-view-oracle";
 
 const environment = { TERUISI_DJANGO_NETSHOP_READER_BASE_URL: "https://promotion-reader.example.test", TERUISI_DJANGO_NETSHOP_WRITER_BASE_URL: "https://promotion-writer.example.test", TERUISI_DJANGO_INTERNAL_SECRET: "synthetic-promotion-tool-secret-0123456789", TERUISI_DJANGO_NETSHOP_TIMEOUT_MS: "120000" };
 (globalThis as typeof globalThis & { __promotionToolEnv?: typeof environment }).__promotionToolEnv = environment;
@@ -133,7 +134,7 @@ test("valid but mismatched scope/header/token/decoder operands never escape", as
 // Semantics changed on purpose: this fixture's complete envelope is over 40000, which used to be a
 // flat refusal. The decoder still accepts the whole body first; the tool now returns a marked
 // model-facing view in which every incomplete coverage entry stays whole.
-function asRanges(c: any) { return { ...c, missingByShop: (c.missingByShop ?? []).map(({ dates, ...rest }: any) => (dates ? { ...rest, missingRanges: datesToRanges(dates) } : rest)) }; }
+function asRanges(c: Plain) { return { ...c, missingByShop: (c.missingByShop ?? []).map(({ dates, ...rest }: Plain) => (dates ? { ...rest, missingRanges: datesToRanges(dates) } : rest)) }; }
 test("real misaligned-store fixture over 40k: every view answers within 40000 with every coverage gap kept", async () => {
   payload = await fixture("misaligned"); owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
   const args = argsFor(payload);
@@ -147,7 +148,7 @@ test("real misaligned-store fixture over 40k: every view answers within 40000 wi
     if (data.aiCompaction) { assert.equal(data.aiCompaction.applied, true); assert.ok(data.aiCompaction.sections.length > 0); }
     for (const [ref, gap] of Object.entries(payload.sections.coverage).filter(([, c]) => !c.complete)) assert.deepEqual(data.sections.coverage[ref], data.aiCompaction ? asRanges(gap) : gap); // dates become ranges only when compaction is applied
     for (const [ref, gap] of Object.entries(payload.context.coverageBySource).filter(([, c]) => !c.complete)) assert.deepEqual(data.context.coverageBySource[ref], data.aiCompaction ? asRanges(gap) : gap);
-    assert.equal(data.sectionToken, payload.sectionToken); assert.equal((data as any).columnVersion, (payload as PromotionInsightsResponse).columnVersion);
+    assert.equal(data.sectionToken, payload.sectionToken); assert.equal((data as Plain).columnVersion, (payload as PromotionInsightsResponse).columnVersion);
   }
   assert.equal(calls.length, 3);
 });
@@ -195,11 +196,11 @@ test("actual schema parameters satisfy A query parser and cannot expose list foc
 test("unmapped / ambiguous product focus: listScope.productFocus (message + reasonCode) reaches the model in every view, so an empty ranking is not read as 'no spend'", async () => {
   for (const name of ["product-focus-unmapped", "product-focus-ambiguous"]) {
     payload = await fixture(name); owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
-    const source = payload as PromotionInsightsResponse; const focus = (source.sections.listScope as any).productFocus;
+    const source = payload as PromotionInsightsResponse; const focus = (source.sections.listScope as Plain).productFocus;
     assert.ok(focus && focus.reasonCode && /不能据此判断无投放/.test(focus.message), name);
     const identity = focus.identity; const productIdentity = [identity.platform, identity.shopName, identity.dimension, identity.id];
     for (const view of ["overview", "rankings", "list"]) {
-      const data = await listEntry.handler({ ...argsFor(source), productIdentity, view }, context) as any;
+      const data = await listEntry.handler({ ...argsFor(source), productIdentity, view }, context) as Plain;
       assert.equal(data.sections.listScope.productFocus.message, focus.message, `${name} ${view}`);
       assert.equal(data.sections.listScope.productFocus.reasonCode, focus.reasonCode, `${name} ${view}`);
       assert.equal(data.sections.objectKind, "product", `${name} ${view} objectKind`);
@@ -210,11 +211,11 @@ test("unmapped / ambiguous product focus: listScope.productFocus (message + reas
 
 test("rankings rows carry status/basis for every metric and reasonCode when non-null (roas null at zero spend keeps its reason); compaction function only, decoder bypassed", async () => {
   const { compactPromotionInsightsForAi, promotionCompactionLadder } = await import("../lib/ai/netshop-promotion-compaction");
-  const data = structuredClone(await fixture("misaligned")) as any;
-  const row = structuredClone(data.sections.items[0]) as any; row.rowKey = "b".repeat(64);
+  const data = structuredClone(await fixture("misaligned")) as Plain;
+  const row = structuredClone(data.sections.items[0]) as Plain; row.rowKey = "b".repeat(64);
   row.metrics.roas = { ...row.metrics.roas, value: null, status: "unavailable", reasonCode: "zero_spend" };
   data.sections.contributions.previous.spendIncrease = [row];
-  const out = (compactPromotionInsightsForAi(data, promotionCompactionLadder[1]) as any).sections.contributions.previous.spendIncrease[0];
+  const out = (compactPromotionInsightsForAi(data, promotionCompactionLadder[1]) as Plain).sections.contributions.previous.spendIncrease[0];
   assert.deepEqual(out.metrics.roas, { value: null, unit: row.metrics.roas.unit, status: "unavailable", basis: row.metrics.roas.basis, aggregation: row.metrics.roas.aggregation, reasonCode: "zero_spend" });
   for (const key of ["spend", "attributedPayment"]) { assert.equal(out.metrics[key].status, row.metrics[key].status); assert.equal(out.metrics[key].basis, row.metrics[key].basis); assert.equal("reasonCode" in out.metrics[key], row.metrics[key].reasonCode != null); }
 });

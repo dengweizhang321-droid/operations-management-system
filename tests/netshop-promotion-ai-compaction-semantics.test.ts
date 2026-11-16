@@ -29,7 +29,7 @@ let payload: PromotionInsightsResponse;
 async function base() { return JSON.parse(await readFile("tests/fixtures/netshop-promotion/response-product.json", "utf8")) as PromotionInsightsResponse; }
 const hex = (seed: string) => createHash("sha256").update(seed).digest("hex");
 const envelope = (data: unknown) => JSON.stringify({ ok: true, toolName: listName, data }).length;
-type Plain = Record<string, any>;
+import type { Plain } from "./netshop-view-oracle";
 
 /** Remove only metric source references (sourceIds / coverageRef inside metric objects). */
 function withoutSourceRefs<T>(value: T): T {

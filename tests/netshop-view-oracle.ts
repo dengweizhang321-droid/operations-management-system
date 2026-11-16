@@ -5,7 +5,11 @@ import assert from "node:assert/strict";
  * not imported from the plan under test). Returns what a view must carry for a response
  * small enough that no aiCompaction trimming happens.
  */
-type Plain = Record<string, any>;
+// Tests walk the AI tools' untyped JSON output by path. This alias is the one
+// place the netshop AI tests opt out of no-explicit-any; import it rather than
+// writing `any` (lint baseline review, 2026-11-16).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped tool JSON walked by path in tests
+export type Plain = Record<string, any>;
 export type View = "overview" | "rankings" | "list";
 
 const PRODUCT_KEEP: Record<View, string[]> = {

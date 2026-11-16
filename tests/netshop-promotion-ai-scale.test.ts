@@ -17,7 +17,7 @@ const { fitNetshopAiResult, aiEnvelopeLength } = await import("../lib/ai/netshop
 const { promotionCompactionLadder, compactPromotionInsightsForAi } = await import("../lib/ai/netshop-promotion-compaction");
 const { NETSHOP_PROMOTION_VIEW_PLAN } = await import("../lib/ai/netshop-promotion-insights-tool");
 
-type Plain = Record<string, any>;
+import type { Plain } from "./netshop-view-oracle";
 const NAME = "get_netshop_promotion_insights";
 const day = (s: string, n: number) => new Date(Date.parse(`${s}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const hex = (i: number, salt: string) => (salt + i.toString(16)).padStart(16, "0").slice(-16);

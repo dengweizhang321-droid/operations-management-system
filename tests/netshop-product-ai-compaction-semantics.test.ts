@@ -23,7 +23,7 @@ const principal: AppPrincipal = { email: "synthetic-product-semantics@example.te
 const execution = { principal, surface: "test" as const, requestId: "synthetic-product-semantics" };
 const originalFetch = globalThis.fetch;
 const BUDGET = 40000;
-type Plain = Record<string, any>;
+import type { Plain } from "./netshop-view-oracle";
 let payload: Plain;
 const envelope = (data: unknown) => JSON.stringify({ ok: true, toolName: name, data }).length;
 

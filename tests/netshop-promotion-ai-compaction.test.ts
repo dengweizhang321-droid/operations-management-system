@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { assertView, expectedPromotionView } from "./netshop-view-oracle";
+import { assertView, expectedPromotionView, type Plain } from "./netshop-view-oracle";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { registerHooks } from "node:module";
@@ -45,7 +45,7 @@ function response(data: unknown = payload) { return Response.json(data, { header
 const hex = (seed: string) => createHash("sha256").update(seed).digest("hex");
 const envelopeLength = (data: unknown) => JSON.stringify({ ok: true, toolName: listName, data }).length;
 /** The lightest ladder level whose envelope fits, applied to the FULL decoded DTO (no view): this file tests the ladder itself; views are tested separately. */
-const lightestFitting = (data: unknown): any => { for (const level of promotionCompactionLadder) { const out = compactPromotionInsightsForAi(data as Record<string, unknown>, level); if (envelopeLength(out) <= BUDGET) return out; } throw new Error("no level fits"); };
+const lightestFitting = (data: unknown): Plain => { for (const level of promotionCompactionLadder) { const out = compactPromotionInsightsForAi(data as Record<string, unknown>, level); if (envelopeLength(out) <= BUDGET) return out; } throw new Error("no level fits"); };
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
 
 /**
@@ -110,7 +110,7 @@ test("oversized valid response: the ladder's lightest fitting level is under 400
   assert.ok(envelopeLength(data) < BUDGET, `envelope ${envelopeLength(data)}`);
   assert.equal(data.columnVersion, payload.columnVersion); assert.equal(data.sectionToken, payload.sectionToken); assert.equal(data.context.snapshotToken, payload.context.snapshotToken);
   assert.deepEqual(data.sections.comparisons, payload.sections.comparisons); assert.deepEqual(data.sections.pagination, payload.sections.pagination);
-  assert.deepEqual(data.sections.listScope, payload.sections.listScope); assert.deepEqual((data.sections as any).dataQuality, (payload.sections as any).dataQuality); assert.deepEqual(data.sections.diagnostic, payload.sections.diagnostic);
+  assert.deepEqual(data.sections.listScope, payload.sections.listScope); assert.deepEqual((data.sections as Plain).dataQuality, (payload.sections as Plain).dataQuality); assert.deepEqual(data.sections.diagnostic, payload.sections.diagnostic);
   assert.deepEqual(data.sections.objectCapabilities, payload.sections.objectCapabilities); assert.deepEqual(data.sections.limitations, payload.sections.limitations);
   assert.equal(data.sections.summary.spend.value, payload.sections.summary.spend.value); assert.equal(data.sections.summary.roas.numerator, payload.sections.summary.roas.numerator);
   assert.equal(data.sections.contributions.comparedObjectCount, 120); assert.equal(data.sections.contributions.excludedObjectCount, 3);
@@ -139,7 +139,7 @@ test("compaction never loses a coverage gap: every incomplete entry survives who
   assert.ok(before.section.length >= 1 && before.context.length >= 1);
   assert.deepEqual(restoredGaps(data.sections.coverage as Record<string, unknown>), [...before.section].sort(([a], [b]) => (a < b ? -1 : 1)));
   assert.deepEqual(restoredGaps(data.context.coverageBySource as Record<string, unknown>), [...before.context].sort(([a], [b]) => (a < b ? -1 : 1)));
-  for (const [, value] of restoredGaps(data.sections.coverage as Record<string, unknown>)) assert.ok(!(value as any).complete);
+  for (const [, value] of restoredGaps(data.sections.coverage as Record<string, unknown>)) assert.ok(!(value as Plain).complete);
 });
 
 test("an incomplete entry is never folded even when it looks otherwise normal (missing dates, truncated shape)", async () => {
@@ -179,7 +179,7 @@ test("when even the heaviest level cannot fit, it still refuses with tool_result
 test("a response that already fits is returned as its overview view, with no aiCompaction", async () => {
   const small = await fixture("product"); payload = small; owningRevision = small.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
   const data = await listEntry.handler(argsFor(small), context);
-  assertView(data as any, expectedPromotionView(small, "overview"), "overview", ["sections.items", "sections.contributions"]); assert.equal(Object.hasOwn(data, "aiCompaction"), false);
+  assertView(data as Plain, expectedPromotionView(small, "overview"), "overview", ["sections.items", "sections.contributions"]); assert.equal(Object.hasOwn(data, "aiCompaction"), false);
 });
 
 test("ladder reports its levels and picks the lightest one that fits (full DTO, no view)", async () => {

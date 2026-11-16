@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { COVERAGE_GAPS_GROUPED_RULE, GAP_GROUPS_KEY, NetshopAiCompaction, compactDates, datesToRangeStrings, expandRangeStrings, restoreCoverageGaps } from "../lib/ai/netshop-ai-compaction";
 
-type Plain = Record<string, any>;
+import type { Plain } from "./netshop-view-oracle";
 const span = (start: string, n: number) => Array.from({ length: n }, (_, i) => new Date(Date.parse(`${start}T00:00:00Z`) + i * 86_400_000).toISOString().slice(0, 10));
 
 test("range strings are lossless: cross-month, cross-year, leap day, single day, empty", () => {

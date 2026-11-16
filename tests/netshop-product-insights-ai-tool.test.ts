@@ -6,7 +6,7 @@ import type { AppPrincipal } from "../lib/auth/authorization";
 import type { AiToolEntry, RegistryAuditInput } from "../lib/ai/tool-registry-contract";
 import type { MetricValue } from "../lib/netshop/insights-contract";
 import { completeProductSectionsFixture } from "./netshop-products-test-fixture";
-import { assertView, expectedProductView } from "./netshop-view-oracle";
+import { assertView, expectedProductView, type Plain } from "./netshop-view-oracle";
 
 const environment = {
   TERUISI_DJANGO_NETSHOP_READER_BASE_URL: "https://product-reader.example.test",
@@ -269,7 +269,7 @@ test("central mandatory audits and the third-call budget fail closed without dat
   assert.equal(fourth.ok, false); if (!fourth.ok) assert.equal(fourth.error.code, "tool_call_budget_exceeded");
   assert.equal(calls.length, 3);
   const succeeded = audits.filter(a => a.status === "succeeded");
-  assert.equal(succeeded.length, 3); assertView(succeeded[0].result as Record<string, any>, expectedProductView(payload, "overview"), "overview", []);
+  assert.equal(succeeded.length, 3); assertView(succeeded[0].result as Plain, expectedProductView(payload, "overview"), "overview", []);
   assert.equal(succeeded[0].actorEmail, principal.email); assert.equal(succeeded[0].surface, "test");
   assert.notEqual(succeeded[0].invocationId, succeeded[1].invocationId);
   assert.equal(new Set(calls.map(call => call.url.searchParams.get("pageSize"))).size, 1);
@@ -296,13 +296,13 @@ test("sectionToken without an explicit pageSize is refused before any request; t
   assert.equal(calls.length, 0, "no Django request may be made");
   // Same pageSize as the token was issued with (3): continues, in any view; aiView names the pageSize actually used.
   for (const view of ["overview", "rankings", "list"]) {
-    const data = await entry.handler({ ...args, view, sectionToken: payload.sectionToken }, execution) as Record<string, any>;
+    const data = await entry.handler({ ...args, view, sectionToken: payload.sectionToken }, execution) as Plain;
     assert.equal(data.aiView.pageSize, 3);
     assert.equal(calls.at(-1)!.url.searchParams.get("pageSize"), "3");
     assert.equal(calls.at(-1)!.url.searchParams.get("sectionToken"), payload.sectionToken);
   }
   // Without a token the per-view default applies and is reported.
   Object.assign(payload.tableScope, { pageSize: 10 }); Object.assign(payload.sections.pagination, { pageSize: 10 });
-  const first = await entry.handler({ ...withoutPageSize, view: "rankings" }, execution) as Record<string, any>;
+  const first = await entry.handler({ ...withoutPageSize, view: "rankings" }, execution) as Plain;
   assert.equal(first.aiView.pageSize, 10);
 });
