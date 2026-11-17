@@ -779,9 +779,9 @@ export function prepareTmallPromotionRows(rows: readonly ParsedNetshopRawRow[]) 
     const subjectNames = [...new Set(group.map((row) => normalizeText(row.raw["主体名称"])).filter(Boolean))].sort();
     const subjectTypes = [...new Set(group.map((row) => normalizeText(row.raw["主体类型"])).filter(Boolean))];
     if (!/^\d+$/.test(normalizeText(first.raw["主体ID"]))) {
-      throw new Error(storeGroup
-        ? "天猫商品报表缺少有效商品 ID，拒绝汇总（店铺级主体缺少有效店铺 ID）"
-        : "天猫商品报表缺少有效商品 ID，拒绝汇总");
+      // Two literal throw sites (pinned by the retry-classifier test); both are terminal.
+      if (storeGroup) throw new Error("天猫商品报表缺少有效商品 ID，拒绝汇总（店铺级主体缺少有效店铺 ID）");
+      throw new Error("天猫商品报表缺少有效商品 ID，拒绝汇总");
     }
     if (!storeGroup && subjectTypes.some((value) => value !== "商品")) throw new Error("天猫商品报表计划维度包含非商品主体，拒绝汇总");
 

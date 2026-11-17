@@ -159,13 +159,15 @@ function storeLevel(value: unknown, context: InsightsContext) {
   const periods = rec(v.periods);
   for (const kind of ["current", "previous", "yearAgo"] as const) {
     const w = rec(periods[kind]);
-    for (const key of ["spendCents", "attributedPaymentCents", "impressions", "clicks", "orders", "rowCount"]) if (!int(w[key])) fail("店铺级推广金额或计数无效");
+    const nullableInt = (value: unknown) => value === null || int(value);
+    for (const key of ["spendCents", "attributedPaymentCents", "impressions", "clicks", "orders"]) if (!nullableInt(w[key])) fail("店铺级推广金额或计数无效");
+    if (!int(w.rowCount)) fail("店铺级推广来源行数无效");
     dates(w.dates, context, kind);
     if (!Array.isArray(w.byShop) || w.byShop.length > context.effectiveScope.shopKeys.length) fail("店铺级推广店铺集合无效");
     const seen = new Set<string>();
     for (const raw of w.byShop) {
       const r = rec(raw), o = shop(r.shopKey, context);
-      if (seen.has(String(r.shopKey)) || r.shopName !== o.shopName || !int(r.spendCents) || !int(r.attributedPaymentCents) || !int(r.rowCount)) fail("店铺级推广店铺行重复、跨店或数值无效");
+      if (seen.has(String(r.shopKey)) || r.shopName !== o.shopName || !int(r.rowCount) || !["spendCents", "attributedPaymentCents", "impressions", "clicks", "orders"].every(key => nullableInt(r[key]))) fail("店铺级推广店铺行重复、跨店或数值无效");
       seen.add(String(r.shopKey));
     }
   }

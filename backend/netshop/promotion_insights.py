@@ -171,7 +171,11 @@ def _read_facts(platform, names, p, deadline):
             if store_base is not None:
                 _budget(deadline)
                 for r in store_base.filter(**scoped).values("shop_name", "business_date").annotate(**annotations).order_by():
-                    cell = store_raw.setdefault((r["shop_name"], r["business_date"]), {**_empty(), "owned_count": 0})
+                    key = (r["shop_name"], r["business_date"])
+                    # 本期、基期、同比窗口可能重叠；同一店日只取一次，不能累加两遍。
+                    if key in store_raw:
+                        continue
+                    cell = store_raw[key] = {**_empty(), "owned_count": 0}
                     _add(cell, r)
                     cell["owned_count"] += r["owned_count"]
             _budget(deadline)
@@ -340,11 +344,22 @@ def _store_level(facts, names, periods, platform):
     store = facts["storeRaw"]
     if platform != "天猫" or not store:
         return None
+    # 每个可加指标只有在窗口内每一条店铺级来源行都带有该数值字段时才给出合计，否则为 null
+    # （例如真实报表店铺行的“净成交金额”为空，不能把缺失显示成 0）。
+    fields = (("spendCents", "spend_cents", "spend"), ("attributedPaymentCents", "net_transaction_amount_cents", "attributedPayment"),
+              ("impressions", "impressions", "impressions"), ("clicks", "clicks", "clicks"), ("orders", "net_orders", "orders"))
+
+    def finish(cell):
+        out = {"rowCount": cell["rowCount"]}
+        for target, _column, metric in fields:
+            out[target] = cell[target] if cell[metric + "_present"] == cell["rowCount"] and abs(cell[target]) <= MAX_SAFE else None
+        return out
+
     windows, any_rows, reconciled = {}, False, True
     for kind in ("current", "previous", "yearAgo"):
         wanted = set(days(periods[kind]["startDate"], periods[kind]["endDate"]))
-        total = {"spendCents": 0, "attributedPaymentCents": 0, "impressions": 0, "clicks": 0, "orders": 0, "rowCount": 0}
-        observed, by_shop = set(), {}
+        blank = {"rowCount": 0, **{target: 0 for target, _c, _m in fields}, **{metric + "_present": 0 for _t, _c, metric in fields}}
+        total, observed, by_shop = dict(blank), set(), {}
         for (shop, day), r in sorted(store.items()):
             if shop not in names or day not in wanted:
                 continue
@@ -353,15 +368,14 @@ def _store_level(facts, names, periods, platform):
                 continue
             observed.add(day)
             any_rows = True
-            cell = by_shop.setdefault(shop, {"spendCents": 0, "attributedPaymentCents": 0, "rowCount": 0})
-            for target, column in (("spendCents", "spend_cents"), ("attributedPaymentCents", "net_transaction_amount_cents"),
-                                   ("impressions", "impressions"), ("clicks", "clicks"), ("orders", "net_orders"),
-                                   ("rowCount", "row_count")):
-                total[target] += r[column]
-                if target in cell:
-                    cell[target] += r[column]
-        windows[kind] = {**total, "dates": sorted(observed), "byShop": [
-            {"shopKey": platform+"\x1f"+shop, "shopName": shop, **cell} for shop, cell in sorted(by_shop.items())]}
+            cell = by_shop.setdefault(shop, dict(blank))
+            for part in (total, cell):
+                part["rowCount"] += r["row_count"]
+                for target, column, metric in fields:
+                    part[target] += r[column]
+                    part[metric + "_present"] += r[metric + "_present"]
+        windows[kind] = {**finish(total), "dates": sorted(observed), "byShop": [
+            {"shopKey": platform + "\x1f" + shop, "shopName": shop, **finish(cell)} for shop, cell in sorted(by_shop.items())]}
     if not any_rows and reconciled:
         return None
     return {"definition": STORE_LEVEL_DEFINITION, "unit": "CNY_CENT", "reconciled": reconciled, "periods": windows}

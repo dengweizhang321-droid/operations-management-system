@@ -1104,20 +1104,12 @@ def _store_level_summary(shops, products) -> dict[str, object] | None:
     store_rows = shop_rows - _zero(product_totals["rows"])
     if store_rows <= 0:
         return None
+    # 只给“花费”：它是报表必备列，店铺日汇总里的值一定来自来源字段。成交、展现等字段在店铺行里
+    # 可能为空，汇总只存 0，无法区分“真 0”与“缺失”，所以不在此推出（逐字段存在性见推广洞察 storeLevel）。
     return {
         "definition": "阿里妈妈主体类型为“店铺”的推广行（如店铺直达），计入店铺推广总额，未分摊到商品",
         "rowCount": store_rows,
-        **{
-            name: _zero(totals[field]) - _zero(product_totals[field])
-            for name, field in (
-                ("spendCents", "spend_cents"),
-                ("netTransactionAmountCents", "net_transaction_amount_cents"),
-                ("grossTransactionAmountCents", "gross_transaction_amount_cents"),
-                ("impressions", "impressions"),
-                ("clicks", "clicks"),
-                ("netOrders", "net_orders"),
-            )
-        },
+        "spendCents": _zero(totals["spend_cents"]) - _zero(product_totals["spend_cents"]),
     }
 
 

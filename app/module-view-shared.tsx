@@ -806,7 +806,7 @@ export type NetshopPromotionPerformanceResponse = {
     clickThroughRate: number | null; averageClickCostCents: number | null; roas: number | null; spendRate: number | null; promotionTransactionShare: number | null;
     spendRateReason?: string | null;
     /** 店铺级推广（店铺直达等）：含在 spendCents 内、但未分摊到商品；没有此类行时不返回。 */
-    storeLevel?: { definition: string; rowCount: number; spendCents: number; netTransactionAmountCents: number; grossTransactionAmountCents: number; impressions: number; clicks: number; netOrders: number };
+    storeLevel?: { definition: string; rowCount: number; spendCents: number };
     matchedRange?: { spendCents: number; platformPaymentAmountCents: number; spendRate: number | null; coveredShopDatePairs: number; expectedShopDatePairs: number; byShop: Array<{ shopKey: string; dates: string[] }> };
   };
   daily: Array<{ date: string; spendCents: number; netTransactionAmountCents: number; platformPaymentAmountCents: number | null; impressions: number; clicks: number; netOrders: number; roas: number | null; spendRate: number | null; promotionTransactionShare: number | null }>;

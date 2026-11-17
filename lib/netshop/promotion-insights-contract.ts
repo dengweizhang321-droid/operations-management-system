@@ -79,9 +79,11 @@ export type PromotionDiagnosticCapability = {
  * 含此类行时出现；缺省即“没有店铺级推广”，不得显示为 0。
  */
 export type PromotionStoreLevelWindow = {
-  spendCents: number; attributedPaymentCents: number; impressions: number; clicks: number; orders: number; rowCount: number;
+  /** null = 窗口内至少一条店铺级来源行缺少该字段（例如店铺行的净成交金额为空），不是 0。 */
+  spendCents: number | null; attributedPaymentCents: number | null; impressions: number | null; clicks: number | null; orders: number | null;
+  rowCount: number;
   dates: string[];
-  byShop: Array<{ shopKey: string; shopName: string; spendCents: number; attributedPaymentCents: number; rowCount: number }>;
+  byShop: Array<{ shopKey: string; shopName: string; spendCents: number | null; attributedPaymentCents: number | null; impressions: number | null; clicks: number | null; orders: number | null; rowCount: number }>;
 };
 export type PromotionStoreLevel = {
   definition: string; unit: "CNY_CENT"; reconciled: boolean;

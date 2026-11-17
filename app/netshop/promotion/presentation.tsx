@@ -41,8 +41,9 @@ export function MetricCard({ label, metric, previous, yearAgo, previousChange, y
   </article>;
 }
 
-function cents(value: number) {
-  return `${(value / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 元`;
+function cents(value: number | null) {
+  // 来源行缺字段时显示“—”，不把缺失当成 0。
+  return value === null ? "—" : `${(value / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 元`;
 }
 
 /**
@@ -55,7 +56,7 @@ export function StoreLevelPromotionNote({ storeLevel }: { storeLevel?: Promotion
   if (current.rowCount === 0 && storeLevel.reconciled) return null;
   return <aside className="promotion-caption promotion-store-level" role="note" aria-label="店铺级推广说明">
     <strong>其中店铺级推广（未分摊到商品）：{cents(current.spendCents)}</strong>
-    <span> · 归因成交 {cents(current.attributedPaymentCents)} · 覆盖 {current.dates.length} 天 · {current.rowCount} 条来源行</span>
+    <span> · {current.attributedPaymentCents === null ? "归因成交：来源未提供" : `归因成交 ${cents(current.attributedPaymentCents)}`} · 覆盖 {current.dates.length} 天 · {current.rowCount} 条来源行</span>
     <small>{storeLevel.definition}。该花费已含在推广花费总额内，不会出现在推广商品列表中。{storeLevel.reconciled ? "" : " 部分日期与聚合核对未通过，已排除未通过核对的日期。"}</small>
   </aside>;
 }

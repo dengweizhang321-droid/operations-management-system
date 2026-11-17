@@ -34,8 +34,11 @@ DAY = "2026-11-12"
 ACTOR = "synthetic@example.invalid"
 
 
-def promo(subject_id, *, store=False, spend=1000, net=0, plan="plan-a", day=DAY, shop=SHOP, number=2):
-    """One normalized promotion row exactly as the Worker emits it."""
+def promo(subject_id, *, store=False, spend=1000, net=0, gross=None, plan="plan-a", day=DAY, shop=SHOP, number=2):
+    """One normalized promotion row exactly as the Worker emits it.
+
+    ``net=None`` is the real report shape: 净成交金额 is empty (metric null) while 总成交金额 has a value.
+    """
     raw = {
         "日期": day, "主体ID": subject_id, "主体类型": "店铺" if store else "商品",
         "主体名称": "店铺首页" if store else "商品" + subject_id, "计划ID": plan, "花费": spend / 100,
@@ -44,7 +47,8 @@ def promo(subject_id, *, store=False, spend=1000, net=0, plan="plan-a", day=DAY,
         source="tmall_promotion", dataset="promotion_daily", platform="天猫", shop_name=shop, business_date=day,
         sku_id="", spu_id=("店铺:" + subject_id) if store else subject_id, product_code="",
         product_name=raw["主体名称"], row_number=number,
-        metrics={"spendCents": spend, "netTransactionAmountCents": net, "impressions": 100, "clicks": 5, "netOrders": 1 if net else 0},
+        metrics={"spendCents": spend, "netTransactionAmountCents": net, "impressions": 100, "clicks": 5, "netOrders": 1 if net else 0,
+                 **({"grossTransactionAmountCents": gross} if gross is not None else {})},
         raw=raw,
     )
 
@@ -75,7 +79,7 @@ class WriterAggregationTests(StoreLevelPromotionTestCase):
         return [
             promo("10001", spend=1000, net=5000, plan="p1", number=2),
             promo("10002", spend=2000, net=0, plan="p1", number=3),
-            promo("355577887", store=True, spend=4000, net=35800, plan="direct", number=4),
+            promo("355577887", store=True, spend=4000, net=None, gross=35800, plan="direct", number=4),
         ]
 
     def test_store_row_counts_in_shop_total_but_not_in_products(self):
@@ -83,7 +87,8 @@ class WriterAggregationTests(StoreLevelPromotionTestCase):
         self.assertEqual(result["status"], "imported")
         shop = self.shop_day()
         self.assertEqual(shop.spend_cents, 7000)
-        self.assertEqual(shop.net_transaction_amount_cents, 40800)
+        self.assertEqual(shop.net_transaction_amount_cents, 5000)
+        self.assertEqual(shop.gross_transaction_amount_cents, 35800)
         self.assertEqual(shop.product_count, 2)
         self.assertEqual(shop.source_row_count, 3)
         products = NetshopPromotionProductDaily.objects.filter(platform="天猫", shop_name=SHOP, business_date=DAY)
@@ -137,7 +142,7 @@ class WriterAggregationTests(StoreLevelPromotionTestCase):
     def test_reimport_replaces_store_level_rows_atomically(self):
         self.load(*self.mixed())
         changed = self.mixed()
-        changed[2] = promo("355577887", store=True, spend=900, net=0, plan="direct", number=4)
+        changed[2] = promo("355577887", store=True, spend=900, net=None, gross=0, plan="direct", number=4)
         result = self.load(*changed, seed="store-level-file-2")
         self.assertEqual(result["status"], "imported")
         self.assertEqual(self.shop_day().spend_cents, 3900)
@@ -214,7 +219,7 @@ class ReaderTests(StoreLevelPromotionTestCase):
     def test_insights_include_store_spend_in_total_and_disclose_it_separately(self):
         self.load(
             promo("10001", spend=1000, net=5000, number=2),
-            promo("355577887", store=True, spend=4000, net=35800, number=3),
+            promo("355577887", store=True, spend=4000, net=None, gross=35800, number=3),
         )
         self.product_day(SHOP, ("10001", 20000))
         result = self.read(SHOP)
@@ -231,7 +236,12 @@ class ReaderTests(StoreLevelPromotionTestCase):
         self.assertTrue(store["reconciled"])
         self.assertEqual(store["unit"], "CNY_CENT")
         self.assertEqual(store["periods"]["current"]["spendCents"], 4000)
-        self.assertEqual(store["periods"]["current"]["attributedPaymentCents"], 35800)
+        # 真实形态：店铺行的净成交金额为空，不能显示成 0；其他字段齐全，照常给出。
+        self.assertIsNone(store["periods"]["current"]["attributedPaymentCents"])
+        self.assertEqual(store["periods"]["current"]["impressions"], 100)
+        self.assertEqual(store["periods"]["current"]["clicks"], 5)
+        self.assertIsNone(store["periods"]["current"]["byShop"][0]["attributedPaymentCents"])
+        self.assertEqual(store["periods"]["current"]["byShop"][0]["spendCents"], 4000)
         self.assertEqual(store["periods"]["current"]["rowCount"], 1)
         self.assertEqual(store["periods"]["current"]["dates"], [DAY])
         self.assertEqual(store["periods"]["current"]["byShop"][0]["shopName"], SHOP)
@@ -257,6 +267,31 @@ class ReaderTests(StoreLevelPromotionTestCase):
         self.assertEqual(sections["summary"]["spend"]["value"], 1000)
         self.assertTrue(sections["dataQuality"]["aggregateReconciled"])
 
+    def test_overlapping_comparison_windows_do_not_double_count_store_days(self):
+        # A 366-day range makes the year-ago window overlap the current one on 2025-11-12.
+        day = "2025-11-12"
+        self.load(promo("10001", spend=1000, day=day, number=2),
+                  promo("355577887", store=True, spend=4000, net=None, gross=100, day=day, number=3))
+        add_day(self, shop=SHOP, day=day, platform="天猫", promotion=False, rows=[{"id": "10001", "values": {"transactionAmountCents": 20000}}])
+        params = QueryDict(urlencode({"platform": "天猫", "outlet": "天猫\x1f" + SHOP, "startDate": day, "endDate": "2026-11-12"}, doseq=True))
+        sections = read_promotion_insights(self.principal, params)["sections"]
+        self.assertTrue(sections["dataQuality"]["aggregateReconciled"], sections["dataQuality"])
+        self.assertEqual(sections["dataQuality"]["invalidShopDates"], [])
+        periods = sections["storeLevel"]["periods"]
+        self.assertEqual(periods["current"]["spendCents"], 4000)
+        self.assertEqual(periods["yearAgo"]["spendCents"], 4000)
+        self.assertEqual(periods["current"]["rowCount"], 1)
+
+    def test_analysis_rows_flag_store_subjects_in_metric_semantics(self):
+        from netshop.analysis import read_page, validate_request
+        self.load(promo("10001", spend=1000, number=2),
+                  promo("355577887", store=True, spend=4000, net=None, gross=35800, number=3))
+        spec, limit, cursor = validate_request(QueryDict(urlencode({"platform": "天猫", "shop": SHOP, "dataset": "promotion", "startDate": DAY, "endDate": DAY})))
+        page = read_page(spec, limit, cursor)
+        self.assertIn("店铺:", page["metricSemantics"]["promotionStoreSubjects"])
+        self.assertEqual(page["control"]["typedTotals"]["spendCents"], 5000)  # totals stay complete
+        self.assertIn("店铺:355577887", [item["spuId"] for item in page["items"]])
+
     def test_store_level_does_not_leak_across_shops(self):
         self.load(promo("355577887", store=True, spend=4000), seed="lili")
         self.load(promo("10001", spend=1000, shop=OTHER_SHOP), seed="other")
@@ -266,7 +301,7 @@ class ReaderTests(StoreLevelPromotionTestCase):
     def test_old_overview_derives_store_level_and_omits_it_when_absent(self):
         self.load(
             promo("10001", spend=1000, net=5000, number=2),
-            promo("355577887", store=True, spend=4000, net=35800, number=3),
+            promo("355577887", store=True, spend=4000, net=None, gross=35800, number=3),
         )
         self.load(promo("10001", spend=700, shop=OTHER_SHOP), seed="other")
         self.product_day(SHOP, ("10001", 20000))
@@ -277,7 +312,8 @@ class ReaderTests(StoreLevelPromotionTestCase):
         self.assertEqual(summary["spendCents"], 5000)
         self.assertEqual(summary["productCount"], 1)
         self.assertEqual(summary["storeLevel"]["spendCents"], 4000)
-        self.assertEqual(summary["storeLevel"]["netTransactionAmountCents"], 35800)
+        # 旧概览只披露花费与行数；成交类字段在汇总里无法区分真 0 与缺失，所以不给。
+        self.assertEqual(set(summary["storeLevel"]), {"definition", "rowCount", "spendCents"})
         self.assertEqual(summary["storeLevel"]["rowCount"], 1)
         without = promotion_overview(platforms=["天猫"], outlets=[{"platform": "天猫", "shopName": OTHER_SHOP}], requested_period=period)
         self.assertNotIn("storeLevel", without["summary"])
