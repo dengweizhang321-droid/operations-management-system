@@ -12,6 +12,8 @@ import { assertLogisticsEnabledProducts, assertLogisticsExport, assertLogisticsM
 import { canonicalLogisticsJson, jdLogisticsProtocol, logisticsHash, parseJdLogisticsConfig, parseJdLogisticsSettings, planJdLogisticsNotifications, selectJdLogisticsOperations, validLogisticsDate,
   type JdLogisticsConfig, type JdLogisticsExportOptions, type JdLogisticsExportResult } from "../lib/jd/logistics-policy";
 
+import { closeJdLogisticsZeroEffectPlan, reconcileJdLogisticsZeroEffectClosures, ZeroEffectRefusal } from "./jd-logistics-zero-effect-closure";
+
 export { jdLogisticsHelperRequestError } from "../lib/jd/logistics-manifest";
 type Dependencies = {
   root: string; executionId: string; request?: typeof fetch; now?: Date;
@@ -102,14 +104,24 @@ export async function planJdLogisticsN8nRun(options: Dependencies & { baseUrl?: 
   const baseUrl = normalizeJdLogisticsBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
   const files = paths(options.root); await mkdir(files.directory, { recursive: true });
   return withJackyunRunLock({ runId: `jdl-plan-${logisticsHash(options.executionId).slice(0, 24)}`, purpose: "jd-logistics-plan", lockDirectory: files.lock }, async lock => {
+    // Zero-effect closure is the only exception to an unresolved previous plan. Any
+    // inconsistency fails closed with the unchanged error the hourly retry matches.
+    const unresolved = (cause?: unknown) => new Error("JD_LOGISTICS_PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION", cause === undefined ? undefined : { cause });
+    try { await reconcileJdLogisticsZeroEffectClosures(options.root, options.executionId, lock); }
+    catch (error) { throw error instanceof ZeroEffectRefusal ? unresolved(error) : error; }
     const active = await readJsonDurableOr<Active | null>(files.active, null);
     if (active) {
       const previous = await loadOwned({ ...options, executionId: active.executionId }, active);
       if (previous.executionId === options.executionId) {
-        if (previous.baseUrl !== baseUrl || previous.stage === "running" || previous.stage === "failed") throw new Error("JD_LOGISTICS_PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
+        if (previous.baseUrl !== baseUrl || previous.stage === "running" || previous.stage === "failed") throw unresolved();
         await assertPolicy(options, previous); return previous;
       }
-      if (previous.stage !== "completed") throw new Error("JD_LOGISTICS_PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
+      if (previous.stage !== "completed") {
+        let closed = false;
+        try { closed = previous.stage === "failed" && await closeJdLogisticsZeroEffectPlan(options.root, active, options.executionId, lock); }
+        catch (error) { throw error instanceof ZeroEffectRefusal ? unresolved(error) : error; }
+        if (!closed) throw unresolved();
+      }
     }
     const now = options.now ?? new Date();
     const input = await currentInputs(options, baseUrl);
