@@ -37,18 +37,22 @@
 
 不得为了追求“直到成功”而缩小以上失败关闭范围。人工处理并闭合旧证据后，只能从原工作流创建新的完整 execution。
 
-### 同一失败连续三次止损（未实现）
+### 同一失败连续四次止损
 
-分类器的规则是「没命中终局正则就每小时重试」，所以任何漏项都会被无限重试（丽力、拓丰各被重试数十次即是；次数口径见[本次任务记录](../../retry-repeat-stop-20261117/README.md#问题)）。设想用 n8n 工作流静态数据按 workflowId 记录最近失败指纹，同指纹第 3 次出现时转终局人工提醒。**该方案在当前部署下不可行，本分支没有实现。**
+分类器的规则是「没命中终局正则就每小时重试」，所以任何漏项都会被无限重试（丽力、拓丰各被重试数十次即是；次数口径见[终局正则任务记录](../../retry-repeat-stop-20261117/README.md#问题)）。作为终局正则之外的兜底，同一工作流的同一失败连续出现 4 次时停止重试，转人工提醒 `manual_action_repeated_failure`。设计依据与历史回放见[本次任务记录](../../retry-same-fingerprint-stop-20261117/README.md)。
 
-- 共享错误工作流 ID `TeruisiHourlyRetry2026` 长 22 个字符，而 n8n 2.32.7 的 `isWorkflowIdValid` 只接受长度不超过 21 的 ID（`dist/utils.js:14-16`）。执行结束保存静态数据的两处钩子（`dist/execution-lifecycle/execution-lifecycle-hooks.js:407`、`:477`）与 `WorkflowStaticDataService.saveStaticData`（`dist/workflows/workflow-static-data.service.js:33`）都以此为前提，因此这个工作流的静态数据永远不会落库，每次执行读到的都是空对象，计数恒为 1，止损永不触发，而且不会有任何报错。
-- 改工作流 ID 会牵动 16 条目标工作流的 `settings.errorWorkflow`、发布记账与回退依据，不属于小改动。
-- 其余语义已核实可用：Code 节点（task runner）提供 `$getWorkflowStaticData`（`@n8n/task-runner/dist/js-task-runner/js-task-runner.js:388`），变更经 `executeTask` 回传并覆盖（`:149`；`n8n/dist/task-runners/task-managers/task-requester.js:128-130`）；error 与 waiting 状态的运行结束时都会带着变更后的静态数据调用保存钩子（`n8n-core/dist/execution-engine/workflow-execute.js:1465-1498`，非 manual 才保存）；并发执行按整个静态数据对象后写覆盖，会丢计数，偏向多重试一次。
+- **账本是 n8n 自己的执行历史**，不另建计数文件。「读取原执行计划时间」节点在 retry-context 核验通过之后、`reserve-retry` 之前，调用 helper 的只读端点 `POST /coordination/retry-failure-streak`（请求头与 retry-context 相同）。helper 以只读方式打开 n8n 数据库，从失败 execution 往前扫描同一工作流的历史（`lib/jackyun/n8n-preflight-evidence.ts` 的 `queryN8nFailureStreak`，纯计算在 `lib/jackyun/n8n-retry-failure-streak.ts`）。
+- **指纹** = 工作流 ID + `lastNodeExecuted` + 规范化后的 `error.message` 与 `error.description`。规范化去掉 ANSI 颜色码、`Call log:` 与 `====` 之后的 Playwright 日志、时间戳与日期、UUID、12 位以上十六进制串、4 位以上数字，再压缩空白、截到 1024 字符。3 位以内的数字保留，因此「第 3 页」和「第 6 页」是不同指纹。message 与 description 都为空时没有指纹，不计数。
+- **计数规则**：只数 `mode=trigger/webhook` 且 `status=error/crashed` 的 execution。任意 mode 的 `success` 清零；自动模式的 `canceled`、不同指纹或读不出指纹的失败都会中断计数；手动失败和 `running/waiting` 跳过。失败 execution 之后只要同一工作流已有任何成功运行，就不再停止（等待期间新一天的定时已成功，提醒会是假警）。
+- **阈值 4**（`hourlyRetrySameFailureStopThreshold`）。阈值 3 会误停 `JdN8nSilentCopy2026` 2026-11-15 的一次自愈：同一句「runner 未完成计划步骤」连续失败 3 次后，第 4 次成功。
+- **吉客云 `J8kY2mQ5vR7sT4pN` 豁免**，它有自己的重试预算；节点对它不调用该端点。
+- **降级**：端点不可达、超时、非 200、版本或工作流/execution 不匹配、字段缺失等任何异常，节点只 `console.warn` 一行并继续原有的 `reserve-retry`。这项检查只能把重试转成提醒，不能自己阻断重试。
 
-可行的替代方向是把计数放到已有的 `reserve-retry` 预留账本：`lib/jackyun/retry-dispatch-reservation.ts` 每次派发都会在 `outputs/n8n-retry-dispatch/` 创建带 `originalExecutionId` 的文件，按同一 `originalExecutionId` 统计预留数即可得到重试链长度，超过阈值时由 helper 拒绝并走现有 `*_manual_action` 终局提醒。这需要改 helper 与 Django/Worker 之外的本机协调服务，另立任务并单独授权。
+已排除的方案：n8n 工作流静态数据。共享错误工作流 ID `TeruisiHourlyRetry2026` 长 22 个字符，n8n 2.32.7 的 `isWorkflowIdValid` 只接受不超过 21 个字符（`dist/utils.js:14-16`），保存静态数据的钩子（`dist/execution-lifecycle/execution-lifecycle-hooks.js:407`、`:477`，`dist/workflows/workflow-static-data.service.js:33`）因此直接跳过，计数恒为 1 且没有报错。改 ID 会牵动 16 条目标工作流的 `settings.errorWorkflow`。按 `reserve-retry` 预留文件计数也不采用：预留按 `originalExecutionId` 分链，每天的定时运行会开新链，跨天重复的同一失败（丽力连续 7 天）数不到一起。
 
 ## 终局提醒文案
 
+- 新增原因码 `manual_action_repeated_failure`（「同一节点的同一错误已连续出现 4 次，已停止每小时自动重试」），由上节的止损产生；ps1 文案中的次数由测试与阈值常量比对。
 - 新增原因码 `manual_action_content_invalid`（「已下载文件或汇总内容未通过确定性校验，重试只会得到相同结果」），分类器 `terminalAlertReasons`、「准备人工提醒参数」节点的 `codes` 与 `tools/n8n-manual-action-alert.ps1` 的 `$hints` 三处同步，由测试逐键比对。排在登录类原因之后，同时出现验证码等更可操作的原因时仍以后者为准。
 - 「收集被丢弃的终局失败」节点此前把 `terminalCode` 写死为「dispatch result unknown…」，经「准备人工提醒参数」后成为末端 `stopAndError` 的错误文案，使所有终局失败的错误工作流 execution 看起来像「重试派发结果未知」。钉钉正文由 `code` 决定，但生产现役的共享错误工作流版本 `dbe5c5ea`（2026-11-06，来源 `e3f2b1b8`）不含 `cf05e971` 引入的 `alertCode`，所以生产终局提醒至今用的是通用 `terminal_manual_action` 文案；本次发布会同时首次上线 `cf05e971` 的分条文案与本分支改动。现在 `terminalCode` 与实际原因码一致。
 
