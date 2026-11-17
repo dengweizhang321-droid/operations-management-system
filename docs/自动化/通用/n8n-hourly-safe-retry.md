@@ -33,8 +33,28 @@
 - 多个候选任务、任务归属不唯一或来源日期尚未开放；
 - 已经点击/提交但远端结果未知，包括 `export_submitting`、`report_submitting`、`page_export_submitting` 和 `task_click_invoked`；
 - 需要操作者确认的内容完整性错误，例如分页货品唯一数少于出售中总数。
+- 天猫直连 P/M 已落盘文件或汇总结果的确定性内容校验失败（2026-11-17 补入）：「天猫商品报表计划维度包含非商品主体」「天猫商品报表缺少有效商品 ID」「商品 ID 集合与提交批次不一致」「…与活动清单证据(数量)不一致」。活动清单停在 downloading 时，重试只会重新校验同一份本地文件，结论必然相同，且每次重试都要重新登录千牛/阿里妈妈，增加触发验证码的风险。这些规则只用稳定字面片段，不使用宽泛的「不一致」「拒绝」，避免误伤瞬态失败。
 
 不得为了追求“直到成功”而缩小以上失败关闭范围。人工处理并闭合旧证据后，只能从原工作流创建新的完整 execution。
+
+### 同一失败连续三次止损（未实现）
+
+分类器的规则是「没命中终局正则就每小时重试」，所以任何漏项都会被无限重试（2026-11-04 至 11-17 丽力 61 次、拓丰 53 次即是）。设想用 n8n 工作流静态数据按 workflowId 记录最近失败指纹，同指纹第 3 次出现时转终局人工提醒。**该方案在当前部署下不可行，本分支没有实现。**
+
+- 共享错误工作流 ID `TeruisiHourlyRetry2026` 长 22 个字符，而 n8n 2.32.7 的 `isWorkflowIdValid` 只接受长度不超过 21 的 ID（`dist/utils.js:14-16`）。执行结束保存静态数据的两处钩子（`dist/execution-lifecycle/execution-lifecycle-hooks.js:407`、`:477`）与 `WorkflowStaticDataService.saveStaticData`（`dist/workflows/workflow-static-data.service.js:33`）都以此为前提，因此这个工作流的静态数据永远不会落库，每次执行读到的都是空对象，计数恒为 1，止损永不触发，而且不会有任何报错。
+- 改工作流 ID 会牵动 16 条目标工作流的 `settings.errorWorkflow`、发布记账与回退依据，不属于小改动。
+- 其余语义已核实可用：Code 节点（task runner）提供 `$getWorkflowStaticData`（`@n8n/task-runner/dist/js-task-runner/js-task-runner.js:388`），变更经 `executeTask` 回传并覆盖（`:149`；`n8n/dist/task-runners/task-managers/task-requester.js:128-130`）；error 与 waiting 状态的运行结束时都会带着变更后的静态数据调用保存钩子（`n8n-core/dist/execution-engine/workflow-execute.js:1465-1498`，非 manual 才保存）；并发执行按整个静态数据对象后写覆盖，会丢计数，偏向多重试一次。
+
+可行的替代方向是把计数放到已有的 `reserve-retry` 预留账本：`lib/jackyun/retry-dispatch-reservation.ts` 每次派发都会在 `outputs/n8n-retry-dispatch/` 创建带 `originalExecutionId` 的文件，按同一 `originalExecutionId` 统计预留数即可得到重试链长度，超过阈值时由 helper 拒绝并走现有 `*_manual_action` 终局提醒。这需要改 helper 与 Django/Worker 之外的本机协调服务，另立任务并单独授权。
+
+## 终局提醒文案
+
+- 新增原因码 `manual_action_content_invalid`（「已下载文件或汇总内容未通过确定性校验，重试只会得到相同结果」），分类器 `terminalAlertReasons`、「准备人工提醒参数」节点的 `codes` 与 `tools/n8n-manual-action-alert.ps1` 的 `$hints` 三处同步，由测试逐键比对。排在登录类原因之后，同时出现验证码等更可操作的原因时仍以后者为准。
+- 「收集被丢弃的终局失败」节点此前把 `terminalCode` 写死为「dispatch result unknown…」，经「准备人工提醒参数」后成为末端 `stopAndError` 的错误文案，使所有终局失败的错误工作流 execution 看起来像「重试派发结果未知」。钉钉正文由 `code` 决定，一直是对的；现在 `terminalCode` 与实际原因码一致。
+
+## 生产生效
+
+本分支只改仓库定义。要在生产生效，须按 [2026-11-06 分类器发布记录](../../n8n-classifier-publish-20261106/REPORT.md) 的方式，只替换「仅保留可安全自动重试的失败」「收集被丢弃的终局失败」「准备人工提醒参数」三个节点的 `jsCode`，并在 n8n UI 发布；同时 `tools/n8n-manual-action-alert.ps1` 随合并生效。这一步需要另行授权。
 
 吉客云另有精确例外：仅当新 helper 在 B 节点登录前读取 DPAPI 凭据连续失败，并在原全局锁内确认 v2 原计划无导出意图、空 exports，浏览器事件、下载、验证和导入四类效果路径全不存在，才 create-only 保存自动闭合回执并返回 `JACKYUN_PREFLIGHT_RETRY_READY`。错误工作流只对吉客云 B 节点的精确标记安排 60 分钟后从原 Webhook 创建完整 execution；新执行仍须重新通过原计划、active、回执和日期门禁。任何闭合失败、迟到效果、文件缺失、路径异常或其他凭据/登录错误继续停止自动重试。旧 4299 不会因新规则自动闭合，必须单独按原运行证据处理。
 

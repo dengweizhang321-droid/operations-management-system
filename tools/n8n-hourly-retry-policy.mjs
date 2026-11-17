@@ -55,6 +55,16 @@ const terminalFailurePatterns = [
   "活动清单.*无法证明|manifest.*(?:mismatch|ambiguous|invalid)|owner.*conflict|owner.*冲突",
   "唯一商品数.*出售中总数|内容完整性错误|content completeness|内容校验失败|validation failed|日期覆盖.*(?:缺失|不一致)|date coverage.*(?:missing|mismatch)|空文件|零行业务|malformed workbook|批次.*(?:不匹配|回查失败)",
   "逐页货品文件合计 \\d+ 个唯一商品，与出售中总数 \\d+ 不一致|市场榜单导入响应与签收文件、身份、日期或行数不一致",
+  // 天猫直连 P/M：已落盘文件或汇总结果的确定性内容校验失败。活动清单停在
+  // downloading 时，每次重试只会重新校验同一份本地文件，结论必然相同；而每次重试
+  // 又要重新登录千牛/阿里妈妈，白白增加触发验证码的风险，且可重试失败不发钉钉，
+  // 问题会连续数日无人知晓。必须终局并转人工。
+  // 只收录这些稳定的字面片段，不要写成宽泛的「不一致」「拒绝」：那会把瞬态失败也
+  // 一并终局。各片段对应：
+  //   计划维度包含非商品主体 / 缺少有效商品 ID —— normalized-import.ts prepareTmallPromotionRows（丽力）
+  //   商品 ID 集合与提交批次不一致 —— tmall-direct-product-master-export.ts 分批文件回读（拓丰）
+  //   与活动清单证据(数量)不一致 —— 直连 P/M 与逐页货品恢复时，本地文件 sha256/行数与清单不符
+  "天猫商品报表计划维度包含非商品主体|天猫商品报表缺少有效商品\\s*ID|商品\\s*ID\\s*集合与提交批次不一致|与活动清单证据(?:数量)?不一致",
   "需要人工|转人工|manual action|required human",
   "京东物流流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入",
   "文件校验未通过",
@@ -128,6 +138,10 @@ const terminalAlertReasons = [
   ["manual_action_session_absent", "session[_ ]absent|尚未登录|登录失效|需要登录|not authenticated|session invalid|cookie invalid|passport\\.jd\\.com|login\\.taobao\\.com"],
   // Bounded wait elapsed without a verdict. Historically self-clearing.
   ["manual_action_login_pending", "登录状态加载超时|登录状态在有界等待后仍无法确认|login[_ ]pending|waiting_login|登录[^\\s]{0,12}?(?:失败|异常|拒绝|未就绪)"],
+  // Downloaded file or its summary failed a deterministic content check: the
+  // same file will fail the same way, so the fix is to inspect the file, not to
+  // log in again. Last on purpose, so any more actionable cause above wins.
+  ["manual_action_content_invalid", "计划维度包含非商品主体|缺少有效商品\\s*ID|商品\\s*ID\\s*集合与提交批次不一致|与活动清单证据(?:数量)?不一致|内容完整性错误|逐页货品文件合计 \\d+ 个唯一商品|市场榜单导入响应与签收文件、身份、日期或行数不一致"],
 ];
 
 export function terminalAlertReason(failureText) {
@@ -492,14 +506,17 @@ try {
 // 自动重试的），或流程不在 targets 白名单里。原逻辑连 execution 失败都不留，
 // 而这一类恰恰最需要人介入。
 const dropped = $input.first().json?.droppedFailures ?? [];
-return dropped.map((item) => ({ json: { manualAction: {
-  workflowId: item.workflowId, failedExecutionId: item.failedExecutionId,
-  logicalExecutionId: item.originalExecutionId || item.failedExecutionId,
-  // 终局失败用分类器给出的具体原因码，缺失时回退到原通用码；
-  // 非自动触发那一类与原先一致。
-  code: item.reason === '终局失败，不会自动重试'
-    ? (item.alertCode || 'terminal_manual_action') : 'execution_mode_not_automatic',
-}, terminalCode: 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST' } }));`,
+// terminalCode 同时是末端 stopAndError 写进 execution 的错误文案：必须与实际告警
+// 原因码一致，不能写死成「重试 Webhook 派发结果未知」——那会让终局失败的 execution
+// 看起来像是派发出了问题。
+return dropped.map((item) => {
+  const code = item.reason === '终局失败，不会自动重试'
+    ? (item.alertCode || 'terminal_manual_action') : 'execution_mode_not_automatic';
+  return { json: { manualAction: {
+    workflowId: item.workflowId, failedExecutionId: item.failedExecutionId,
+    logicalExecutionId: item.originalExecutionId || item.failedExecutionId, code,
+  }, terminalCode: code } };
+});`,
         },
         id: "b2f8d1e5-7c3a-4f9b-8d42-6e1a9c8b3f75",
         name: collectDroppedName,
@@ -538,7 +555,7 @@ const codes = ['terminal_manual_action','execution_mode_not_automatic','retry_di
   'retry_reservation_result_unknown_manual_action','retry_already_reserved_or_unverified_manual_action',
   'manual_action_challenge','manual_action_credential','manual_action_locked',
   'manual_action_identity','manual_action_submit_unknown','manual_action_source_not_ready',
-  'manual_action_session_absent','manual_action_login_pending'];
+  'manual_action_session_absent','manual_action_login_pending','manual_action_content_invalid'];
 // 逐条校验、逐条产出：sender 的 executeOnce=false，每条 item 调一次脚本，
 // 所以合法条目各自都会发出去。整批 throw 会让同批合法告警一起发不出去
 // （失败点在 sender 上游），那是「终局但人收不到通知」——只满足要求的一半。
