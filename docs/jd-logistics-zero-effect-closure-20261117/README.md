@@ -53,7 +53,7 @@
 
 ## 11037 只读判定
 
-2026-11-17 在主检出对生产目录只读运行 `inspect`（未写任何文件，未 apply）：判为 `zero_effect`。证据：`activeSha256=c34404de…57b7`（旧工具会据此算出恢复目录名 `login-11037-c34404deffc764f2`；该目录在生产上并不存在，只是同一摘要前缀的对照）、`manifestSha256=eb40de00…1231`、`failureCode=JD_LOGISTICS_LOGIN_REQUIRED`、`failure.stage=run`、`failureAt=2026-10-30T00:50:26.393Z`；operations 为 flow `exporting`，其余三项 `planned`；通知 `pending`；下载目录仅含空目录。发布后的下一次 A 将自动闭合并建立新计划。
+2026-11-17 在主检出对生产目录只读运行 `inspect`（入口 `node --import tsx tools/jd-logistics-zero-effect-inspect.ts inspect <绝对根目录>`；该脚本使用 `import.meta`，只能独立存在，不得被 helper 打包闭包内的文件 import，否则 `tools/build-worker-helper.mjs` 会以 unreviewed import.meta 拒绝构建）（未写任何文件，未 apply）：判为 `zero_effect`。证据：`activeSha256=c34404de…57b7`（旧工具会据此算出恢复目录名 `login-11037-c34404deffc764f2`；该目录在生产上并不存在，只是同一摘要前缀的对照）、`manifestSha256=eb40de00…1231`、`failureCode=JD_LOGISTICS_LOGIN_REQUIRED`、`failure.stage=run`、`failureAt=2026-10-30T00:50:26.393Z`；operations 为 flow `exporting`，其余三项 `planned`；通知 `pending`；下载目录仅含空目录。发布后的下一次 A 将自动闭合并建立新计划。
 
 ## 人工收尾：残留的 zero-effect-* 目录
 
