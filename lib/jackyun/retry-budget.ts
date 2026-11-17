@@ -7,6 +7,7 @@ import { jackyunWorkflowId } from "./preflight-recovery";
 import { readJackyunRecoveryPolicy } from "./recovery-policy";
 import { assertNoFreshRestart } from "./fresh-restart";
 import { assertNoOperatorClosure } from "./operator-close-fence";
+import { retryDispatchReservationExists } from "./retry-dispatch-reservation";
 
 type RetryContext = { workflowId: string; failedExecutionId: string; originalExecutionId: string; originalScheduledAt: string };
 type Intent = { version: "jackyun-retry-budget-v1"; context: RetryContext; dispatcherExecutionId: string;
@@ -54,8 +55,7 @@ export async function reserveJackyunFailureRetry(root: string, context: RetryCon
     }
     if (intents.length >= 3) throw new Error("完整失败恢复已达三次上限，请处理具体障碍后手动完整重试。");
     if (control && control.record.attemptExecutionId !== context.failedExecutionId) throw new Error("迟到的失败通知不属于当前逻辑运行 owner，禁止派发。");
-    const oldIntent = path.join(root, "outputs/n8n-retry-dispatch", `${context.workflowId}-${context.failedExecutionId}.json`);
-    if (await lstat(oldIntent).then(() => true, error => { if (error.code === "ENOENT") return false; throw error; })) throw new Error("原版本已有重试派发记录，需协调旧结果；不得扩大旧许可。");
+    if (retryDispatchReservationExists(root, context.workflowId, context.failedExecutionId)) throw new Error("原版本已有重试派发记录，需协调旧结果；不得扩大旧许可。");
     const delayMinutes = policy.failureDelaysMinutes[intents.length];
     const nextAllowedAt = new Date(Date.parse(options.failedStoppedAt) + delayMinutes * 60_000).toISOString();
     if (Date.parse(now) < Date.parse(nextAllowedAt)) return { ok: true, reservationStatus: "waiting", failedExecutionId: context.failedExecutionId,
