@@ -13,6 +13,7 @@ import {
   hourlyRetryTriggerName,
   hourlyRetryWebhookPath,
   terminalAlertReason,
+  terminalAlertReasons,
 } from "../tools/n8n-hourly-retry-policy.mjs";
 
 const workflowDirectory = new URL("../automation/n8n/", import.meta.url);
@@ -450,4 +451,150 @@ test("the local n8n launcher binds retry webhooks to loopback", async () => {
   assert.ok(bind >= 0 && nodePolicy > bind && start > nodePolicy);
   assert.match(source, /non-loopback address/);
   assert.match(source, /LocalAddress -notin @\("127\.0\.0\.1", "::1"\)/);
+});
+
+// 2026-11-17: 天猫丽力 61 次、拓丰 53 次被每小时重试，因为这两条确定性内容校验错误
+// 没有命中任何终局正则。原文取自抛出点，不是改写后的片段。
+const deterministicContentFailures: Array<[string, string]> = [
+  ["TmallLiliDaily2026", "天猫商品报表计划维度包含非商品主体，拒绝汇总"],
+  ["TmallLiliDaily2026", "天猫商品报表缺少有效商品 ID，拒绝汇总"],
+  ["TmallTuofengDaily2026", "天猫分批商品 XLSX 的商品 ID 集合与提交批次不一致"],
+  ["TmallYiyongDaily2026", "推广直连恢复文件与活动清单证据不一致"],
+  ["M4xY8kQ2vR6sT9pC", "恢复时第 2 批商品文件与活动清单证据不一致"],
+  ["M4xY8kQ2vR6sT9pC", "MTOP 恢复时合并货品文件与活动清单证据不一致"],
+  ["TmallMasituDaily2026", "逐页货品文件与活动清单证据数量不一致"],
+  ["TmallMasituDaily2026", "逐页货品文件 a b.xlsx 回读结果与活动清单证据不一致"],
+];
+
+test("deterministic Tmall content-validation failures stop in both the pure function and the emitted classifier", async () => {
+  const classifiers = await c1Classifiers();
+  for (const [workflowId, message] of deterministicContentFailures) {
+    for (const mode of ["trigger", "webhook"]) {
+      for (const field of ["message", "description"]) {
+        const payload = { workflow: { id: workflowId, name: "x" }, execution: { id: "9001", mode,
+          lastNodeExecuted: "P·推广直连", error: { message: "The service was not able to process your request", [field]: message } } };
+        assert.deepEqual(classifyHourlyRetryFailure(payload), { retry: false, reason: "manual_intervention_required" }, message);
+        for (const execute of classifiers) {
+          const [emitted] = execute({ all: () => [{ json: payload }] });
+          assert.equal(emitted.json.noRetryTarget, true, message);
+          assert.equal(emitted.json.retryPolicy, undefined, message);
+          assert.equal(emitted.json.droppedFailures[0].alertCode, "manual_action_content_invalid", message);
+        }
+      }
+    }
+  }
+});
+
+test("the new content patterns stay narrow: transient and merely similar errors are still retried", async () => {
+  const classifiers = await c1Classifiers();
+  for (const message of [
+    "The connection was aborted, perhaps the server is offline",
+    "ECONNREFUSED 连接被拒绝",
+    "两次读取的结果不一致，稍后重试",
+    "天猫商品报表加载超时",
+    "商品 ID 列表请求失败（HTTP 503）",
+    "提交批次 3 等待下载中心超时",
+  ]) {
+    const payload = { workflow: { id: "TmallTuofengDaily2026" }, execution: { id: "9002", mode: "trigger", error: { message } } };
+    assert.equal(classifyHourlyRetryFailure(payload).retry, true, message);
+    for (const execute of classifiers) assert.equal(execute({ all: () => [{ json: payload }] })[0].json.retryPolicy.workflowId, "TmallTuofengDaily2026", message);
+  }
+});
+
+test("content-validation wording is distinct and loses to a more actionable cause", () => {
+  for (const [, message] of deterministicContentFailures) assert.equal(terminalAlertReason(message), "manual_action_content_invalid", message);
+  assert.equal(terminalAlertReason("内容完整性错误：唯一商品数少于出售中总数"), "manual_action_content_invalid");
+  // A captcha reported together with a content error must still read as a captcha.
+  assert.equal(terminalAlertReason("商品 ID 集合与提交批次不一致 出现验证码"), "manual_action_challenge");
+});
+
+// 终局告警链：分类器 → 收集被丢弃的终局失败 → 准备人工提醒参数 → 末端 stopAndError。
+// 此前收集节点把 terminalCode 写死成「dispatch result unknown…」，于是任何终局失败的
+// execution 错误文案都说成派发结果未知。钉钉正文由 code 决定、一直是对的，错的是这一句。
+test("terminal alert chain carries the real reason code through to the final error message", async () => {
+  const workflow = JSON.parse(await readFile(new URL("data-import-hourly-safe-retry.workflow.json", workflowDirectory), "utf8")) as ReturnType<typeof buildHourlyRetryErrorWorkflow>;
+  const code = (name: string) => workflow.nodes.find(node => node.name === name)!.parameters.jsCode as string;
+  const classify = new Function("$input", code("仅保留可安全自动重试的失败"));
+  const collect = new Function("$input", code("收集被丢弃的终局失败"));
+  const prepare = new Function("$input", code("准备人工提醒参数"));
+  const stopMessage = workflow.nodes.find(node => node.name === "重试派发结果未知转人工")!.parameters.errorMessage;
+  assert.equal(stopMessage, "={{ $('准备人工提醒参数').item.json.terminalCode }}");
+  for (const [message, expected] of [
+    ["天猫商品报表计划维度包含非商品主体，拒绝汇总", "manual_action_content_invalid"],
+    ["需要验证码或安全验证", "manual_action_challenge"],
+    ["店铺身份 identity mismatch", "manual_action_identity"],
+    ["需要人工处理，原因未分类", "terminal_manual_action"],
+  ] as const) {
+    const payload = { workflow: { id: "TmallLiliDaily2026", name: "丽力" }, execution: { id: "9100", mode: "trigger", error: { message } } };
+    const [classified] = classify({ all: () => [{ json: payload }] });
+    const collected = collect({ first: () => classified });
+    assert.equal(collected.length, 1);
+    assert.equal(collected[0].json.manualAction.code, expected, message);
+    assert.equal(collected[0].json.terminalCode, expected, message);
+    const prepared = prepare({ all: () => collected });
+    assert.equal(prepared.length, 1);
+    assert.equal(prepared[0].json.terminalCode, expected, message);
+    assert.doesNotMatch(prepared[0].json.terminalCode, /dispatch result unknown/);
+    const sent = JSON.parse(Buffer.from(prepared[0].json.manualAlertPayloadBase64, "base64").toString("utf8"));
+    assert.equal(sent.code, expected);
+    assert.equal(sent.failedExecutionId, "9100");
+  }
+  // The non-automatic-mode branch keeps its own code and also reaches the sender.
+  const manual = collect({ first: () => ({ json: { droppedFailures: [{ workflowId: "TmallLiliDaily2026", failedExecutionId: "9101", reason: "触发方式 manual 不参与自动重试" }] } }) });
+  assert.equal(manual[0].json.manualAction.code, "execution_mode_not_automatic");
+  assert.equal(prepare({ all: () => manual })[0].json.terminalCode, "execution_mode_not_automatic");
+});
+
+// 双向钉住三处手抄的原因码：分类器能产出的码 ⊆ 准备节点放行的 codes，
+// 且放行的 codes === ps1 $hints 的键。任何一侧多或少，要么整条提醒静默丢失
+// （ps1 对未知 code 抛 invalid_payload），要么存在永远发不出的死码。
+test("alert codes agree both ways across classifier, prepare node and alert script (generator and repo JSON)", async () => {
+  const script = await readFile(new URL("../tools/n8n-manual-action-alert.ps1", import.meta.url), "utf8");
+  const start = script.indexOf("$hints=@{");
+  const hints = script.slice(start, script.indexOf("\n  }", start));
+  const scripted = [...hints.matchAll(/([a-z_]+)=@\(/g)].map(match => match[1]!).sort();
+  assert.ok(scripted.length >= 10);
+  const repoJson = JSON.parse(await readFile(new URL("data-import-hourly-safe-retry.workflow.json", workflowDirectory), "utf8")) as ReturnType<typeof buildHourlyRetryErrorWorkflow>;
+  const classifierCodes = new Set<string>(terminalAlertReasons.map(([code]: [string, string]) => code));
+  classifierCodes.add("terminal_manual_action");
+  for (const [label, workflow] of [["generator", buildHourlyRetryErrorWorkflow()], ["repo json", repoJson]] as const) {
+    const prepare = workflow.nodes.find(node => node.name === "准备人工提醒参数")!.parameters.jsCode as string;
+    const literal = /const codes = \[([^\]]*)\];/.exec(prepare);
+    assert.ok(literal, `${label}: codes list not found`);
+    const node = [...literal![1]!.matchAll(/'([a-z_]+)'/g)].map(match => match[1]!).sort();
+    assert.deepEqual(node, scripted, `${label}: prepare-node codes must equal alert-script $hints keys`);
+    const unlisted = [...classifierCodes].filter(code => !node.includes(code));
+    assert.deepEqual(unlisted, [], `${label}: classifier codes missing from prepare node: ${unlisted.join(",")}`);
+  }
+});
+
+// 新终局片段在仓库中的抛出点清单（以文件+文案计，不钉行号）。新增一个匹配这些
+// 片段的抛出点时本测试失败：请人工判断它是否同样「重试必然得到相同结果」，是则
+// 加入清单，否则收窄片段，不要直接改清单了事。
+test("every throw site matching the deterministic content terminal fragments is pinned", async () => {
+  const fragments = /计划维度包含非商品主体|缺少有效商品\s*ID|商品\s*ID\s*集合与提交批次不一致|与活动清单证据(?:数量)?不一致/u;
+  const expected = [
+    "lib/netshop/normalized-import.ts | 天猫商品报表缺少有效商品 ID，拒绝汇总",
+    "lib/netshop/normalized-import.ts | 天猫商品报表计划维度包含非商品主体，拒绝汇总",
+    "tools/tmall-direct-product-master-export.ts | 天猫分批商品 XLSX 的商品 ID 集合与提交批次不一致",
+    "tools/tmall-direct-product-master-export.ts | 恢复时第 ${} 批商品文件与活动清单证据不一致",
+    "tools/tmall-direct-product-master-export.ts | MTOP 恢复时合并货品文件与活动清单证据不一致",
+    "tools/tmall-direct-promotion-export.ts | 推广直连恢复文件与活动清单证据不一致",
+    "tools/tmall-pagewise-product-master-export.ts | 逐页货品文件与活动清单证据数量不一致",
+    "tools/tmall-pagewise-product-master-export.ts | 逐页货品文件 ${} 与活动清单证据不一致",
+    "tools/tmall-pagewise-product-master-export.ts | 逐页货品文件 ${} 回读结果与活动清单证据不一致",
+  ].sort();
+  const { readdir } = await import("node:fs/promises");
+  const found: string[] = [];
+  for (const dir of ["tools", "lib/netshop"]) {
+    for (const name of await readdir(new URL(`../${dir}/`, import.meta.url))) {
+      if (!name.endsWith(".ts")) continue;
+      const source = await readFile(new URL(`../${dir}/${name}`, import.meta.url), "utf8");
+      for (const match of source.matchAll(/throw new Error\((["`])(.*?)\1\)/gu)) {
+        if (fragments.test(match[2]!)) found.push(`${dir}/${name} | ${match[2]!.replace(/\$\{[^}]*\}/g, "${}")}`);
+      }
+    }
+  }
+  assert.deepEqual(found.sort(), expected,
+    "throw site set changed: decide by hand whether the new/removed error is deterministic on a retry before editing this list");
 });
