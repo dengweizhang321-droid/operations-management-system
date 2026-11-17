@@ -34,6 +34,12 @@ from .models import (
     NetshopRow,
     NetshopWriteAuthority,
 )
+from .promotion_subjects import (
+    STORE_ID_PREFIX,
+    STORE_SOURCE,
+    STORE_SUBJECT_TYPE,
+    is_store_spu_id,
+)
 from .serialization import batch_payload
 
 
@@ -194,6 +200,22 @@ def _issue(value: object) -> dict[str, object]:
     return result
 
 
+def _check_promotion_subject_identity(spu_id: str, raw: Mapping[str, object]) -> None:
+    """Store-level promotion rows must carry the reserved ``店铺:<主体ID>`` identity.
+
+    The writer never trusts the Worker's classification: a store subject posing as a
+    product would enter the product aggregates, and a product posing as a store would
+    silently vanish from them.
+    """
+    subject_type = _raw_text(raw, "主体类型")
+    subject_id = _raw_text(raw, "主体ID")
+    if subject_type == STORE_SUBJECT_TYPE:
+        if not subject_id or spu_id != f"{STORE_ID_PREFIX}{subject_id}":
+            raise NetshopApiError("店铺级推广行身份必须为“店铺:”加主体ID", status=422)
+    elif is_store_spu_id(spu_id):
+        raise NetshopApiError("非店铺主体的推广行不得使用店铺级身份前缀", status=422)
+
+
 def _normalize_row(value: object, context: dict[str, str]) -> dict[str, object]:
     if not isinstance(value, dict) or set(value) != ROW_FIELDS:
         raise NetshopApiError("网店规范化行字段与 netshop-normalized-v1 不一致")
@@ -229,6 +251,8 @@ def _normalize_row(value: object, context: dict[str, str]) -> dict[str, object]:
     raw = _json_value(value["raw"], "原始业务字段")
     if not isinstance(metrics, dict) or not isinstance(raw, dict):
         raise NetshopApiError("指标和原始业务字段必须是 JSON 对象")
+    if source == STORE_SOURCE and dataset == "promotion_daily":
+        _check_promotion_subject_identity(spu_id, raw)
     row_hash = _text(value["sourceRowHash"], "源行哈希", 64, required=True).lower()
     if not HEX_64_RE.fullmatch(row_hash):
         raise NetshopApiError("源行哈希必须是 64 位小写 SHA-256")
@@ -803,7 +827,14 @@ def _master_reconciliation(
         .order_by("-snapshot_date", "-completed_at", "-created_at", "-id")
         .first()
     )
-    product_ids = sorted({str(row["spuId"]).strip() for row in rows if row["spuId"]})
+    product_ids = sorted(
+        {
+            str(row["spuId"]).strip()
+            for row in rows
+            if row["spuId"]
+            and not (payload["source"] == STORE_SOURCE and is_store_spu_id(row["spuId"]))
+        }
+    )
     if latest_batch is None:
         return len(product_ids), product_ids[:20], False
     matched = set(
@@ -947,10 +978,36 @@ def _rebuild_promotion_scope(
         ).order_by("business_date", "source_row_key")
     )
     product_groups: dict[tuple[str, str], dict[str, object]] = {}
+    # 店铺级推广行（店铺直达等）：只进店铺日汇总，不生成商品行、不计入 product_count。
+    store_groups: dict[str, dict[str, int]] = defaultdict(
+        lambda: {
+            "spend": 0,
+            "net": 0,
+            "gross": 0,
+            "impressions": 0,
+            "clicks": 0,
+            "orders": 0,
+            "favorites": 0,
+            "cart": 0,
+            "rows": 0,
+        }
+    )
     for row in raw_rows:
         product_id = row.sku_id.strip() if row.source == "jd_promotion" else row.spu_id.strip()
         if not product_id or not row.business_date:
             raise NetshopApiError("推广聚合行缺少商品身份或有效业务日期", status=422)
+        if row.source == STORE_SOURCE and is_store_spu_id(product_id):
+            store = store_groups[row.business_date]
+            store["spend"] += row.spend_cents
+            store["net"] += row.net_transaction_amount_cents
+            store["gross"] += row.gross_transaction_amount_cents
+            store["impressions"] += row.impressions
+            store["clicks"] += row.clicks
+            store["orders"] += row.net_orders
+            store["favorites"] += row.favorites
+            store["cart"] += row.cart_quantity
+            store["rows"] += 1
+            continue
         key = (row.business_date, product_id)
         current = product_groups.get(key)
         product_line = _raw_text(row.raw_json, "产品线")
@@ -1042,6 +1099,10 @@ def _rebuild_promotion_scope(
             ("rows", "rows"),
         ):
             shop[target] += int(value[source])
+    for store_date, store in store_groups.items():
+        shop = shop_groups[store_date]
+        for name, amount in store.items():
+            shop[name] += amount
     aggregate_filter = {
         "platform": payload["platform"],
         "shop_name": payload["shopName"],
@@ -1522,7 +1583,14 @@ def _publish_prepared_import(
             "dateMin": dates[0] if dates else None,
             "dateMax": dates[-1] if dates else None,
             "rowCount": len(rows),
-            "uniqueProductCount": len({str(row["spuId"]) for row in rows if row["spuId"]}),
+            "uniqueProductCount": len(
+                {
+                    str(row["spuId"])
+                    for row in rows
+                    if row["spuId"]
+                    and not (payload["source"] == STORE_SOURCE and is_store_spu_id(row["spuId"]))
+                }
+            ),
             "uniqueSkuCount": len({str(row["skuId"]) for row in rows if row["skuId"]}),
             "unmatchedProductCount": unmatched_count,
             "replaceScope": {"kind": kind, "start": start or None, "end": end or None},

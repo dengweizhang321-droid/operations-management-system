@@ -723,16 +723,50 @@ function safeRatio(numerator: number | null, denominator: number | null, multipl
 
 
 /**
+ * 阿里妈妈“商品报表”在“店铺直达”等营销场景下会返回主体类型为“店铺”的行（主体名称
+ * “店铺首页”）。这类花费属于店铺整体推广，不属于任何商品：行照常入库并计入店铺推广
+ * 日汇总，但不得生成商品级推广事实，也不得分摊到商品。
+ *
+ * 行身份：店铺级行的 spuId 固定写成 `店铺:<主体ID>`。`店铺:` 前缀不可能出现在纯数字商品
+ * ID 中，因此店铺 ID 与某商品 ID 即使数字相同也不会共用行键，也不会被商品维度的读取
+ * （按 spu_id 过滤或分组）误当成商品。Django 写入侧对同一约定逐行复核。
+ * 没有店铺级行的文件不受任何影响：不新增字段、不改变行内容与指纹。
+ */
+export const TMALL_PROMOTION_STORE_SUBJECT_TYPE = "店铺";
+export const TMALL_PROMOTION_STORE_ID_PREFIX = "店铺:";
+
+
+export function isTmallPromotionStoreSubject(raw: Record<string, string | number | boolean | null>) {
+  return normalizeText(raw["主体类型"]) === TMALL_PROMOTION_STORE_SUBJECT_TYPE;
+}
+
+
+export function isPromotionStoreSpuId(spuId: string) {
+  return spuId.startsWith(TMALL_PROMOTION_STORE_ID_PREFIX);
+}
+
+
+export function tmallPromotionStoreSpuId(subjectId: string) {
+  return subjectId ? `${TMALL_PROMOTION_STORE_ID_PREFIX}${subjectId}` : "";
+}
+
+
+/**
  * 阿里妈妈“商品报表”在选择“商品、计划”维度后，同一商品同一天会出现多条计划行。
  * 运营系统的 promotion_daily 自然键仍是“店铺 + 日期 + 商品”，因此必须先把计划行
  * 汇总为唯一商品日事实，不能依赖数据库冲突覆盖，也不能丢掉某个计划的指标。
+ * 主体类型为“店铺”的行按“日期 + 店铺主体”独立汇总，绝不与同日同数字 ID 的商品行合并；
+ * 其他未知的非商品主体类型仍然失败关闭。
  */
 export function prepareTmallPromotionRows(rows: readonly ParsedNetshopRawRow[]) {
   const groups = new Map<string, ParsedNetshopRawRow[]>();
   for (const row of rows) {
     const date = normalizeText(row.raw["日期"]);
     const subjectId = normalizeText(row.raw["主体ID"]);
-    const key = JSON.stringify([date, subjectId]);
+    // 非店铺行保持原键形状，保证没有店铺级行的文件分组与输出完全不变。
+    const key = isTmallPromotionStoreSubject(row.raw)
+      ? JSON.stringify([date, TMALL_PROMOTION_STORE_SUBJECT_TYPE, subjectId])
+      : JSON.stringify([date, subjectId]);
     const group = groups.get(key) ?? [];
     group.push(row);
     groups.set(key, group);
@@ -741,10 +775,15 @@ export function prepareTmallPromotionRows(rows: readonly ParsedNetshopRawRow[]) 
   return [...groups.values()].map((group) => {
     const first = group[0]!;
     if (group.length === 1) return first;
+    const storeGroup = isTmallPromotionStoreSubject(first.raw);
     const subjectNames = [...new Set(group.map((row) => normalizeText(row.raw["主体名称"])).filter(Boolean))].sort();
     const subjectTypes = [...new Set(group.map((row) => normalizeText(row.raw["主体类型"])).filter(Boolean))];
-    if (!/^\d+$/.test(normalizeText(first.raw["主体ID"]))) throw new Error("天猫商品报表缺少有效商品 ID，拒绝汇总");
-    if (subjectTypes.some((value) => value !== "商品")) throw new Error("天猫商品报表计划维度包含非商品主体，拒绝汇总");
+    if (!/^\d+$/.test(normalizeText(first.raw["主体ID"]))) {
+      throw new Error(storeGroup
+        ? "天猫商品报表缺少有效商品 ID，拒绝汇总（店铺级主体缺少有效店铺 ID）"
+        : "天猫商品报表缺少有效商品 ID，拒绝汇总");
+    }
+    if (!storeGroup && subjectTypes.some((value) => value !== "商品")) throw new Error("天猫商品报表计划维度包含非商品主体，拒绝汇总");
 
     const raw = { ...first.raw };
     // Plan-level titles can differ for one product ID. Keep every title as
@@ -1042,7 +1081,9 @@ function buildNetshopRows(input: NetshopImportInput, context: {
         : input.source === "tmall_product_daily"
           ? normalizeText(row.raw["商品ID"])
           : input.source === "tmall_promotion"
-            ? normalizeText(row.raw["主体ID"])
+            ? (isTmallPromotionStoreSubject(row.raw)
+                ? tmallPromotionStoreSpuId(normalizeText(row.raw["主体ID"]))
+                : normalizeText(row.raw["主体ID"]))
             : "";
       const productCode = input.source === "tmall_product_assets"
         ? ""
@@ -1143,7 +1184,8 @@ export async function inspectTmallImportBytes(input: NetshopImportInput) {
   const errors = built.sourceErrors.length > 0 ? built.sourceErrors : validateRows(built.rows);
   if (input.source === "tmall_promotion") {
     for (const row of built.rawRows) {
-      if (normalizeText(row.raw["主体类型"]) !== "商品") {
+      const subjectType = normalizeText(row.raw["主体类型"]);
+      if (subjectType !== "商品" && subjectType !== TMALL_PROMOTION_STORE_SUBJECT_TYPE) {
         errors.push({ row: row.rowNumber, field: "主体类型", code: "UNSUPPORTED_SUBJECT_TYPE", message: "推广导入当前只接受主体类型为“商品”的数据" });
       }
     }
@@ -1167,7 +1209,7 @@ export async function inspectTmallImportBytes(input: NetshopImportInput) {
     errors,
     totals: {
       rowCount: built.rows.length,
-      uniqueProductCount: new Set(built.rows.map((row) => row.spuId).filter(Boolean)).size,
+      uniqueProductCount: new Set(built.rows.map((row) => row.spuId).filter((spuId) => spuId && !(input.source === "tmall_promotion" && isPromotionStoreSpuId(spuId)))).size,
       uniqueSkuCount: new Set(built.rows.map((row) => row.skuId).filter(Boolean)).size,
       missingSkuCount: built.rows.filter((row) => !row.skuId).length,
       inventoryQuantity: sumMetric("inventoryQuantity"),
@@ -1352,7 +1394,8 @@ export async function prepareNormalizedNetshopImport(
   const errors = built.sourceErrors.length > 0 ? [...built.sourceErrors] : validateRows(built.rows);
   if (input.source === "tmall_promotion") {
     for (const row of built.rawRows) {
-      if (normalizeText(row.raw["主体类型"]) !== "商品") {
+      const subjectType = normalizeText(row.raw["主体类型"]);
+      if (subjectType !== "商品" && subjectType !== TMALL_PROMOTION_STORE_SUBJECT_TYPE) {
         errors.push({ row: row.rowNumber, field: "主体类型", code: "UNSUPPORTED_SUBJECT_TYPE", message: "推广导入当前只接受主体类型为“商品”的数据" });
       }
     }
@@ -1423,6 +1466,9 @@ export async function prepareNormalizedNetshopImport(
   }
   const dates = built.rows.map((row) => row.businessDate).filter(Boolean).sort();
   const sumMetric = (key: string) => built.rows.reduce((sum, row) => sum + Number(row.metrics[key] ?? 0), 0);
+  const storeLevelRows = input.source === "tmall_promotion"
+    ? built.rows.filter((row) => isPromotionStoreSpuId(row.spuId))
+    : [];
   return {
     schemaVersion: "netshop-normalized-v1",
     disposition: "prepared",
@@ -1443,7 +1489,7 @@ export async function prepareNormalizedNetshopImport(
     parserTotals: {
       sourceRowCount: built.rawRows.length,
       rowCount: built.rows.length,
-      uniqueProductCount: new Set(built.rows.map((row) => row.spuId).filter(Boolean)).size,
+      uniqueProductCount: new Set(built.rows.map((row) => row.spuId).filter((spuId) => spuId && !(input.source === "tmall_promotion" && isPromotionStoreSpuId(spuId)))).size,
       uniqueSkuCount: new Set(built.rows.map((row) => row.skuId).filter(Boolean)).size,
       dateMin: dates[0] ?? null,
       dateMax: dates[dates.length - 1] ?? null,
@@ -1452,6 +1498,12 @@ export async function prepareNormalizedNetshopImport(
       refundAmountCents: sumMetric("refundAmountCents"),
       spendCents: sumMetric("spendCents"),
       netTransactionAmountCents: sumMetric("netTransactionAmountCents"),
+      // 仅在文件含店铺级推广行时出现，保证其他文件的解析统计与此前逐字一致。
+      ...(storeLevelRows.length > 0 ? {
+        storeLevelRowCount: storeLevelRows.length,
+        storeLevelSpendCents: storeLevelRows.reduce((sum, row) => sum + Number(row.metrics.spendCents ?? 0), 0),
+        storeLevelNetTransactionAmountCents: storeLevelRows.reduce((sum, row) => sum + Number(row.metrics.netTransactionAmountCents ?? 0), 0),
+      } : {}),
     },
     imagePersistence,
   };

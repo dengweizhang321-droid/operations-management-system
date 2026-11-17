@@ -24,6 +24,7 @@ from .models import (NetshopImportBatch, NetshopPromotionAggregateManifest,
                      NetshopPromotionAggregateState, NetshopPromotionProductDaily,
                      NetshopPromotionShopDaily, NetshopRow)
 from .promotion_diagnostic import SHOP_NAME, MAX_SOURCE_ROWS
+from .promotion_subjects import STORE_SUBJECT_Q
 from .query import _canonical_token, positive, revision_value
 from .store_overview import NumericMetricPresent, days
 
@@ -149,7 +150,11 @@ def _read_facts(platform, names, p, deadline):
     id_column = "sku_id" if platform == "京东" else "spu_id"
     raw_base = _source_rows(platform, names, promo_source, promo_dataset)
     product_base = _source_rows(platform, names, product_source, product_dataset)
-    raw, product = {}, {}
+    # 天猫店铺级推广行（店铺直达等）是店铺整体花费，不是商品：不进商品对象集合，
+    # 单独汇总后并入店铺总额，并作为“其中店铺级推广”单独披露。京东没有该类行。
+    object_base = raw_base.exclude(STORE_SUBJECT_Q) if platform == "天猫" else raw_base
+    store_base = raw_base.filter(STORE_SUBJECT_Q) if platform == "天猫" else None
+    raw, product, store_raw = {}, {}, {}
     for kind in ("current", "previous", "yearAgo"):
         dates = days(p[kind]["startDate"], p[kind]["endDate"])
         for offset in range(0, len(dates), 7):
@@ -159,10 +164,16 @@ def _read_facts(platform, names, p, deadline):
             annotations = {"row_count": Count("id"), "owned_count": Count("id", filter=Q(owner_ok=True)),
                 "title": Max("product_name"), **{c: Sum(c) for c in CONTROL_COLUMNS},
                 **{k+"_present": Count("id", filter=NumericMetricPresent(v[1])) for k, v in METRICS.items()}}
-            for r in raw_base.filter(**scoped).values("shop_name", "business_date", id_column).annotate(**annotations).order_by():
+            for r in object_base.filter(**scoped).values("shop_name", "business_date", id_column).annotate(**annotations).order_by():
                 if len(r[id_column]) > 200 or any(ord(c) < 32 or ord(c) == 127 for c in r[id_column]):
                     raise NetshopApiError("推广商品源身份超过共享有界长度或包含控制字符", code="quality_incomplete", status=422)
                 raw[(r["shop_name"], r["business_date"], r[id_column])] = r
+            if store_base is not None:
+                _budget(deadline)
+                for r in store_base.filter(**scoped).values("shop_name", "business_date").annotate(**annotations).order_by():
+                    cell = store_raw.setdefault((r["shop_name"], r["business_date"]), {**_empty(), "owned_count": 0})
+                    _add(cell, r)
+                    cell["owned_count"] += r["owned_count"]
             _budget(deadline)
             for r in product_base.filter(**scoped, owner_ok=True).values("shop_name", "business_date", id_column).annotate(
                 row_count=Count("id"), payment=Sum("transaction_amount_cents"),
@@ -180,6 +191,8 @@ def _read_facts(platform, names, p, deadline):
         _add(shop_raw.setdefault((shop, day), _empty()), r)
         raw_by_day.setdefault((shop, day), {})[(shop, day, object_id)] = r
         raw_by_object.setdefault((shop, object_id), {})[(shop, day)] = r
+    for key, r in store_raw.items():
+        _add(shop_raw.setdefault(key, _empty()), r)
     for (shop, day, object_id), r in product.items():
         product_by_object.setdefault((shop, object_id), {})[(shop, day)] = r
         cell = product_daily.setdefault((shop, day), {"payment": 0, "row_count": 0, "payment_present": 0})
@@ -209,6 +222,9 @@ def _read_facts(platform, names, p, deadline):
             valid = all(v["owned_count"] == v["row_count"] and published[k]["source"] == promo_source
                 and published[k]["source_row_count"] == v["row_count"]
                 and all(published[k][c] == v[c] for c in CONTROL_COLUMNS) for k, v in object_rows.items())
+        if valid and key in store_raw:
+            # 店铺级行与商品行同属一个已完成批次；店铺总额 = Σ商品 + 店铺级，缺一不可。
+            valid = store_raw[key]["owned_count"] == store_raw[key]["row_count"]
         if not valid: failures[key] = "promotion_mismatch"
     # Publication ownership is part of metadata, independently of raw owners.
     batch_ids = {r["source_batch_id"] for r in [*states.values(), *shops.values(), *products.values()]}
@@ -220,8 +236,8 @@ def _read_facts(platform, names, p, deadline):
         o = owners.get(item["source_batch_id"])
         if not o or o.status != "completed" or o.row_count < 1 or o.warning_count < 0 or (o.platform, o.shop_name, o.source, o.dataset) != (platform, item["shop_name"], promo_source, promo_dataset) or not o.date_min or not o.date_max or not o.date_min <= item["business_date"] <= o.date_max:
             failures[(item["shop_name"], item["business_date"])] = "promotion_mismatch"
-    product_universe = {key: all(bool(k[2]) for k in objects) for key, objects in raw_by_day.items()}
-    return {"raw": raw, "product": product, "shopRaw": shop_raw, "productUniverse": product_universe, "rawByObject": raw_by_object, "productByObject": product_by_object, "productDaily": product_daily, "failures": failures,
+    product_universe = {key: all(bool(k[2]) for k in raw_by_day.get(key, {})) for key in shop_raw}
+    return {"raw": raw, "product": product, "shopRaw": shop_raw, "storeRaw": store_raw, "productUniverse": product_universe, "rawByObject": raw_by_object, "productByObject": product_by_object, "productDaily": product_daily, "failures": failures,
             "ready": ready, "source": promo_source, "productSource": product_source, "idColumn": id_column,
             "rawBase": raw_base, "metadata": {"aggregateReconciled": not failures, "invalidShopDates": [
                 {"shopKey": platform+"\x1f"+n, "date": d, "reasonCode": reason} for (n, d), reason in sorted(failures.items())]}}
@@ -308,6 +324,47 @@ class _Reader:
         comparisons = {k: {v: _compare(k, metrics["current"][k], metrics[v][k]) for v in ("previous", "yearAgo")} for k in KEYS}
         changes = {k: {v: _delta(k, metrics["current"][k], metrics[v][k]) for v in ("previous", "yearAgo")} for k in ("spend", "attributedPayment")}
         return metrics["current"], comparisons, matched, changes
+
+
+STORE_LEVEL_DEFINITION = ("店铺级推广：阿里妈妈报表中主体类型为“店铺”的行（如店铺直达），"
+                          "计入店铺推广总额，但不属于任何商品，未分摊到商品")
+
+
+def _store_level(facts, names, periods, platform):
+    """Disclose store-level spend that the shop total contains but no product owns.
+
+    Absent entirely (never zeros) when the platform has no such rows in any window, so
+    the response of every shop and historical period without store-level rows is
+    byte-for-byte what it was before.
+    """
+    store = facts["storeRaw"]
+    if platform != "天猫" or not store:
+        return None
+    windows, any_rows, reconciled = {}, False, True
+    for kind in ("current", "previous", "yearAgo"):
+        wanted = set(days(periods[kind]["startDate"], periods[kind]["endDate"]))
+        total = {"spendCents": 0, "attributedPaymentCents": 0, "impressions": 0, "clicks": 0, "orders": 0, "rowCount": 0}
+        observed, by_shop = set(), {}
+        for (shop, day), r in sorted(store.items()):
+            if shop not in names or day not in wanted:
+                continue
+            if (shop, day) in facts["failures"]:
+                reconciled = False
+                continue
+            observed.add(day)
+            any_rows = True
+            cell = by_shop.setdefault(shop, {"spendCents": 0, "attributedPaymentCents": 0, "rowCount": 0})
+            for target, column in (("spendCents", "spend_cents"), ("attributedPaymentCents", "net_transaction_amount_cents"),
+                                   ("impressions", "impressions"), ("clicks", "clicks"), ("orders", "net_orders"),
+                                   ("rowCount", "row_count")):
+                total[target] += r[column]
+                if target in cell:
+                    cell[target] += r[column]
+        windows[kind] = {**total, "dates": sorted(observed), "byShop": [
+            {"shopKey": platform+"\x1f"+shop, "shopName": shop, **cell} for shop, cell in sorted(by_shop.items())]}
+    if not any_rows and reconciled:
+        return None
+    return {"definition": STORE_LEVEL_DEFINITION, "unit": "CNY_CENT", "reconciled": reconciled, "periods": windows}
 
 
 def _page(items, options):
@@ -657,6 +714,9 @@ def _read_once(principal, params, detail, deadline):
     collect(sections)
     sections["coverage"] = {k: v for k, v in context["coverageBySource"].items() if k in refs and k.startswith("promotion:")}
     context["coverageBySource"] = {k: v for k, v in context["coverageBySource"].items() if not k.startswith("promotion:")}
+    store_level = _store_level(facts, names, p, platform)
+    if store_level is not None and not detail:
+        sections["storeLevel"] = store_level
     payload = {"columnVersion": "netshop-promotion-v1", "context": context, "sectionToken": section_token, "sections": sections}
     _budget(deadline)
     current_revision = revision_value()
