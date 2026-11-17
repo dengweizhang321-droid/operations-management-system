@@ -1,5 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
-import { lstatSync, realpathSync } from "node:fs";
+import { closeSync, fsyncSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, unlinkSync, writeSync } from "node:fs";
+import { isDeepStrictEqual } from "node:util";
+import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { homedir } from "node:os";
 import { jackyunWorkflowId } from "./preflight-recovery";
@@ -8,64 +10,195 @@ import { assertRetryContextIdentity, decodeN8nRetryContext, decodeN8nFixedPlanCo
 import { parseRecoveryRequest, type RecoveryRequest } from "./recovery-control";
 import { customerServiceStore } from "../jd/customer-service-stores";
 
-/** Fixed customer-service execution metadata; never reads customer business data. */
-export function readCustomerServiceOperatorEvidence(storeKey: string, executionId: string, action: "close" | "verify", replacementId?: string) {
+const evidenceInvalid = () => Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+const csNodeA = "A·固定客服店铺与30天范围", csNodeB = "B·双视图导出按日导入";
+const csAllowedNodes = new Set(["手动执行客服30天", "每天 09:00 执行", "固定本轮时间", "领取共享 helper", "helper 领取成功？", "等待前序流程释放 helper", csNodeA, csNodeB]);
+type SealedRow = { status: string; startedAt: string | number | null; stoppedAt: string | number | null; retrySuccessId: string | number | null };
+type FailurePart = { lastNodeExecuted: string; nodes: string[]; aStatus: string; bStatus: string; failureCode: string };
+type SealedEvidence = { version: "jd-customer-service-n8n-evidence-v1"; storeKey: string; workflowId: string; executionId: string; row: SealedRow; failure: FailurePart | null; sealedAt: string };
+const sealedVersion = "jd-customer-service-n8n-evidence-v1";
+const sealedPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
+const sealedScalar = (v: unknown) => v === null || typeof v === "string" || typeof v === "number";
+const sealedKeys = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).length === keys.length && keys.every(key => key in v);
+
+/** Same rules the live failure reader always applied; shared so a sealed copy cannot be weaker. */
+function assertFailurePart(part: FailurePart) {
+  if (part.lastNodeExecuted !== csNodeB || part.nodes.some(name => !csAllowedNodes.has(name)) || part.aStatus !== "success" || part.bStatus !== "error"
+    || !/^[A-Z_]{1,160}$/.test(part.failureCode)) throw evidenceInvalid();
+}
+function decodeFailurePart(raw: string): FailurePart {
+  const values: unknown = JSON.parse(raw);
+  if (!Array.isArray(values) || !values.length || values.length > 10000) throw evidenceInvalid();
+  const ref = (v: unknown): unknown => typeof v === "string" && /^\d+$/.test(v) ? values[Number(v)] : v;
+  const obj = (v: unknown): Record<string, unknown> => { const x = ref(v); if (!x || typeof x !== "object" || Array.isArray(x)) throw evidenceInvalid(); return x as Record<string, unknown>; };
+  const result = obj(obj(values[0]).resultData), run = obj(result.runData), error = obj(result.error);
+  const statuses = [csNodeA, csNodeB].map(name => {
+    const attempts = ref(run[name]);
+    const status = Array.isArray(attempts) && attempts.length === 1 ? ref(obj(attempts[0]).executionStatus) : undefined;
+    if (typeof status !== "string") throw evidenceInvalid();
+    return status;
+  });
+  const lastNodeExecuted = ref(result.lastNodeExecuted), description = ref(error.description);
+  if (typeof lastNodeExecuted !== "string" || typeof description !== "string") throw evidenceInvalid();
+  const part = { lastNodeExecuted, nodes: Object.keys(run).sort(), aStatus: statuses[0], bStatus: statuses[1], failureCode: description };
+  assertFailurePart(part);
+  return part;
+}
+const sealedRowOf = (row: Record<string, unknown>): SealedRow => {
+  const picked = { status: row.status, startedAt: row.startedAt, stoppedAt: row.stoppedAt, retrySuccessId: row.retrySuccessId };
+  if (typeof picked.status !== "string" || !sealedScalar(picked.startedAt) || !sealedScalar(picked.stoppedAt) || !sealedScalar(picked.retrySuccessId)) throw evidenceInvalid();
+  return picked as SealedRow;
+};
+
+function sealedFileFor(directory: string, executionId: string) {
+  if (!/^[1-9]\d{0,19}$/.test(executionId)) throw evidenceInvalid();
+  const folder = path.join(path.resolve(directory), "n8n-evidence");
+  return { folder, file: path.join(folder, `${executionId}.json`) };
+}
+function assertSealedFolder(folder: string) {
+  const info = lstatSync(folder);
+  if (info.isSymbolicLink() || !info.isDirectory() || realpathSync(folder).toLowerCase() !== folder.toLowerCase()) throw evidenceInvalid();
+}
+/** Returns null only when no sealed file exists; any other defect is invalid evidence. */
+function readSealedEvidence(directory: string, storeKey: string, workflowId: string, executionId: string): SealedEvidence | null {
+  const { folder, file } = sealedFileFor(directory, executionId);
+  let raw: string;
+  try {
+    assertSealedFolder(folder);
+    const info = lstatSync(file);
+    if (info.isSymbolicLink() || !info.isFile() || info.nlink !== 1 || info.size > 65536 || realpathSync(file).toLowerCase() !== file.toLowerCase()) throw evidenceInvalid();
+    raw = readFileSync(file, "utf8");
+  } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; }
+  let value: unknown;
+  try { value = JSON.parse(raw); } catch { throw evidenceInvalid(); }
+  if (!sealedPlain(value) || !sealedKeys(value, ["version", "storeKey", "workflowId", "executionId", "row", "failure", "sealedAt"])
+    || value.version !== sealedVersion || value.storeKey !== storeKey || value.workflowId !== workflowId || value.executionId !== executionId
+    || typeof value.sealedAt !== "string" || !sealedPlain(value.row) || !sealedKeys(value.row, ["status", "startedAt", "stoppedAt", "retrySuccessId"])
+    || typeof value.row.status !== "string" || !sealedScalar(value.row.startedAt) || !sealedScalar(value.row.stoppedAt) || !sealedScalar(value.row.retrySuccessId)) throw evidenceInvalid();
+  if (value.failure !== null) {
+    const f = value.failure;
+    if (!sealedPlain(f) || !sealedKeys(f, ["lastNodeExecuted", "nodes", "aStatus", "bStatus", "failureCode"]) || typeof f.lastNodeExecuted !== "string"
+      || !Array.isArray(f.nodes) || f.nodes.some(name => typeof name !== "string") || typeof f.aStatus !== "string" || typeof f.bStatus !== "string"
+      || typeof f.failureCode !== "string") throw evidenceInvalid();
+    assertFailurePart(f as unknown as FailurePart);
+  }
+  return value as unknown as SealedEvidence;
+}
+/** Use the live row unless n8n has pruned it; a pruned row is only ever replaced by an exactly matching sealed copy. */
+function resolveOldRow(live: Record<string, unknown> | undefined, sealed: SealedEvidence | null, workflowId: string) {
+  if (live && live.deletedAt === null) {
+    if (sealed && !isDeepStrictEqual(sealed.row, sealedRowOf(live))) throw evidenceInvalid();
+    return { row: live, purged: false };
+  }
+  if (!sealed) throw evidenceInvalid();
+  return { row: { workflowId, ...sealed.row, deletedAt: null } as Record<string, unknown>, purged: true };
+}
+
+/** Best-effort early copy of the original execution's terminal metadata, kept in
+ * the store's plan directory so closure survives n8n's retention pruning. Only
+ * fixed metadata (never customer data) is copied; an existing copy is never replaced. */
+export function sealCustomerServiceExecutionEvidence(directory: string, storeKey: string, executionId: string): SealedEvidence | null {
   const { workflowId } = customerServiceStore(storeKey);
-  if (!/^[1-9]\d{0,19}$/.test(executionId)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+  if (!/^[1-9]\d{0,19}$/.test(executionId)) throw evidenceInvalid();
   const db = openN8nMetadata();
+  let candidate: Omit<SealedEvidence, "sealedAt">;
   try {
     db.exec("PRAGMA query_only=ON; PRAGMA busy_timeout=3000; BEGIN");
     const row = db.prepare("SELECT workflowId,status,startedAt,stoppedAt,retrySuccessId,deletedAt FROM execution_entity WHERE id=?").get(executionId);
-    if (!row || row.workflowId !== workflowId || !(action === "close" ? ["error"] : ["error", "success"]).includes(String(row.status))
-      || row.retrySuccessId !== null || row.deletedAt !== null) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    if (!row || row.deletedAt !== null) return null;
+    if (row.workflowId !== workflowId || !["error", "success"].includes(String(row.status)) || row.stoppedAt === null || row.stoppedAt === "") throw evidenceInvalid();
+    const sealedRow = sealedRowOf(row);
+    n8nEvidenceTime(sealedRow.startedAt); n8nEvidenceTime(sealedRow.stoppedAt);
+    let failure: FailurePart | null = null;
+    if (sealedRow.status === "error") {
+      try {
+        const raw = db.prepare("SELECT data FROM execution_data WHERE executionId=? AND length(data)<=1048576").get(executionId)?.data;
+        if (typeof raw === "string") failure = decodeFailurePart(raw);
+      } catch { failure = null; }
+    }
+    candidate = { version: sealedVersion, storeKey, workflowId, executionId, row: sealedRow, failure };
+  } finally { db.close(); }
+  const same = (existing: SealedEvidence) => {
+    const { sealedAt: _ignored, ...rest } = existing;
+    if (!isDeepStrictEqual(rest, candidate)) throw Error("CUSTOMER_SERVICE_EVIDENCE_SEAL_CONFLICT");
+    return existing;
+  };
+  const found = readSealedEvidence(directory, storeKey, workflowId, executionId);
+  if (found) return same(found);
+  const { folder, file } = sealedFileFor(directory, executionId);
+  mkdirSync(folder, { recursive: true }); assertSealedFolder(folder);
+  const sealed: SealedEvidence = { ...candidate, sealedAt: new Date().toISOString() };
+  const temp = `${file}.${Date.now()}.${randomBytes(4).toString("hex")}.tmp`;
+  const fd = openSync(temp, "wx");
+  try { writeSync(fd, JSON.stringify(sealed)); fsyncSync(fd); }
+  catch (error) { try { closeSync(fd); } catch { /* already failing */ } try { unlinkSync(temp); } catch { /* best effort */ } throw error; }
+  closeSync(fd);
+  try { linkSync(temp, file); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    const winner = readSealedEvidence(directory, storeKey, workflowId, executionId);
+    if (!winner) throw error;
+    return same(winner);
+  } finally { unlinkSync(temp); }
+  return sealed;
+}
+
+/** Fixed customer-service execution metadata; never reads customer business data.
+ * `sealedDirectory` only substitutes the original row after n8n pruned it. */
+export function readCustomerServiceOperatorEvidence(storeKey: string, executionId: string, action: "close" | "verify", replacementId?: string, sealedDirectory?: string) {
+  const { workflowId } = customerServiceStore(storeKey);
+  if (!/^[1-9]\d{0,19}$/.test(executionId)) throw evidenceInvalid();
+  const db = openN8nMetadata();
+  try {
+    db.exec("PRAGMA query_only=ON; PRAGMA busy_timeout=3000; BEGIN");
+    const live = db.prepare("SELECT workflowId,status,startedAt,stoppedAt,retrySuccessId,deletedAt FROM execution_entity WHERE id=?").get(executionId);
+    const sealed = sealedDirectory === undefined ? null : readSealedEvidence(sealedDirectory, storeKey, workflowId, executionId);
+    const { row } = resolveOldRow(live, sealed, workflowId);
+    if (row.workflowId !== workflowId || !(action === "close" ? ["error"] : ["error", "success"]).includes(String(row.status))
+      || row.retrySuccessId !== null || row.deletedAt !== null) throw evidenceInvalid();
     const startedAt = n8nEvidenceTime(row.startedAt), stoppedAt = n8nEvidenceTime(row.stoppedAt);
-    if (startedAt > stoppedAt || stoppedAt > new Date().toISOString()) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    if (startedAt > stoppedAt || stoppedAt > new Date().toISOString()) throw evidenceInvalid();
     if (replacementId !== undefined) {
-      if (!/^[1-9]\d{0,19}$/.test(replacementId) || BigInt(replacementId) <= BigInt(executionId)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+      if (!/^[1-9]\d{0,19}$/.test(replacementId) || BigInt(replacementId) <= BigInt(executionId)) throw evidenceInvalid();
       const current = db.prepare("SELECT workflowId,status,mode,startedAt,deletedAt FROM execution_entity WHERE id=?").get(replacementId);
       if (!current || current.workflowId !== workflowId || current.status !== "running" || current.deletedAt !== null
-        || !["manual", "trigger"].includes(String(current.mode)) || stoppedAt > n8nEvidenceTime(current.startedAt)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+        || !["manual", "trigger"].includes(String(current.mode)) || stoppedAt > n8nEvidenceTime(current.startedAt)) throw evidenceInvalid();
     }
     const active = db.prepare("SELECT id FROM execution_entity WHERE workflowId=? AND deletedAt IS NULL AND status NOT IN ('error','success','canceled','crashed') AND id<>? LIMIT 1").get(workflowId, replacementId ?? "");
-    if (active) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    if (active) throw evidenceInvalid();
     // The plan's before-write checkpoints establish zero import effects for
     // failed closure; this separately establishes the original worker stopped.
     return { workflowId, executionId, status: String(row.status), startedAt, stoppedAt };
   } finally { db.close(); }
 }
 
-export function readCustomerServiceFailureEvidence(storeKey: string, executionId: string, replacementId: string) {
+export function readCustomerServiceFailureEvidence(storeKey: string, executionId: string, replacementId: string, sealedDirectory?: string) {
   const { workflowId } = customerServiceStore(storeKey);
-  if (![executionId, replacementId].every(id => /^[1-9]\d{0,19}$/.test(id)) || BigInt(replacementId) <= BigInt(executionId)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+  if (![executionId, replacementId].every(id => /^[1-9]\d{0,19}$/.test(id)) || BigInt(replacementId) <= BigInt(executionId)) throw evidenceInvalid();
   const db = openN8nMetadata();
   try {
     db.exec("PRAGMA query_only=ON; PRAGMA busy_timeout=3000; BEGIN");
-    const old = db.prepare("SELECT workflowId,status,startedAt,stoppedAt,retrySuccessId,deletedAt FROM execution_entity WHERE id=?").get(executionId);
+    const live = db.prepare("SELECT workflowId,status,startedAt,stoppedAt,retrySuccessId,deletedAt FROM execution_entity WHERE id=?").get(executionId);
+    const sealed = sealedDirectory === undefined ? null : readSealedEvidence(sealedDirectory, storeKey, workflowId, executionId);
+    const { row: old, purged } = resolveOldRow(live, sealed, workflowId);
     const current = db.prepare("SELECT workflowId,status,mode,startedAt,deletedAt FROM execution_entity WHERE id=?").get(replacementId);
-    if (!old || old.workflowId !== workflowId || old.status !== "error" || old.retrySuccessId !== null || old.deletedAt !== null
+    if (old.workflowId !== workflowId || old.status !== "error" || old.retrySuccessId !== null || old.deletedAt !== null
       || !current || current.workflowId !== workflowId || current.status !== "running" || current.deletedAt !== null
-      || !["manual", "trigger"].includes(String(current.mode))) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+      || !["manual", "trigger"].includes(String(current.mode))) throw evidenceInvalid();
     const startedAt = n8nEvidenceTime(old.startedAt), stoppedAt = n8nEvidenceTime(old.stoppedAt);
-    if (startedAt > stoppedAt || stoppedAt > n8nEvidenceTime(current.startedAt)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    if (startedAt > stoppedAt || stoppedAt > n8nEvidenceTime(current.startedAt)) throw evidenceInvalid();
     const active = db.prepare("SELECT id FROM execution_entity WHERE workflowId=? AND deletedAt IS NULL AND status NOT IN ('error','success','canceled','crashed') AND id<>? LIMIT 1").get(workflowId, replacementId);
-    if (active) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
-    const raw = db.prepare("SELECT data FROM execution_data WHERE executionId=? AND length(data)<=1048576").get(executionId)?.data;
-    if (typeof raw !== "string") throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
-    const values: unknown = JSON.parse(raw);
-    if (!Array.isArray(values) || !values.length || values.length > 10000) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
-    const ref = (v: unknown): unknown => typeof v === "string" && /^\d+$/.test(v) ? values[Number(v)] : v;
-    const obj = (v: unknown): Record<string, unknown> => { const x = ref(v); if (!x || typeof x !== "object" || Array.isArray(x)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID"); return x as Record<string, unknown>; };
-    const result = obj(obj(values[0]).resultData), run = obj(result.runData), error = obj(result.error);
-    const a = "A·固定客服店铺与30天范围", b = "B·双视图导出按日导入";
-    const allowed = new Set(["手动执行客服30天", "每天 09:00 执行", "固定本轮时间", "领取共享 helper", "helper 领取成功？", "等待前序流程释放 helper", a, b]);
-    if (ref(result.lastNodeExecuted) !== b || Object.keys(run).some(name => !allowed.has(name))) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
-    for (const [name, status] of [[a, "success"], [b, "error"]]) {
-      const attempts = ref(run[name]);
-      if (!Array.isArray(attempts) || attempts.length !== 1 || ref(obj(attempts[0]).executionStatus) !== status) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    if (active) throw evidenceInvalid();
+    const raw = purged ? undefined : db.prepare("SELECT data FROM execution_data WHERE executionId=? AND length(data)<=1048576").get(executionId)?.data;
+    let failure: FailurePart;
+    if (typeof raw === "string") {
+      failure = decodeFailurePart(raw);
+      if (sealed && !isDeepStrictEqual(sealed.failure, failure)) throw evidenceInvalid();
+    } else {
+      if (!sealed?.failure) throw evidenceInvalid();
+      failure = sealed.failure;
     }
-    const description = ref(error.description);
-    if (typeof description !== "string" || !/^[A-Z_]{1,160}$/.test(description)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
-    return { workflowId, executionId, startedAt, stoppedAt, failureCode: description };
+    return { workflowId, executionId, startedAt, stoppedAt, failureCode: failure.failureCode };
   } finally { db.close(); }
 }
 

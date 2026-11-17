@@ -66,7 +66,7 @@ export async function closeCustomerServicePreSubmitFailure(root: string, previou
       if (!previous.failureBoundary?.browserClosed || !info.isDirectory() || info.isSymbolicLink()
         || path.resolve(await realpath(download)).toLowerCase() !== path.resolve(download).toLowerCase() || (await readdir(download)).length) reject();
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-    const evidence = readCustomerServiceFailureEvidence(store.storeKey, previous.executionId, replacementId);
+    const evidence = readCustomerServiceFailureEvidence(store.storeKey, previous.executionId, replacementId, directory);
     if (![previous.failureCode, `${previous.failureCode}_MANUAL_ACTION`].includes(evidence.failureCode)) reject();
     const planSha256 = sha(previousBytes);
     if (sha(await customerServiceControlBytes(path.join(directory, `${previous.executionId}.json`))) !== planSha256

@@ -19,6 +19,7 @@ import { buildCustomerServiceDailyFiles } from "./jd-customer-service-daily-file
 import { importCustomerServiceDay, verifyCustomerServiceBatch, type CustomerServiceBatchProof } from "./jd-customer-service-import";
 import { assertCustomerServiceSourceRecoveryNotClosed, consumeCustomerServiceOperatorClosure } from "./jd-customer-service-operator-reconcile";
 import { closeCustomerServicePreSubmitFailure, customerServiceControlBytes } from "./jd-customer-service-failure-closure";
+import { sealCustomerServiceExecutionEvidence } from "../lib/jackyun/n8n-preflight-evidence";
 
 export type CustomerServiceN8nPlan = {
   storeKey?: string; shopId?: string; shopName?: string;
@@ -99,6 +100,8 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
         recovery = { approvalSha256: recoverySha256, originalExecutionId: previous.executionId, kind: recovered.approval.kind };
         await claimCustomerServiceRecovery(root, recovery, store.storeKey, executionId);
       } else if (previous.stage !== "completed") {
+        // Best effort: copy the old execution's fixed metadata before n8n prunes it.
+        try { sealCustomerServiceExecutionEvidence(files.directory, store.storeKey, previous.executionId); } catch { /* closure below remains authoritative */ }
         try {
           if (!await consumeCustomerServiceOperatorClosure(root, previous, previousBytes, executionId))
             await closeCustomerServicePreSubmitFailure(root, previous, previousBytes, executionId, files.directory);

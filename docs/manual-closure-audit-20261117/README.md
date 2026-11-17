@@ -123,3 +123,61 @@
 - 56 次「dispatch result unknown」只抽查了 11122（京东推广 413），没有逐条核对。
 - 客服 `readCustomerServiceOperatorEvidence` 在 n8n 记录被清理后的真实报错，没有用隔离环境复现；结论来自源码（`lib/jackyun/n8n-preflight-evidence.ts:18-20` 查不到行就抛 `CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID`）。
 - 同组会话 `retry-fingerprint-stop` 正在处理重试同指纹止损，本方案不重复覆盖。
+
+## 8. 第一批实现（P1-a + P1-b，2026-11-17）
+
+状态：已开发并在分支提交，**未合并、未准备制品、未上线**。代码由 Sonnet 子代理实现，Opus 独立反审。
+
+### P1-a 天猫推广 P 直连受控入口
+
+- 新增 `tools/tmall-direct-promotion-admin.ts`（CLI）、`tools/tmall-direct-promotion-admin-core.ts`（逻辑）、`tests/tmall-direct-promotion-admin.test.ts`，共 23 个用例。
+- `tools/tmall-direct-promotion-export.ts` 只给既有符号加了 `export`，runner 行为不变。运维工具不进 helper 打包。
+- 用法：
+
+```bash
+node --import tsx tools/tmall-direct-promotion-admin.ts --action inspect --store-key tmall-lili
+```
+
+```bash
+node --import tsx tools/tmall-direct-promotion-admin.ts --action probe --store-key tmall-lili
+```
+
+```bash
+node --import tsx tools/tmall-direct-promotion-admin.ts --action abandon-expired --store-key tmall-lili --dry-run
+```
+
+```bash
+node --import tsx tools/tmall-direct-promotion-admin.ts --action abandon-expired --store-key tmall-lili --confirm --expect-sha256 <dry-run 的 sha256> --reason "<原因>"
+```
+
+| 动作 | 前置 | 平台探测结果 → 处理 |
+| --- | --- | --- |
+| `inspect` | 无 | 纯本地只读：清单、本地 zip、可用动作 |
+| `probe` | helper 对该店空闲 | 只读：复用该店 Chromium、核验身份、分页扫描最多 25 页 × 20 条 |
+| `resolve-submitting` | `failed/report_submitting`、无 taskId、无文件 | absent → `planned`；unique 且未失败 → 绑定 taskId 并改为 `report_submitted`；unique 且失败 → `planned`；ambiguous、incomplete、超过 30 天的 absent → 拒绝 |
+| `abandon-expired` | `failed/report_submitted\|downloading`、有 taskId、无文件 | absent（含超 30 天窗口截断）或任务失败 → 不覆盖地归档到 `operator-abandons/<runId>-<sha16>/`；任务仍有效 → 拒绝 |
+
+- 实测：对丽力线上清单做只读 `inspect`。结果是 `failed/downloading`，taskId 22117697，本地 zip 已存在（sha `32d137d8…`），可用动作 `probe` 与 `abandon-expired`。
+- `dry-run` 同样会连接该店 Chromium 做只读探测。若该店 Chromium 未运行，`ensureTmallStoreAuthenticatedSession` 会启动它，必要时走 DPAPI 登录。探测完成后只断开 CDP，不关闭浏览器。
+
+### P1-b 客服 n8n 证据封存
+
+- `lib/jackyun/n8n-preflight-evidence.ts` 新增 `sealCustomerServiceExecutionEvidence`。两个读取函数加了可选参数 `sealedDirectory`：活库行还在时行为不变，并与封存件比对；行被清理或已 `deletedAt` 时改读封存件，返回值逐字段相同，已有回执的比对仍成立。替代 execution 检查与运行中检查始终查活库。
+- 封存时机有两处：`planCustomerServiceRun` 遇到未完成旧计划时，以及操作员闭合执行时。都是尽力而为，失败吞掉，不改变原流程。
+- `tools/n8n-metadata-read-boundary.mjs` 的审阅摘要更新为 `da3c4ce8…48c4`，按 LF 字节计算，与 git 存储一致。
+- 新增 `tests/jd-customer-service-n8n-evidence-seal.test.ts`，共 9 个用例，其中一个是行被清理后 `closeCustomerServicePreSubmitFailure` 端到端仍能闭合。
+
+### 检查结果
+
+| 检查 | 结果 |
+| --- | --- |
+| 13 个相关测试文件，共 131 个用例 | 129 通过，2 失败。2 个失败在干净 main（e3ecd40b）上同样失败，属既有：客服定时期望 `0 9 * * *`、亿用时区 `undefined` |
+| `node tools/check-django-production-boundary.mjs` | exit 0 |
+| `tools/build-worker-helper.mjs` 实跑打包 | exit 0；封存函数已在包内，运维工具不在包内 |
+| `tsc --noEmit`，过滤改动文件 | 只有 `tools/tmall-direct-promotion-export.ts:268` 原有的 `signal possibly undefined` 两处，该行未改动 |
+
+### 交付范围与遗留
+
+- 发布范围：P1-b 改了 helper 闭包内的文件，需要 **Worker 发布**，无 Django 改动、无迁移。P1-a 是运维 CLI，不进运行时，但与 P1-b 同批合并。
+- 未覆盖：真实探测 `probePromotionPlatform` 没有自动化测试，按约束不能起浏览器，首次使用要人工观察；`planCustomerServiceRun` 里的封存触发与 `consumeCustomerServiceOperatorClosure` 的封存端到端，只做了代码审查。
+- 既有问题，未修：runner 的 `apiFindTask` 只查任务列表第一页 20 条。卡住期间该店一般不会新建任务，所以很少触发；但 `resolve-submitting` 绑定的 taskId 如果排在 20 条之后，runner 续跑会超时。
