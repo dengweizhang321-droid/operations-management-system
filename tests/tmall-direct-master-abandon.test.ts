@@ -40,7 +40,7 @@ const REASON = "拓丰第8批下载文件为其他店铺商品，作废整张快
 type Env = { root: string; audits: string; downloads: string; store: TmallStore; audit: any; activePath: string; ids: string[][] };
 
 /** Tuofeng real shape: 143 products in 8 batches (7 x 20 + 3), batch k stuck in downloading. Data is synthetic. */
-async function setup(options: { k?: number; mutate?: (audit: any, env: Env) => void; file?: "mismatch" | "match" | "garbage" | "missing" } = {}): Promise<Env> {
+async function setup(options: { k?: number; mutate?: (audit: any, env: Env) => void; file?: "mismatch" | "match" | "garbage" | "missing" | "subset" | "superset" | "partial" | "emptyid" } = {}): Promise<Env> {
   const root = await mkdtemp(path.join(tmpdir(), "tmall-direct-abandon-"));
   const audits = path.join(root, "outputs", "tmall-direct-product-master-export");
   const downloads = path.join(root, "downloads");
@@ -74,6 +74,10 @@ async function setup(options: { k?: number; mutate?: (audit: any, env: Env) => v
   const target = directBatchFilePath(store, DATE, RUN, k);
   if (file === "mismatch") await writeFile(target, workbook(["1077814899603"], 29));
   if (file === "match") await writeFile(target, workbook(ids[k - 1]!, 2));
+  if (file === "subset") await writeFile(target, workbook(ids[k - 1]!.slice(0, 2), 2));
+  if (file === "superset") await writeFile(target, workbook([...ids[k - 1]!, "1077814899603"], 2));
+  if (file === "partial") await writeFile(target, workbook([ids[k - 1]![0]!, "1077814899603"], 2));
+  if (file === "emptyid") await writeFile(target, workbook(["1077814899603", ""], 2));
   if (file === "garbage") await writeFile(target, Buffer.from("not an xlsx at all"));
   return env;
 }
@@ -141,6 +145,13 @@ test("拒绝场景：每个放行条件单独失败都零写入", async () => {
     { name: "已有合并文件", reason: "merged_or_imported", options: { mutate: a => { a.mergedFile = {}; } } },
     { name: "批次文件缺失", reason: "batch_file_missing", options: { file: "missing" } },
     { name: "文件内容其实与期望一致", reason: "batch_content_matches", options: { file: "match" } },
+    { name: "实际 ID 是期望的真子集（不完整文件）", reason: "batch_content_overlaps", options: { file: "subset" } },
+    { name: "实际 ID 是期望的真超集", reason: "batch_content_overlaps", options: { file: "superset" } },
+    { name: "实际 ID 与期望部分重叠", reason: "batch_content_overlaps", options: { file: "partial" } },
+    { name: "文件含空商品 ID", reason: "batch_file_unparseable", options: { file: "emptyid" } },
+    { name: "后续批次只带 submittedAt", reason: "later_batch_evidence", options: { k: 6, mutate: a => { a.batches[7].submittedAt = "2026-11-14T03:21:17.563Z"; } } },
+    { name: "后续批次只带 recordId", reason: "later_batch_evidence", options: { k: 6, mutate: a => { a.batches[7].recordId = "r"; } } },
+    { name: "后续批次只带 file", reason: "later_batch_evidence", options: { k: 6, mutate: a => { a.batches[7].file = { sha256: "x" }; } } },
     { name: "文件解析失败", reason: "batch_file_unparseable", options: { file: "garbage" } },
     { name: "店铺身份不符", reason: "audit_identity", options: { mutate: a => { a.shopName = "天猫-别家店"; } } },
     { name: "协议不符", reason: "audit_identity", options: { mutate: a => { a.protocol = "other"; } } },
@@ -203,6 +214,12 @@ test("中断续做：记录已写而活动清单未移走时可从第 2 步完�
   env = await setup();
   try {
     await assert.rejects(() => abandon(env, { hooks: { afterRecord: async () => { throw new Error("crash"); } } }), /crash/);
+    let probes = 0;
+    const busy = async () => { probes += 1; const e = new Error("busy") as Error & { reason: string }; e.reason = "helper_store_active"; throw e; };
+    await assert.rejects(() => abandon(env, { helperProbe: busy }), refusal("helper_store_active"));
+    assert.equal(probes, 1, "续做路径必须探测 helper");
+    assert.equal(await stat(env.activePath).then(() => true), true);
+    assert.equal(await stat(path.join(env.audits, `${base}-original.json`)).then(() => true, () => false), false);
     const audit = JSON.parse(await readFile(env.activePath, "utf8"));
     audit.updatedAt = "2026-11-17T09:41:00.000Z";
     await writeFile(env.activePath, JSON.stringify(audit));
@@ -261,7 +278,16 @@ test("与原模块规则一致的钉子：路径、命名、错误文案、ID �
     'path.join(tmallAutomationProjectRoot, "outputs", "tmall-product-master-export")',
     "[pagewiseAuditDirectory, productManagerAuditDirectory]",
     'saved.stage === "downloading" && await stat(targetPath)',
+    "path.resolve(store.browser.downloadDir,",
   ]) assert.ok(source.includes(snippet), `原模块不再包含：${snippet}`);
+  // The helper /health fields the probe depends on must keep their names.
+  const helper = await readFile(new URL("../tools/tmall-isolated-helper.ts", import.meta.url), "utf8");
+  for (const snippet of [
+    "return [...this.slots.values()].map(({ storeKey, workflow, executionId, status, stage }) => ({ storeKey, workflow, executionId, status, stage }));",
+    "storeExecutions: slots",
+    'route === "/health"',
+  ]) assert.ok(helper.includes(snippet), `helper 不再包含：${snippet}`);
+  assert.ok(helper.includes('const workflow = route === "/coordination/claim" ? scalar(headers, workflowHeader)') && helper.includes(': tmallRoutes.has(route) ? "tmall"'), "helper 的 tmall workflow 取值变化");
   // Behaviour pins on the mirrored helpers.
   assert.equal(safeSegment('a<b>:"c/d\\e|f?g*h i'), "a_b___c_d_e_f_g_h-i");
   assert.equal(safeSegment("x".repeat(100)).length, 80);

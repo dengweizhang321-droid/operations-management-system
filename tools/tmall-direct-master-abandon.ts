@@ -60,7 +60,7 @@ export type BatchContentEvidence = {
 
 /** Same parsing and ID-set comparison as inspectBatchFile, but returns the verdict instead of throwing on mismatch. */
 export async function inspectBatchContent(input: {
-  filePath: string; store: Pick<TmallStore, "shopName" | "browser">; snapshotDate: string; expectedItemIds: readonly string[];
+  filePath: string; store: Pick<TmallStore, "shopName" | "browser">; snapshotDate: string; expectedItemIds: readonly string[]; batchIndex: number;
 }): Promise<BatchContentEvidence> {
   let evidence: Awaited<ReturnType<typeof inspectTmallMasterFile>>;
   let productIds: string[];
@@ -74,13 +74,19 @@ export async function inspectBatchContent(input: {
     if (inspection.errors.length > 0) throw new Error("二次解析失败");
     productIds = inspection.rows.map(row => String((row.raw as Json)["商品ID"] ?? "").trim());
   } catch (error) {
-    refuse("batch_file_unparseable", `第 k 批文件无法正常解析，不属于批次内容串单例外：${(error as Error).message.slice(0, 200)}`);
+    refuse("batch_file_unparseable", `第 ${input.batchIndex} 批文件无法正常解析，不属于批次内容串单例外：${(error as Error).message.slice(0, 200)}`);
   }
-  if (productIds.length === 0 || productIds.some(id => !id)) refuse("batch_file_unparseable", "第 k 批文件存在空商品 ID，不属于批次内容串单例外");
+  if (productIds.length === 0 || productIds.some(id => !id)) refuse("batch_file_unparseable", `第 ${input.batchIndex} 批文件存在空商品 ID，不属于批次内容串单例外`);
   const expected = [...input.expectedItemIds].sort(byEn);
   const actual = [...new Set(productIds)].sort(byEn);
   const equal = evidence.uniqueProductCount === expected.length && JSON.stringify(actual) === JSON.stringify(expected);
-  if (equal) refuse("batch_content_matches", "第 k 批文件的商品 ID 集合与提交批次一致，不是串单，拒绝作废");
+  if (equal) refuse("batch_content_matches", `第 ${input.batchIndex} 批文件的商品 ID 集合与提交批次一致，不是串单，拒绝作废`);
+  // Only a completely foreign file (zero overlap) is cross-batch/cross-store content. A subset (incomplete file),
+  // superset or partial overlap is a row-count/completeness problem, which this exception must not cover.
+  const expectedSet = new Set(expected);
+  if (actual.some(id => expectedSet.has(id))) {
+    refuse("batch_content_overlaps", `第 ${input.batchIndex} 批文件的商品 ID 与提交批次部分重叠（子集、超集或部分重叠），属于行数/完整性问题而非串单，拒绝作废`);
+  }
   return {
     filePath: evidence.filePath, fileSha256: evidence.sha256, fileSizeBytes: evidence.fileSizeBytes, fileRowCount: evidence.rowCount,
     expectedItemIds: expected, actualItemCount: actual.length, actualItemIdsSha256: sha256(JSON.stringify(actual)),
@@ -213,6 +219,7 @@ export async function abandonTmallDirectMasterBatchContentMismatch(options: Aban
       || JSON.stringify(rest) !== JSON.stringify(audit)) refuse("record_mismatch", "已存在的作废记录与当前活动清单不一致，失败关闭");
     if (await exists(originalPath)) refuse("archive_target_exists", "归档目标已存在，拒绝覆盖");
     if (dryRun) return { ok: true as const, stage: "dry_run_resume" as const, storeKey: store.storeKey, recordFile: path.basename(recordPath), abandonment };
+    await (options.helperProbe ?? probeHelperIdleForStore)(store.storeKey);
     return finishMove({ options, activePath, originalPath, activeSha, recordPath, abandonment, resumed: true, storeKey: store.storeKey, base });
   }
 
@@ -220,7 +227,7 @@ export async function abandonTmallDirectMasterBatchContentMismatch(options: Aban
   const batch = audit.batches[k] as Json;
   const filePath = directBatchFilePath(store, audit.snapshotDate, audit.runId, batch.index);
   if (!await stat(filePath).then(info => info.isFile(), () => false)) refuse("batch_file_missing", `第 ${batch.index} 批本地文件不存在，不属于批次内容串单例外`);
-  const content = await inspectBatchContent({ filePath, store, snapshotDate: audit.snapshotDate, expectedItemIds: batch.itemIds });
+  const content = await inspectBatchContent({ filePath, store, snapshotDate: audit.snapshotDate, expectedItemIds: batch.itemIds, batchIndex: batch.index });
 
   const verdict = {
     storeKey: store.storeKey, shopName: store.shopName, snapshotDate: audit.snapshotDate, runId: audit.runId,

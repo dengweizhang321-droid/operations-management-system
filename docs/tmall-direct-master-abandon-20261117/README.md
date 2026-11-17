@@ -27,7 +27,8 @@
 | k 之后全为 `planned`，且无 `baselineRecordIds`/`submittedAt`/`traceId`/`recordId`/`file` | `later_batch_evidence` |
 | 第 k 批本地文件按原命名存在 | `batch_file_missing` |
 | 文件可解析且商品 ID 非空（行数不符、解析失败都不属于该例外） | `batch_file_unparseable` |
-| 现场重新解析所得商品 ID 集合与该批 `itemIds` 不相等 | `batch_content_matches` |
+| 现场重新解析所得商品 ID 集合与该批 `itemIds` 不相等 | `batch_content_matches`（相等，非串单） |
+| 实际 ID 与期望集合必须**完全不相交**；真子集（不完整文件）、真超集、部分重叠都属行数/完整性问题 | `batch_content_overlaps` |
 | reason 4–300 字符、带 `--confirm` | `reason_length` / `not_confirmed` |
 | helper 没有正在运行该店的 tmall 执行（读 `GET /health`，未启动视为空闲；无法确认则拒绝） | `helper_store_active` / `helper_probe_failed` |
 | 归档目标 `-original.json` 不存在 | `archive_target_exists` |
@@ -38,6 +39,17 @@
 2. 复验活动清单字节 sha256 未变，再用绝对路径 PowerShell `File.Move` 不覆盖地把 `active-<store>.json` 移为 `<记录名>-original.json`；目标已存在即拒绝。移走后复核归档字节一致且活动清单未被重新写出。
 3. 中断续做：记录已存在、活动清单仍在且其字节 sha256 与记录一致、记录主体与活动清单内容相同，则只续做第 2 步（返回 `resumed: true`）；其他不一致情形一律失败关闭，不改动任何文件。
 4. 串单的批次文件保留原地不删，作为证据；新一轮 runId 不同，文件名不冲突。
+
+## 记录写到一半中断（`record_unparseable`）
+
+记录用 `wx` 创建后再写内容，若进程在写入中途中断，记录文件可能为空或不完整。再次运行会报 `record_unparseable` 并失败关闭，不改动任何文件。人工处理（只读核对，不删证据）：
+
+1. 确认 `active-<store>.json` 仍在且字节未变（可对照 dry-run 输出的 `activeSha256`），`-original.json` 不存在。
+2. 把残缺的记录文件改名为 `…json.partial-<时间>` 留存（改名而非删除），再重新运行同一命令；入口会重新现场验证并创建新记录。
+3. 若 `-original.json` 已存在而活动清单已不在，说明移动已完成，只需核对 `-original.json` 与记录中的 `activeSha256` 一致，无需再运行。
+4. 任何字节不一致的情形不要手工改写，先停止并汇报。
+
+续做路径（记录完整、活动清单仍在）同样会先探测 helper，再完成移动。
 
 ## 并发保护与残余风险
 
