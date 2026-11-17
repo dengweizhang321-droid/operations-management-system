@@ -103,3 +103,11 @@ node --import tsx --test tests/n8n-hourly-retry-workflow.test.ts
 4. 在维护窗口重启 n8n，使 `N8N_LISTEN_ADDRESS=127.0.0.1` 生效；回读端口只监听回环地址、`/healthz` 正常、各正式工作流 `activeVersionId=versionId` 且专用 Webhook 已注册。
 5. 使用隔离的可逆失败验证一次“失败 → 等待态”，不得制造平台业务点击或生产导入；随后验证错误分类器会拒绝验证码、登录失效、身份不符、任务歧义和提交结果未决样例。
 6. 保存脱敏采用证据。若共享错误工作流未先发布、owner 不一致、非回环监听、目标版本漂移、出现第二条 active 业务流水线或任一安全分类失效，停止发布并恢复代码/配置，不触发业务运行。
+
+## 派发预留按月归档
+
+`outputs/n8n-retry-dispatch/<workflowId>-<failedExecutionId>.json` 是一次性派发意图，永不自动释放；顶层 `.json` 达到 4096 个时全部重试会以 `retry_reservation_capacity_manual_action` 停止。
+
+- 归档入口：`node --import tsx tools/retry-reservation-archive.ts --action inspect` 只读统计；`--action archive --older-than-days <n>`（默认 30，最小 14）先 `--dry-run`，再 `--confirm --reason <原因>`。只移动文件内 `createdAt` 早于阈值的顶层预留，按月放入 `archive/<YYYY-MM>/`，不覆盖；目标已存在且字节相同视为完成，不同即停止。确认记录追加到 `archive/archive-log.jsonl`。
+- 归档不放宽防重：`reserveRetryDispatch` 与吉客云 `reserveJackyunFailureRetry` 都同时检查顶层与 `archive/<YYYY-MM>/`，同一失败 execution 归档后仍不会再次 POST。容量只统计顶层 `.json`。
+- `archive` 或月份目录为符号链接时拒绝。须在主检出 `D:\运营管理系统` 运行。
