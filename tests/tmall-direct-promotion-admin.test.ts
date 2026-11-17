@@ -17,6 +17,7 @@ import {
   promotionProbeWindow,
   resolveSubmittingPromotion,
   type ProbeResult,
+  type PromotionAdminOptions,
   type PromotionPlatformProbe,
 } from "../tools/tmall-direct-promotion-admin-core";
 import { activeAuditPath } from "../tools/tmall-direct-promotion-export";
@@ -26,9 +27,17 @@ const RUN = "0f3c2d1e-aaaa-4bbb-8ccc-123456789abc";
 const NAME = "商品报表_20261116_ab12cd34";
 const REASON = "建任务响应未决，已在平台下载列表核对";
 
-type Env = { root: string; audits: string; downloads: string; store: TmallStore; activePath: string; audit: any };
+type AuditFixture = Record<string, unknown> & { startDate: string; runId: string };
+type View = {
+  stage: string; outcome: string; resumed: boolean; sha256: string; notes: string[];
+  availableActions: Array<{ action: string }>; probe: { verdict: string }; proposedAudit: { taskId?: string };
+  active: { sha256: string; stage: string; resumeStage: string; file: { present: boolean }; localZip: { exists: boolean; path: string; sha256: string } };
+};
+const view = (value: unknown) => value as View;
 
-async function setup(mutate?: (audit: any) => void): Promise<Env> {
+type Env = { root: string; audits: string; downloads: string; store: TmallStore; activePath: string; audit: AuditFixture };
+
+async function setup(mutate?: (audit: AuditFixture) => void): Promise<Env> {
   const root = await mkdtemp(path.join(tmpdir(), "tmall-promo-admin-"));
   const audits = path.join(root, "outputs", "tmall-direct-promotion-export");
   const downloads = path.join(root, "downloads");
@@ -36,7 +45,7 @@ async function setup(mutate?: (audit: any) => void): Promise<Env> {
   await mkdir(downloads, { recursive: true });
   const real = await getTmallStore("tmall-yijiu");
   const store: TmallStore = { ...real, browser: { ...real.browser, downloadDir: downloads } };
-  const audit: any = {
+  const audit: AuditFixture = {
     version: 1, protocol: "alimama_item_promotion_direct_v1", runId: RUN, storeKey: store.storeKey, shopName: store.shopName,
     baseUrl: "http://localhost:3000", startDate: "2026-11-16", endDate: "2026-11-16",
     startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -70,17 +79,17 @@ const fixedProbe = (result: ProbeResult): PromotionPlatformProbe => async () => 
 const idle = async () => "helper_store_idle";
 const NOW = new Date("2026-11-17T09:40:00.000Z");
 
-const common = (env: Env, extra: Record<string, unknown> = {}) => ({
+const common = (env: Env, extra: Partial<PromotionAdminOptions> = {}): PromotionAdminOptions => ({
   storeKey: env.store.storeKey, store: env.store, auditDirectory: env.audits, helperProbe: idle, now: NOW, ...extra,
 });
 async function dry(kind: "resolve" | "abandon", env: Env, probe: PromotionPlatformProbe) {
   const fn = kind === "resolve" ? resolveSubmittingPromotion : abandonExpiredPromotion;
-  return fn(common(env, { dryRun: true, probe }) as any);
+  return fn(common(env, { dryRun: true, probe }));
 }
-async function confirm(kind: "resolve" | "abandon", env: Env, probe: PromotionPlatformProbe, extra: Record<string, unknown> = {}) {
+async function confirm(kind: "resolve" | "abandon", env: Env, probe: PromotionPlatformProbe, extra: Partial<PromotionAdminOptions> = {}) {
   const fn = kind === "resolve" ? resolveSubmittingPromotion : abandonExpiredPromotion;
   const sha256 = sha(await readFile(env.activePath));
-  return fn(common(env, { operatorConfirmed: true, reason: REASON, expectSha256: sha256, probe, ...extra }) as any);
+  return fn(common(env, { operatorConfirmed: true, reason: REASON, expectSha256: sha256, probe, ...extra }));
 }
 
 // ---------------------------------------------------------------- classifyPromotionProbe
@@ -136,31 +145,31 @@ test("inspect：无清单返回 active:null；有清单给出 sha、zip 证据�
   const env = await setup();
   try {
     const sha256 = sha(await readFile(env.activePath));
-    const r: any = await inspectPromotionAudit(common(env) as any);
+    const r = view(await inspectPromotionAudit(common(env)));
     assert.equal(r.active.sha256, sha256);
     assert.equal(r.active.stage, "failed");
     assert.equal(r.active.resumeStage, "report_submitting");
     assert.equal(r.active.file.present, false);
     assert.equal(r.active.localZip.exists, false);
     assert.equal(r.active.localZip.path, localZipPath(env.store, env.audit));
-    assert.ok(r.availableActions.some((a: any) => a.action === "resolve-submitting"));
-    assert.ok(!r.availableActions.some((a: any) => a.action === "abandon-expired"));
+    assert.ok(r.availableActions.some(a => a.action === "resolve-submitting"));
+    assert.ok(!r.availableActions.some(a => a.action === "abandon-expired"));
     await writeFile(localZipPath(env.store, env.audit), "PKzip");
-    const z: any = await inspectPromotionAudit(common(env) as any);
+    const z = view(await inspectPromotionAudit(common(env)));
     assert.equal(z.active.localZip.exists, true);
     assert.equal(z.active.localZip.sha256, sha("PKzip"));
     await rm(env.activePath);
-    assert.deepEqual(await inspectPromotionAudit(common(env) as any), { ok: true, action: "inspect", storeKey: env.store.storeKey, active: null });
+    assert.deepEqual(await inspectPromotionAudit(common(env)), { ok: true, action: "inspect", storeKey: env.store.storeKey, active: null });
   } finally { await cleanup(env); }
 });
 
 test("inspect：downloaded 带文件时不推荐作废；非直连店铺被拒", async () => {
   const env = await setup(a => { a.resumeStage = "downloaded"; a.taskId = "T1"; a.file = { filePath: "x.zip", sha256: "a".repeat(64), size: 1, rowCount: 1 }; });
   try {
-    const r: any = await inspectPromotionAudit(common(env) as any);
-    assert.deepEqual(r.availableActions.map((a: any) => a.action), ["probe"]);
+    const r = view(await inspectPromotionAudit(common(env)));
+    assert.deepEqual(r.availableActions.map(a => a.action), ["probe"]);
     assert.match(r.notes.join(" "), /禁止作废/);
-    await assert.rejects(inspectPromotionAudit({ ...common(env), storeKey: "tmall-unknown", store: { ...env.store, storeKey: "tmall-unknown" } } as any));
+    await assert.rejects(inspectPromotionAudit({ ...common(env), storeKey: "tmall-unknown", store: { ...env.store, storeKey: "tmall-unknown" } }));
   } finally { await cleanup(env); }
 });
 
@@ -170,8 +179,8 @@ test("probe 动作：helper 活跃拒绝；使用注入探测且不改文件", a
     const before = await snapshot(env.root);
     await assert.rejects(probePromotionAudit(common(env, {
       probe: verdictProbe([]), helperProbe: async () => { throw Object.assign(new Error("busy"), { reason: "helper_store_active" }); },
-    }) as any), refusal("helper_store_active"));
-    const r: any = await probePromotionAudit(common(env, { probe: verdictProbe([row("1", "SUCCESS")]) }) as any);
+    })), refusal("helper_store_active"));
+    const r = view(await probePromotionAudit(common(env, { probe: verdictProbe([row("1", "SUCCESS")]) })));
     assert.equal(r.probe.verdict, "unique");
     assert.deepEqual(await snapshot(env.root), before);
   } finally { await cleanup(env); }
@@ -182,11 +191,11 @@ test("resolve：absent -> planned，删 error，其余字段不动，证据齐�
   const env = await setup();
   try {
     const original = await readFile(env.activePath);
-    const result: any = await confirm("resolve", env, verdictProbe([row("1", "SUCCESS", "other")]));
+    const result = view(await confirm("resolve", env, verdictProbe([row("1", "SUCCESS", "other")])));
     assert.equal(result.stage, "resolved");
     assert.equal(result.outcome, "reset_to_planned");
     const now = JSON.parse(await readFile(env.activePath, "utf8"));
-    const expected = { ...env.audit, resumeStage: "planned" }; delete expected.error;
+    const expected: AuditFixture = { ...env.audit, resumeStage: "planned" }; delete expected.error;
     assert.deepEqual(now, expected);
     assert.equal(now.stage, "failed");
     assert.equal(now.taskId, undefined);
@@ -206,7 +215,7 @@ test("resolve：absent -> planned，删 error，其余字段不动，证据齐�
 test("resolve：unique 且任务未失败 -> 绑定 taskId、resumeStage=report_submitted", async () => {
   const env = await setup();
   try {
-    const result: any = await confirm("resolve", env, verdictProbe([row("98765", "RUNNING")]));
+    const result = view(await confirm("resolve", env, verdictProbe([row("98765", "RUNNING")])));
     assert.equal(result.outcome, "bound_task");
     const now = JSON.parse(await readFile(env.activePath, "utf8"));
     assert.equal(now.taskId, "98765");
@@ -222,7 +231,7 @@ test("resolve：unique 且任务未失败 -> 绑定 taskId、resumeStage=report_
 test("resolve：unique 且任务失败 -> planned，不写 taskId", async () => {
   const env = await setup();
   try {
-    const result: any = await confirm("resolve", env, verdictProbe([row("98765", "FAILED")]));
+    const result = view(await confirm("resolve", env, verdictProbe([row("98765", "FAILED")])));
     assert.equal(result.outcome, "reset_to_planned_task_failed");
     const now = JSON.parse(await readFile(env.activePath, "utf8"));
     assert.equal(now.resumeStage, "planned");
@@ -254,7 +263,7 @@ test("dry-run 零写入：目录快照前后相同，输出 sha 与拟写入清�
     const env = await setup(kind === "abandon" ? a => { a.resumeStage = "downloading"; a.taskId = "T9"; delete a.error; } : undefined);
     try {
       const before = await snapshot(env.root);
-      const result: any = await dry(kind, env, verdictProbe(kind === "abandon" ? [] : [row("5", "RUNNING")]));
+      const result = view(await dry(kind, env, verdictProbe(kind === "abandon" ? [] : [row("5", "RUNNING")])));
       assert.equal(result.stage, "dry_run");
       assert.equal(result.sha256, sha(await readFile(env.activePath)));
       if (kind === "resolve") assert.equal(result.proposedAudit.taskId, "5");
@@ -268,10 +277,10 @@ test("confirm 前置：expect-sha 不符、缺失、缺 reason、helper 店铺�
   try {
     const before = await snapshot(env.root);
     const probe = verdictProbe([]);
-    await assert.rejects(resolveSubmittingPromotion(common(env, { operatorConfirmed: true, reason: REASON, expectSha256: "0".repeat(64), probe }) as any), refusal("sha256_mismatch"));
-    await assert.rejects(resolveSubmittingPromotion(common(env, { operatorConfirmed: true, reason: REASON, probe }) as any), refusal("expect_sha256_missing"));
+    await assert.rejects(resolveSubmittingPromotion(common(env, { operatorConfirmed: true, reason: REASON, expectSha256: "0".repeat(64), probe })), refusal("sha256_mismatch"));
+    await assert.rejects(resolveSubmittingPromotion(common(env, { operatorConfirmed: true, reason: REASON, probe })), refusal("expect_sha256_missing"));
     await assert.rejects(confirm("resolve", env, probe, { reason: "短" }), refusal("reason_length"));
-    await assert.rejects(resolveSubmittingPromotion(common(env, { probe }) as any), refusal("not_confirmed"));
+    await assert.rejects(resolveSubmittingPromotion(common(env, { probe })), refusal("not_confirmed"));
     await assert.rejects(confirm("resolve", env, probe, {
       helperProbe: async () => { throw Object.assign(new Error("active"), { reason: "helper_store_active" }); },
     }), refusal("helper_store_active"));
@@ -280,7 +289,7 @@ test("confirm 前置：expect-sha 不符、缺失、缺 reason、helper 店铺�
 });
 
 test("阶段错误：resolve 拒绝 downloaded / report_submitted；abandon 拒绝 report_submitting / downloaded", async () => {
-  const cases: Array<[(a: any) => void, "resolve" | "abandon"]> = [
+  const cases: Array<[(a: AuditFixture) => void, "resolve" | "abandon"]> = [
     [a => { a.resumeStage = "downloaded"; a.taskId = "T1"; a.file = { filePath: "f", sha256: "a".repeat(64), size: 1, rowCount: 1 }; }, "resolve"],
     [a => { a.resumeStage = "report_submitted"; a.taskId = "T1"; }, "resolve"],
     [a => { a.stage = "report_submitting"; delete a.resumeStage; }, "resolve"],
@@ -316,7 +325,7 @@ test("证据已存在：内容不同拒绝；相同（含 original 与决定）�
     assert.deepEqual(await readFile(env.activePath), original);
     // A different decision against the same evidence refuses.
     await assert.rejects(confirm("resolve", env, verdictProbe([row("7", "RUNNING")])), refusal("evidence_conflict"));
-    const resumed: any = await confirm("resolve", env, verdictProbe([]), { now: new Date("2026-11-17T10:00:00.000Z") });
+    const resumed = view(await confirm("resolve", env, verdictProbe([]), { now: new Date("2026-11-17T10:00:00.000Z") }));
     assert.equal(resumed.resumed, true);
     assert.equal(JSON.parse(await readFile(env.activePath, "utf8")).resumeStage, "planned");
     const record = JSON.parse(await readFile(path.join(dir, "record.json"), "utf8"));
@@ -336,7 +345,7 @@ test("CAS：写入前活动清单字节变化 -> 拒绝且不覆盖", async () =
 });
 
 // ---------------------------------------------------------------- abandon-expired
-const downloading = (a: any) => { a.resumeStage = "downloading"; a.taskId = "T9"; delete a.error; a.error = "阿里妈妈商品报表任务 T9 在 7 分钟内未完成"; };
+const downloading = (a: AuditFixture) => { a.resumeStage = "downloading"; a.taskId = "T9"; delete a.error; a.error = "阿里妈妈商品报表任务 T9 在 7 分钟内未完成"; };
 
 test("abandon：absent 作废；active 消失、original 字节一致、zip 原地保留并入证据", async () => {
   const env = await setup(downloading);
@@ -344,7 +353,7 @@ test("abandon：absent 作废；active 消失、original 字节一致、zip 原�
     const original = await readFile(env.activePath);
     const zip = localZipPath(env.store, env.audit);
     await writeFile(zip, "PKkeepme");
-    const result: any = await confirm("abandon", env, verdictProbe([row("1", "SUCCESS", "other")]));
+    const result = view(await confirm("abandon", env, verdictProbe([row("1", "SUCCESS", "other")])));
     assert.equal(result.stage, "abandoned");
     assert.equal(await stat(env.activePath).then(() => true, () => false), false);
     const dir = path.join(env.audits, "operator-abandons", `${RUN}-${sha(original).slice(0, 16)}`);
@@ -362,12 +371,12 @@ test("abandon：absent 作废；active 消失、original 字节一致、zip 原�
 test("abandon：unique 且失败 允许；windowTruncated 的 absent 允许（resolve 不允许）", async () => {
   const failed = await setup(a => { downloading(a); a.resumeStage = "report_submitted"; });
   try {
-    const r: any = await confirm("abandon", failed, verdictProbe([row("T9", "FAILED")]));
+    const r = view(await confirm("abandon", failed, verdictProbe([row("T9", "FAILED")])));
     assert.equal(r.outcome, "task_failed");
   } finally { await cleanup(failed); }
   const truncated = await setup(downloading);
   try {
-    const r: any = await confirm("abandon", truncated, verdictProbe([], { windowTruncated: true }));
+    const r = view(await confirm("abandon", truncated, verdictProbe([], { windowTruncated: true })));
     assert.equal(r.outcome, "task_absent_window_truncated");
   } finally { await cleanup(truncated); }
 });
@@ -418,15 +427,17 @@ test("abandon：移动前 helper 活跃拒绝，active 保留", async () => {
 
 test("helper 探测：ECONNREFUSED 视为未运行；本店天猫执行在跑拒绝；他店在跑放行", async () => {
   const refused = async () => { throw Object.assign(new Error("fetch failed"), { cause: { code: "ECONNREFUSED" } }); };
-  assert.equal(await probeHelperIdleForStore("tmall-yijiu", refused as any), "helper_not_running");
-  const health = (slots: unknown[]) => (async () => new Response(JSON.stringify({ storeExecutions: slots }))) as any;
+  assert.equal(await probeHelperIdleForStore("tmall-yijiu", refused), "helper_not_running");
+  const health = (slots: unknown[]) => (async () => new Response(JSON.stringify({ storeExecutions: slots }))) as unknown as typeof fetch;
   await assert.rejects(probeHelperIdleForStore("tmall-yijiu", health([{ workflow: "tmall", storeKey: "tmall-yijiu" }])), refusal("helper_store_active"));
   assert.equal(await probeHelperIdleForStore("tmall-yijiu", health([{ workflow: "tmall", storeKey: "tmall-lili" }])), "helper_store_idle");
-  await assert.rejects(probeHelperIdleForStore("tmall-yijiu", (async () => new Response("{}")) as any), refusal("helper_probe_failed"));
+  await assert.rejects(probeHelperIdleForStore("tmall-yijiu", (async () => new Response("{}"))), refusal("helper_probe_failed"));
 });
 
 test("新模块与 CLI 不含 import.meta，且 tools/、lib/ 下没有其他文件 import 它们", async () => {
   const modules = ["tools/tmall-direct-promotion-admin-core.ts", "tools/tmall-direct-promotion-admin.ts"];
+  // The unified operator CLI and its adapter registry wrap this tool on purpose (closure-admin.test.ts pins the helper closure).
+  const allowed = [...modules, "tools/closure-admin.ts", "tools/closure-adapters.ts"];
   for (const file of modules) {
     const text = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
     assert.equal(/imports*.s*meta/.test(text), false, `${file} 含 import.meta`);
@@ -438,7 +449,7 @@ test("新模块与 CLI 不含 import.meta，且 tools/、lib/ 下没有其他文
       if (entry.isDirectory()) { await walk(full); continue; }
       if (!/.(ts|tsx|mjs|js|cjs|ps1|json)$/.test(entry.name)) continue;
       const rel = path.relative(process.cwd(), full).replaceAll("\\", "/");
-      if (modules.includes(rel)) continue;
+      if (allowed.includes(rel)) continue;
       if (/tmall-direct-promotion-admin/.test(await readFile(full, "utf8"))) offenders.push(rel);
     }
   };

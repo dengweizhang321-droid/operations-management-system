@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import * as XLSX from "xlsx";
@@ -37,10 +38,12 @@ const RUN = "9dc4c9e5-c341-46b2-9a70-3d13f95bbbbb";
 const DATE = "2026-11-14";
 const REASON = "拓丰第8批下载文件为其他店铺商品，作废整张快照后由 n8n 重导";
 
-type Env = { root: string; audits: string; downloads: string; store: TmallStore; audit: any; activePath: string; ids: string[][] };
+type BatchFixture = Record<string, unknown>;
+type AuditFixture = Record<string, unknown> & { runId: string; batches: BatchFixture[] };
+type Env = { root: string; audits: string; downloads: string; store: TmallStore; audit: AuditFixture; activePath: string; ids: string[][] };
 
 /** Tuofeng real shape: 143 products in 8 batches (7 x 20 + 3), batch k stuck in downloading. Data is synthetic. */
-async function setup(options: { k?: number; mutate?: (audit: any, env: Env) => void; file?: "mismatch" | "match" | "garbage" | "missing" | "subset" | "superset" | "partial" | "emptyid" } = {}): Promise<Env> {
+async function setup(options: { k?: number; mutate?: (audit: AuditFixture, env: Env) => void; file?: "mismatch" | "match" | "garbage" | "missing" | "subset" | "superset" | "partial" | "emptyid" } = {}): Promise<Env> {
   const root = await mkdtemp(path.join(tmpdir(), "tmall-direct-abandon-"));
   const audits = path.join(root, "outputs", "tmall-direct-product-master-export");
   const downloads = path.join(root, "downloads");
@@ -52,7 +55,7 @@ async function setup(options: { k?: number; mutate?: (audit: any, env: Env) => v
   const ids: string[][] = Array.from({ length: 8 }, (_, b) => Array.from({ length: b === 7 ? 3 : 20 }, (_, n) => String(1_000_000_000_000 + b * 100 + n)));
   const batches = ids.map((itemIds, b) => {
     const index = b + 1;
-    const base: any = { index, itemIds, itemDigest: sha(JSON.stringify(itemIds)), expectedRows: itemIds.length };
+    const base: BatchFixture = { index, itemIds, itemDigest: sha(JSON.stringify(itemIds)), expectedRows: itemIds.length };
     if (index < k) {
       base.stage = "downloaded"; base.baselineRecordIds = ["1"]; base.submittedAt = "2026-11-14T03:21:17.563Z"; base.traceId = `t${index}`; base.recordId = `r${index}`;
       base.file = { fileName: `b${index}.xlsx`, filePath: path.join(downloads, `b${index}.xlsx`), fileSizeBytes: 1, sha256: sha(`b${index}`), rowCount: 2, uniqueProductCount: itemIds.length, uniqueSkuCount: 2, productIds: itemIds };
@@ -244,7 +247,7 @@ test("dry-run 只读：前后目录快照一致且不调用 helper 探测", asyn
       helperProbe: async () => { probed = true; },
     });
     assert.equal(result.stage, "dry_run_abandonable");
-    assert.equal((result as any).actualItemCount, 1);
+    assert.equal((result as { actualItemCount?: number }).actualItemCount, 1);
     assert.equal(probed, false);
     assert.deepEqual(await snapshot(env.audits, env.downloads), before);
   } finally { await cleanup(env); }
@@ -252,14 +255,14 @@ test("dry-run 只读：前后目录快照一致且不调用 helper 探测", asyn
 
 test("helper 探测：只读 /health，同店执行或无法确认都拒绝，未启动视为空闲", async () => {
   const json = (body: unknown, status = 200) => async () => new Response(JSON.stringify(body), { status });
-  assert.equal(await probeHelperIdleForStore("tmall-tuofeng", json({ storeExecutions: [] }) as any), "helper_store_idle");
-  assert.equal(await probeHelperIdleForStore("tmall-tuofeng", json({ storeExecutions: [{ workflow: "tmall", storeKey: "tmall-lili" }] }) as any), "helper_store_idle");
-  await assert.rejects(() => probeHelperIdleForStore("tmall-tuofeng", json({ storeExecutions: [{ workflow: "tmall", storeKey: "tmall-tuofeng" }] }) as any), refusal("helper_store_active"));
-  await assert.rejects(() => probeHelperIdleForStore("tmall-tuofeng", json({}, 500) as any), refusal("helper_probe_failed"));
-  await assert.rejects(() => probeHelperIdleForStore("tmall-tuofeng", json({ ok: true }) as any), refusal("helper_probe_failed"));
-  await assert.rejects(() => probeHelperIdleForStore("tmall-tuofeng", (async () => { throw new Error("timeout"); }) as any), refusal("helper_probe_failed"));
+  assert.equal(await probeHelperIdleForStore("tmall-tuofeng", json({ storeExecutions: [] }) as unknown as typeof fetch), "helper_store_idle");
+  assert.equal(await probeHelperIdleForStore("tmall-tuofeng", json({ storeExecutions: [{ workflow: "tmall", storeKey: "tmall-lili" }] }) as unknown as typeof fetch), "helper_store_idle");
+  await assert.rejects(() => probeHelperIdleForStore("tmall-tuofeng", json({ storeExecutions: [{ workflow: "tmall", storeKey: "tmall-tuofeng" }] }) as unknown as typeof fetch), refusal("helper_store_active"));
+  await assert.rejects(() => probeHelperIdleForStore("tmall-tuofeng", json({}, 500) as unknown as typeof fetch), refusal("helper_probe_failed"));
+  await assert.rejects(() => probeHelperIdleForStore("tmall-tuofeng", json({ ok: true }) as unknown as typeof fetch), refusal("helper_probe_failed"));
+  await assert.rejects(() => probeHelperIdleForStore("tmall-tuofeng", (async () => { throw new Error("timeout"); }) as unknown as typeof fetch), refusal("helper_probe_failed"));
   const refused = async () => { throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } }); };
-  assert.equal(await probeHelperIdleForStore("tmall-tuofeng", refused as any), "helper_not_running");
+  assert.equal(await probeHelperIdleForStore("tmall-tuofeng", refused as unknown as typeof fetch), "helper_not_running");
 });
 
 test("与原模块规则一致的钉子：路径、命名、错误文案、ID 集合比较与旧清单目录", async () => {
@@ -301,7 +304,9 @@ test("与原模块规则一致的钉子：路径、命名、错误文案、ID �
 
 test("新模块与 CLI 不含 import.meta，且 tools/、lib/ 下没有其他文件 import 它们", async () => {
   const modules = ["tools/tmall-direct-master-abandon.ts", "tools/tmall-direct-master-admin.ts"];
-  for (const file of modules) {
+  // The unified operator CLI and its adapter registry are operator-only entries that wrap this tool on purpose.
+  const allowed = [...modules, "tools/closure-admin.ts", "tools/closure-adapters.ts"];
+  for (const file of allowed) {
     const text = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
     assert.equal(/import\s*\.\s*meta/.test(text), false, `${file} 含 import.meta`);
   }
@@ -312,11 +317,46 @@ test("新模块与 CLI 不含 import.meta，且 tools/、lib/ 下没有其他文
       if (entry.isDirectory()) { await walk(full); continue; }
       if (!/\.(ts|tsx|mjs|js|cjs|ps1|json)$/.test(entry.name)) continue;
       const rel = path.relative(process.cwd(), full).replaceAll("\\", "/");
-      if (modules.includes(rel)) continue;
+      if (allowed.includes(rel)) continue;
       if (/tmall-direct-master-(abandon|admin)/.test(await readFile(full, "utf8"))) offenders.push(rel);
     }
   };
   await walk(path.join(process.cwd(), "tools"));
   await walk(path.join(process.cwd(), "lib"));
   assert.deepEqual(offenders, []);
+});
+
+/** Static import closure (relative and "@/" specifiers, static and dynamic) of a TypeScript entry. */
+async function importClosure(entry: string) {
+  const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
+  const seen = new Set<string>();
+  const queue = [path.resolve(root, entry)];
+  const specifier = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)["']([^"']+)["']/g;
+  while (queue.length > 0) {
+    const file = queue.pop()!;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const text = await readFile(file, "utf8");
+    for (const match of text.matchAll(specifier)) {
+      const spec = match[1]!;
+      if (!spec.startsWith(".") && !spec.startsWith("@/")) continue;
+      const base = spec.startsWith("@/") ? path.resolve(root, spec.slice(2)) : path.resolve(path.dirname(file), spec);
+      for (const candidate of [base, `${base}.ts`, `${base}.tsx`, `${base}.mjs`, path.join(base, "index.ts")]) {
+        if (await stat(candidate).then(info => info.isFile(), () => false)) { queue.push(candidate); break; }
+      }
+    }
+  }
+  return [...seen].map(file => path.relative(root, file).replaceAll("\\", "/"));
+}
+
+test("helper 闭包（tmall-sycm-cookie-pipeline.ts 出发）不含操作员专用工具、统一 CLI 与适配器，且含共享内核", async () => {
+  const closure = await importClosure("tools/tmall-sycm-cookie-pipeline.ts");
+  assert.ok(closure.length > 5, "闭包解析结果异常地小");
+  const operatorOnly = closure.filter(file => /^tools\/(tmall-direct-master-(abandon|admin)|tmall-direct-promotion-admin.*|closure-admin|closure-adapters)\.ts$/.test(file));
+  assert.deepEqual(operatorOnly, []);
+  // The JD logistics closure is imported by the pipeline, so the kernel is inside the closure and must stay metadata-free.
+  assert.ok(closure.includes("lib/closure/kernel.ts"));
+  for (const file of closure.filter(item => item.startsWith("lib/closure/"))) {
+    assert.equal(/import\s*\.\s*meta/.test(await readFile(new URL(`../${file}`, import.meta.url), "utf8")), false, `${file} 含 import.meta`);
+  }
 });

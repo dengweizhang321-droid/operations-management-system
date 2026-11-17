@@ -181,3 +181,35 @@ node --import tsx tools/tmall-direct-promotion-admin.ts --action abandon-expired
 - 发布范围：P1-b 改了 helper 闭包内的文件，需要 **Worker 发布**，无 Django 改动、无迁移。P1-a 是运维 CLI，不进运行时，但与 P1-b 同批合并。
 - 未覆盖：真实探测 `probePromotionPlatform` 没有自动化测试，按约束不能起浏览器，首次使用要人工观察；`planCustomerServiceRun` 里的封存触发与 `consumeCustomerServiceOperatorClosure` 的封存端到端，只做了代码审查。
 - 既有问题，未修：runner 的 `apiFindTask` 只查任务列表第一页 20 条。卡住期间该店一般不会新建任务，所以很少触发；但 `resolve-submitting` 绑定的 taskId 如果排在 20 条之后，runner 续跑会超时。
+
+## 9. 第二批与第三批（2026-11-17，开发完成，未合并）
+
+三个分支均从 main `002960bd` 拉出，互不依赖，可分批合并。代码由 Sonnet 子代理实现，Opus 逐行反审，每块各注入两处已知错误并确认测试能抓到。
+
+| 分支 | 提交 | 内容 | 发布范围 |
+| --- | --- | --- | --- |
+| `codex/closure-kernel-p2-20261117` | 见分支 | P2：共享内核 `lib/closure/kernel.ts`；京东物流零效果闭合改为调用内核（判定与测试文件一字未改，13/13）；直连 M 作废、推广 P 入口改用内核；统一入口 `tools/closure-admin.ts` + `tools/closure-adapters.ts`；顺带清理 Lint | 内核与京东物流文件在 helper 闭包内，需 **Worker 发布**；无迁移 |
+| `codex/closure-p3-tmall-20261117` | `7f197295` | P3：逐页 M 作废加 `--dry-run`/`--expect-sha256`；商品管家作废新 CLI `tools/tmall-product-master-admin.ts` | 两个 export 文件在 helper 闭包内（不传新参数时行为不变），需 **Worker 发布** |
+| `codex/closure-p3-jd-retry-20261117` | `e3fded1f` | P3：京东榜单 running 计划作废 `tools/jd-market-ranking-admin.ts`；重试预留按月归档 `tools/retry-reservation-archive.ts`，预留与吉客云重试预算都改为同时检查归档目录 | `retry-dispatch-reservation.ts`、`retry-budget.ts` 在 helper 闭包内，需 **Worker 发布** |
+
+### 反审发现并已修正
+
+- 内核里 PowerShell 兜底路径被写成 `"C:\Windows"` 的错误形式（JS 中 `\W` 不是转义，实际为 `C:Windows`），与原实现不一致；已改正并补测试，测试先在错误值上失败、改正后通过。
+- 吉客云重试预算 `lib/jackyun/retry-budget.ts` 原只检查顶层预留，归档后会失去「原版本已有重试派发记录」防线；已改为与预留同一函数检查顶层和 `archive/<YYYY-MM>/`。
+- 第一批（已上线 `40dad64e`）把 44 个 `no-explicit-any` 带进 main，使 CI Lint 基线检查从 79 涨到 123。P2 分支清理后本地全仓为 65（干净 main 本地 123，与 CI 一致）；剩余高于基线 63 的 2 个在 `tests/jd-logistics-zero-effect-closure.test.ts`，来自更早的提交，本批按「京东物流测试一字不改」的约束未动。
+
+### 检查结果
+
+| 分支 | 相关测试 | 改动文件 Lint | helper 打包 | 边界检查 |
+| --- | --- | --- | --- | --- |
+| P2 | 75/75 | 0 error | exit 0；含 `lib/closure/kernel.ts`，不含 CLI/适配器 | exit 0 |
+| P3 天猫 | 73/73 | 0 error | exit 0；不含新 CLI | exit 0 |
+| P3 京东+重试 | 48/48 | 0 error 0 warning | exit 0；不含新 CLI | exit 0 |
+
+### 未覆盖与注意
+
+- 所有真实 helper、浏览器、端口路径只用注入测试；新 CLI 均未对线上 `outputs/` 运行过。
+- 新 CLI 默认目录取工具所在检出的仓库根，必须从主检出 `D:\运营管理系统` 运行，锁目录与计划/预留目录才与线上一致。
+- 逐页 M 与商品管家确认时先写 `-original.json` 再归档；若归档那一步失败，副本会留下、活动清单仍在，重试会因副本已存在被拒，需人工核对。
+- 合并顺序无要求；三个分支都改到 `docs/规范/导入与自动化.md` 的不同段落，合并时如有文本冲突按段落合并即可。
+

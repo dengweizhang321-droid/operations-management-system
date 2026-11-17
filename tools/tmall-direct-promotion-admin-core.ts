@@ -1,9 +1,9 @@
-import { createHash } from "node:crypto";
-import { link, lstat, mkdir, open, readFile, rm, unlink } from "node:fs/promises";
+import { lstat, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 
 import type { APIRequestContext, APIResponse } from "playwright-core";
 
+import { assertConfirmMode, createOnly as createOnlyFile, moveNoReplace, probeHelperIdle, readControlFile, sha256 } from "../lib/closure/kernel";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
 import {
@@ -35,8 +35,7 @@ export const PROMOTION_PAGE_SIZE = 20;
 export const PROMOTION_MAX_PAGES = 25;
 export const PROMOTION_WINDOW_DAYS = 30;
 
-const sha256 = (bytes: string | Uint8Array) => createHash("sha256").update(bytes).digest("hex");
-type Json = Record<string, any>;
+type Json = Record<string, unknown>;
 
 export class PromotionAdminRefusal extends Error {
   constructor(readonly reason: string, message: string) { super(message); }
@@ -45,22 +44,9 @@ function refuse(reason: string, message: string): never { throw new PromotionAdm
 
 /** Best-effort guard against a running helper slot for this store: GET /health only (read-only). Mirrors the master-abandon tool. */
 export async function probeHelperIdleForStore(storeKey: string, fetcher: typeof fetch = fetch, port = 5791) {
-  let response: Response;
-  try {
-    response = await fetcher(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(3000) });
-  } catch (error) {
-    const code = (error as { cause?: { code?: string } }).cause?.code ?? (error as NodeJS.ErrnoException).code;
-    if (code === "ECONNREFUSED") return "helper_not_running" as const;
-    refuse("helper_probe_failed", `无法确认 helper 是否空闲（${code ?? (error as Error).message}），拒绝处理`);
-  }
-  if (!response.ok) refuse("helper_probe_failed", `helper /health 返回 HTTP ${response.status}，拒绝处理`);
-  const health = await response.json() as { storeExecutions?: Array<{ storeKey?: string | null; workflow?: string }> };
-  const executions = Array.isArray(health.storeExecutions) ? health.storeExecutions : null;
-  if (!executions) refuse("helper_probe_failed", "helper /health 未返回 storeExecutions，无法确认空闲");
-  if (executions.some(slot => slot.workflow === "tmall" && slot.storeKey === storeKey)) {
-    refuse("helper_store_active", `helper 正在运行 ${storeKey} 的天猫执行，拒绝处理`);
-  }
-  return "helper_store_idle" as const;
+  return probeHelperIdle(slot => slot.workflow === "tmall" && slot.storeKey === storeKey, {
+    fetcher, port, refuse, verb: "处理", activeMessage: `helper 正在运行 ${storeKey} 的天猫执行，拒绝处理`,
+  });
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -182,10 +168,7 @@ export const probePromotionPlatform: PromotionPlatformProbe = async (audit, stor
 // Audit / file helpers
 // ---------------------------------------------------------------------------------------------------------
 async function readRegular(file: string): Promise<Buffer | null> {
-  const info = await lstat(file).catch(error => { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; });
-  if (!info) return null;
-  if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1) refuse("control_file_identity", `${path.basename(file)} 不是普通单链接文件`);
-  return readFile(file);
+  return readControlFile(file, Number.MAX_SAFE_INTEGER, () => refuse("control_file_identity", `${path.basename(file)} 不是普通单链接文件`));
 }
 async function exists(file: string) {
   return lstat(file).then(() => true, error => { if ((error as NodeJS.ErrnoException).code === "ENOENT") return false; throw error; });
@@ -193,7 +176,8 @@ async function exists(file: string) {
 
 const knownStages = new Set(["planned", "session_ready", "report_submitting", "report_submitted", "downloading", "downloaded", "importing", "completed", "failed"]);
 /** Same structural conditions as the runner's readAudit, plus path-safety of runId. */
-function validateAudit(audit: Json, store: TmallStore): DirectPromotionAudit {
+function validateAudit(input: Json, store: TmallStore): DirectPromotionAudit {
+  const audit = input as Json & { reportName?: string; taskId?: string; stage?: string; runId?: string };
   if (!audit || typeof audit !== "object" || Array.isArray(audit)
     || audit.version !== 1 || audit.protocol !== TMALL_DIRECT_PROMOTION_PROTOCOL
     || audit.storeKey !== store.storeKey || audit.shopName !== store.shopName || !audit.runId || !audit.stage
@@ -273,24 +257,16 @@ async function runProbe(probe: PromotionPlatformProbe, audit: DirectPromotionAud
   catch (error) { refuse("probe_failed", `平台任务探测失败：${(error instanceof Error ? error.message : String(error)).replace(/[\r\n]+/g, " ").slice(0, 300)}`); }
 }
 
-function normalizeReason(reason: string | undefined, required: boolean) {
-  const text = String(reason ?? "").replace(/\s+/g, " ").trim();
-  if (required || text) {
-    if (text.length < 4 || text.length > 300) refuse("reason_length", "原因必须为 4 至 300 个字符");
-  }
-  return text;
-}
-
-/** Create-only write of a file in a controlled evidence directory (temp file + exclusive link). */
+/** Create-only write of a file in a controlled evidence directory (kernel temp file + no-replace move). */
 async function createOnly(target: string, content: Uint8Array | string): Promise<"created" | "existing"> {
   const temp = `${target}.${process.pid}.${Date.now()}.tmp`;
-  const handle = await open(temp, "wx");
-  try { await handle.writeFile(content); await handle.sync(); } finally { await handle.close(); }
+  await createOnlyFile(temp, content);
   try {
-    await link(temp, target);
+    await moveNoReplace(temp, target);
     return "created";
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EEXIST") return "existing";
+    // File.Move reports an existing destination as a generic failure, so decide by looking at the target.
+    if (await exists(target)) return "existing";
     throw error;
   } finally {
     await rm(temp, { force: true });
@@ -350,11 +326,9 @@ const serialize = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 
 async function execute(disposition: Disposition, options: PromotionAdminOptions) {
   const dryRun = options.dryRun === true;
-  if (dryRun && options.operatorConfirmed) refuse("mode_conflict", "--dry-run 与 --confirm 不能同时使用");
-  if (!dryRun && options.operatorConfirmed !== true) refuse("not_confirmed", "必须取得操作者明确确认（--confirm），或仅检查时使用 --dry-run");
-  const reason = normalizeReason(options.reason, !dryRun);
-  const expect = String(options.expectSha256 ?? "");
-  if (!dryRun && !/^[a-f0-9]{64}$/.test(expect)) refuse("expect_sha256_missing", "--confirm 必须提供 --expect-sha256（来自 --dry-run 输出的 64 位十六进制）");
+  const { reason, expectSha256: expect } = assertConfirmMode({
+    dryRun, confirmed: options.operatorConfirmed === true, expectSha256: options.expectSha256, reason: options.reason, refuse,
+  });
 
   const { store, auditDirectory, helperProbe, probe } = await context(options);
   const first = await loadActive(store, auditDirectory);
@@ -421,12 +395,11 @@ async function execute(disposition: Disposition, options: PromotionAdminOptions)
   }
 
   if (await exists(archivePath)) refuse("archive_target_exists", "归档目标已存在，拒绝覆盖");
-  try { await link(first.activePath, archivePath); }
+  try { await moveNoReplace(first.activePath, archivePath); }
   catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EEXIST") refuse("archive_target_exists", "归档目标已存在，拒绝覆盖");
+    if (await exists(archivePath)) refuse("archive_target_exists", "归档目标已存在，拒绝覆盖");
     throw error;
   }
-  await unlink(first.activePath);
   const archived = await readRegular(archivePath);
   if (!archived || sha256(archived) !== first.sha256) refuse("archive_verify_failed", "归档后字节与原活动清单不一致");
   if (await exists(first.activePath)) refuse("active_reappeared", "归档后活动清单被重新写出，请立即核对 helper 是否仍在运行");
