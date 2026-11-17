@@ -8,7 +8,7 @@ import { validCustomerServiceCloseIdentity } from "../lib/jd/customer-service-cl
 import { assertCustomerServicePeriod } from "../lib/jd/customer-service-workflow";
 import { validateJdStoreRegistry } from "../lib/jd/store-registry";
 import type { CloseSlotCoordinator } from "../lib/jackyun/operator-close";
-import { readCustomerServiceOperatorEvidence } from "../lib/jackyun/n8n-preflight-evidence";
+import { readCustomerServiceOperatorEvidence, sealCustomerServiceExecutionEvidence } from "../lib/jackyun/n8n-preflight-evidence";
 import { writeJsonDurable } from "../lib/jackyun/json-file";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { withJdChromiumRunLock, defaultJdChromiumRunLockDirectory } from "../lib/jd/chromium-run-lock";
@@ -128,12 +128,13 @@ export async function reconcileCustomerServiceOperator(root: string, authorizati
         || previous.executionId !== target.originalExecutionId || previous.version !== 1 || previous.storeKey !== store.storeKey
         || previous.shopName !== store.shopName || previous.shopId !== store.shopId || !isDeepStrictEqual(previous.period, target.period)
         || (previous.failureCode ?? "") !== target.failureCode || previous.stage !== (intent.action === "verify" ? "executed" : "failed")) reject();
-      const evidence = readCustomerServiceOperatorEvidence(store.storeKey, previous.executionId, intent.action);
+      try { sealCustomerServiceExecutionEvidence(files.directory, store.storeKey, previous.executionId); } catch { /* best effort; reads below stay authoritative */ }
+      const evidence = readCustomerServiceOperatorEvidence(store.storeKey, previous.executionId, intent.action, undefined, files.directory);
       const assertOriginal = async () => {
         reservation.assertExited(); await lock.assertOwned();
         if (readAutomationDrain() !== null || !Buffer.from(await customerServiceControlBytes(files.active)).equals(activeBytes)
           || !Buffer.from(await customerServiceControlBytes(files.plan)).equals(bytes)
-          || !isDeepStrictEqual(readCustomerServiceOperatorEvidence(store.storeKey, previous.executionId, intent.action), evidence)) reject();
+          || !isDeepStrictEqual(readCustomerServiceOperatorEvidence(store.storeKey, previous.executionId, intent.action, undefined, files.directory), evidence)) reject();
       };
       // Target-scoped intent prevents another requestId from disguising an
       // unknown earlier commit. Retrying this same request reuses the intent.
@@ -184,7 +185,7 @@ export async function consumeCustomerServiceOperatorClosure(root: string, previo
   return withJdChromiumRunLock("jd-customer-service-consume-operator-closure", async () => {
     const current = await inspectCustomerServiceCloseEvidence(root, previous);
     if (current.kind !== receipt.target.kind || !isDeepStrictEqual(current.sourceEvidence, receipt.sourceEvidence)
-      || !isDeepStrictEqual(readCustomerServiceOperatorEvidence(previous.storeKey!, previous.executionId, "close", replacementId), receipt.evidence)) reject();
+      || !isDeepStrictEqual(readCustomerServiceOperatorEvidence(previous.storeKey!, previous.executionId, "close", replacementId, customerServicePlanFiles(root, previous.executionId, previous.storeKey!).directory), receipt.evidence)) reject();
     await portAbsent(current.registered.browser.debugPort);
     return true;
   }, defaultJdChromiumRunLockDirectory(root));

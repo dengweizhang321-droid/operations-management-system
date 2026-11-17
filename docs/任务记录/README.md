@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮方案：[工作流手动闭合盘点与方案](../manual-closure-audit-20261117/README.md)（只读盘点，17 条启用工作流逐条列出；推荐统一受控闭合外壳，零效果场景保持自动；未实现）。
+
 [AI 隔离功能验证](../ai-isolated-functional-20261108/REPORT.md) · [离线 HTML](../ai-isolated-functional-20261108/REPORT.html) · [验收矩阵](../ai-isolated-functional-20261108/MATRIX.md)（已测代表场景通过，完整登录/日报及真实账户、外发未验；未合并、未上线）。
 
 [AI 原生 Windows 控制链隔离证明](../ai-native-control-isolation-20261108/REPORT.md) · [离线 HTML](../ai-native-control-isolation-20261108/REPORT.html) · [原生与 G02 独审](../ai-native-control-isolation-20261108/REVIEW-NATIVE-G02.md)（两轮原生启停与 G02 通过，未合并、未上线）。

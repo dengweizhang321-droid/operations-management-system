@@ -51,13 +51,13 @@ export const TMALL_DIRECT_PROMOTION_FIELDS = [
   "itemColInshopCost",
 ] as const;
 
-const defaultAuditDirectory = path.join(tmallAutomationProjectRoot, "outputs", "tmall-direct-promotion-export");
+export const defaultAuditDirectory = path.join(tmallAutomationProjectRoot, "outputs", "tmall-direct-promotion-export");
 const legacyAuditDirectory = path.join(tmallAutomationProjectRoot, "outputs", "tmall-promotion-export");
 const maximumDownloadBytes = 25 * 1024 * 1024;
 const taskPollTimeoutMs = 7 * 60_000;
 const taskPollIntervalMs = 8_000;
 
-type DirectPromotionStage =
+export type DirectPromotionStage =
   | "planned"
   | "session_ready"
   | "report_submitting"
@@ -68,7 +68,7 @@ type DirectPromotionStage =
   | "completed"
   | "failed";
 
-type DirectPromotionAudit = {
+export type DirectPromotionAudit = {
   version: 1;
   protocol: typeof TMALL_DIRECT_PROMOTION_PROTOCOL;
   runId: string;
@@ -94,11 +94,11 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-function safeSegment(value: string) {
+export function safeSegment(value: string) {
   return value.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").replace(/\s+/g, "-").slice(0, 80);
 }
 
-function activeAuditPath(storeKey: string, directory: string) {
+export function activeAuditPath(storeKey: string, directory: string) {
   return path.join(directory, `active-${safeSegment(storeKey)}.json`);
 }
 
@@ -114,7 +114,7 @@ function normalizeLocalBaseUrl(value: string) {
   return url.toString().replace(/\/$/, "");
 }
 
-function shanghaiDate(now = new Date()) {
+export function shanghaiDate(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     year: "numeric",
     month: "2-digit",
@@ -124,7 +124,7 @@ function shanghaiDate(now = new Date()) {
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
-function shiftDate(date: string, days: number) {
+export function shiftDate(date: string, days: number) {
   const shifted = new Date(`${date}T12:00:00Z`);
   shifted.setUTCDate(shifted.getUTCDate() + days);
   return shifted.toISOString().slice(0, 10);
@@ -243,15 +243,15 @@ export function findTmallDirectPromotionTask(value: unknown, taskId: string) {
   return matching[0] ?? null;
 }
 
-function taskStatus(row: Record<string, unknown>) {
+export function taskStatus(row: Record<string, unknown>) {
   return String(row.status ?? row.taskStatus ?? "").trim().toUpperCase();
 }
 
-function taskSucceeded(status: string) {
+export function taskSucceeded(status: string) {
   return ["SUCCESS", "SUCCEEDED", "DONE", "FINISH", "FINISHED", "已完成", "生成成功"].includes(status);
 }
 
-function taskFailed(status: string) {
+export function taskFailed(status: string) {
   return /FAIL|ERROR|CANCEL|失败|取消/.test(status);
 }
 
@@ -454,7 +454,7 @@ async function assertNoLegacyBusinessAction(store: TmallStore) {
   }
 }
 
-async function openPromotionPage(store: TmallStore) {
+export async function openPromotionPage(store: TmallStore) {
   await ensureTmallStoreAuthenticatedSession(store.storeKey);
   const browser = await connectPlaywrightBrowser(store.browser.debugPort);
   const context = browser.contexts()[0];
