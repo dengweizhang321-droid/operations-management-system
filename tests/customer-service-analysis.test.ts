@@ -31,6 +31,11 @@ test("customer-service page checks model readiness and analyzes every visible un
   assert.match(page, /analysisReady !== true/);
   assert.match(page, /for \(let offset = 0; offset < ids\.length; offset \+= 8\)/);
   assert.doesNotMatch(page, /filter\(\(item\) => !item\.analyzedAt\)\.slice\(0, 8\)/);
+  // Batch selection follows the auto-analysis rule (never labelled), so manual rows are not overwritten.
+  assert.match(page, /filter\(\(item\) => !item\.analysisSource\)\.map\(\(item\) => item\.id\), "batch"\)/);
+  assert.match(page, /\.some\(\(item\) => !item\.analysisSource\)/);
+  assert.doesNotMatch(page, /filter\(\(item\) => !item\.analyzedAt\)/);
+  assert.doesNotMatch(page, /\.some\(\(item\) => !item\.analyzedAt\)/);
 });
 
 test("customer-service imports scope file identity by shop", async () => {

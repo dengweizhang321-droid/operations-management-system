@@ -7,8 +7,8 @@ import { chromium } from "playwright-core";
 
 const chrome = process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe";
 
-test("AI analysis batches recover committed rows after a provider rejection", { skip: !existsSync(chrome), timeout: 60_000 }, async () => {
-  const bundle = await build({ stdin: { contents: `
+async function buildView() {
+  return await build({ stdin: { contents: `
     import { createRoot } from 'react-dom/client';
     import CustomerServiceView from './app/customer-service-view';
     createRoot(document.getElementById('root')).render(<CustomerServiceView
@@ -18,6 +18,10 @@ test("AI analysis batches recover committed rows after a provider rejection", { 
     bundle: true, write: false, format: "iife", platform: "browser", jsx: "automatic",
     define: { "process.env.NODE_ENV": '"test"' },
   });
+}
+
+test("AI analysis batches recover committed rows after a provider rejection", { skip: !existsSync(chrome), timeout: 60_000 }, async () => {
+  const bundle = await buildView();
   const browser = await chromium.launch({ executablePath: chrome, headless: true });
   try {
     const page = await browser.newPage();
@@ -29,7 +33,7 @@ test("AI analysis batches recover committed rows after a provider rejection", { 
       agent: "合成客服", productName: "合成商品", matchedSkuId: "fixture", productCategory: "合成类目",
       matchStatus: "matched", matchConfidence: "exact", messages: [], messageTotalCount: 0,
       robotScope: "exclude_robot", problemType: "商品咨询", conversionStatus: "unknown",
-      serviceIssues: "", summaryText: "", analysisSource: "", analyzedAt: null as string | null, version: 1,
+      serviceIssues: "", summaryText: "", analysisSource: "" as "" | "ai" | "manual", analyzedAt: null as string | null, version: 1,
     }));
     page.on("pageerror", error => errors.push(error.message));
     await page.route("**/*", async route => {
@@ -42,7 +46,7 @@ test("AI analysis batches recover committed rows after a provider rejection", { 
           error: "当前文本模型的订阅校验未通过，请检查订阅与密钥。", code: "service_unavailable",
         } });
         for (const row of items.filter(row => ids.includes(row.id))) {
-          row.analyzedAt = "2026-10-08T00:00:00Z"; row.summaryText = "合成分析完成"; row.version++;
+          row.analysisSource = "ai"; row.analyzedAt = "2026-10-08T00:00:00Z"; row.summaryText = "合成分析完成"; row.version++;
         }
         return route.fulfill({ json: { analyzed: ids.length, requested: ids.length, incomplete: 0,
           results: ids.map(id => ({ id, status: "updated" })) } });
@@ -69,6 +73,59 @@ test("AI analysis batches recover committed rows after a provider rejection", { 
     assert.deepEqual(calls.at(-1), [9, 10]);
     assert.equal(await page.getByRole("alert").count(), 0);
     assert.equal(await analyze.isDisabled(), true);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});
+
+test("batch AI analysis skips manually annotated rows that have no AI timestamp", { skip: !existsSync(chrome), timeout: 60_000 }, async () => {
+  const bundle = await buildView();
+  const browser = await chromium.launch({ executablePath: chrome, headless: true });
+  try {
+    const page = await browser.newPage();
+    const errors: string[] = [];
+    const calls: number[][] = [];
+    const makeItems = (manualIds: number[]) => Array.from({ length: 6 }, (_, index) => ({
+      id: index + 1, shopName: "合成店铺", consultedAt: "2026-10-07 10:00:00", customerId: `fixture-${index}`,
+      agent: "合成客服", productName: "合成商品", matchedSkuId: "fixture", productCategory: "合成类目",
+      matchStatus: "matched", matchConfidence: "exact", messages: [], messageTotalCount: 0,
+      robotScope: "exclude_robot", problemType: "商品咨询", conversionStatus: "unknown",
+      serviceIssues: "", summaryText: "",
+      analysisSource: (manualIds.includes(index + 1) ? "manual" : "") as "" | "manual", analyzedAt: null as string | null, version: 1,
+    }));
+    let items = makeItems([2, 4, 5]);
+    page.on("pageerror", error => errors.push(error.message));
+    await page.route("**/*", async route => {
+      const request = route.request();
+      if (request.url().includes("/api/customer-service/analyze")) {
+        if (request.method() === "GET") return route.fulfill({ json: { configured: true } });
+        const ids = request.postDataJSON().ids as number[];
+        calls.push(ids);
+        return route.fulfill({ json: { analyzed: ids.length, requested: ids.length, incomplete: 0,
+          results: ids.map(id => ({ id, status: "updated" })) } });
+      }
+      if (request.url().includes("/api/customer-service/conversations")) return route.fulfill({ json: {
+        items, agents: ["合成客服"], shops: ["合成店铺"], categories: ["合成类目"],
+        summary: { total: 6, matched: 6, sessionOnly: 0, chatOnly: 0 },
+        pagination: { page: 1, pageSize: 30, total: 6, returned: 6, truncated: false },
+      } });
+      return route.fulfill({ contentType: "text/html", body: '<div id="root"></div>' });
+    });
+    await page.goto("https://customer-analysis.invalid/");
+    await page.addScriptTag({ content: bundle.outputFiles[0].text });
+    const analyze = page.locator(".customer-service-heading-actions").getByRole("button", { name: "AI分析", exact: true });
+    await analyze.waitFor();
+    await page.waitForFunction(() => !document.querySelector(".customer-service-heading-actions button.primary-button")?.hasAttribute("disabled"));
+    await analyze.click();
+    await page.waitForFunction(() => document.querySelector('[role="status"]')?.textContent?.includes("AI 分析已完成"));
+    assert.deepEqual(calls, [[1, 3, 6]]);
+
+    // Every row is manual: the batch button has nothing to analyze.
+    items = makeItems([1, 2, 3, 4, 5, 6]);
+    await page.getByRole("button", { name: "↻ 刷新数据" }).click();
+    await page.getByText("6 条").first().waitFor();
+    await page.waitForFunction(() => document.querySelector(".customer-service-heading-actions button.primary-button")?.hasAttribute("disabled"));
+    assert.equal(await analyze.isDisabled(), true);
+    assert.deepEqual(calls, [[1, 3, 6]]);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });

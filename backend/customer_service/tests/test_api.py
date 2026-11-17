@@ -126,6 +126,83 @@ class CustomerServiceApiTests(TestCase):
         self.assertEqual(collision.status_code, 409, collision.content)
         self.assertEqual(collision.json()["code"], "version_conflict")
 
+    def reimport_payload(self, *, messages=None, extra_key: str = "conversation-extra", raw: str = "r") -> dict[str, object]:
+        """Two-conversation payload; `extra_key` makes the whole-batch content hash differ."""
+        payload = body_for(raw_hash=hashlib.sha256(raw.encode()).hexdigest())
+        first = payload["conversations"][0]
+        if messages is not None:
+            first["messages"] = messages
+        second = copy.deepcopy(first)
+        second.update({"conversationKey": extra_key, "conversationId": extra_key, "sourceRowNumber": 3})
+        second["messages"] = [{"sender": "顾客", "sentAt": "2026-09-01 10:00:00", "content": extra_key}]
+        payload["conversations"] = [first, second]
+        payload["summary"]["sessionCount"] = payload["summary"]["chatSessionCount"] = payload["summary"]["matchedCount"] = 2
+        return payload
+
+    def annotate(self, source: str) -> CustomerServiceConversation:
+        conversation = CustomerServiceConversation.objects.get(conversation_key="志高商用设备:conversation-1")
+        conversation.robot_scope = "exclude_robot"
+        conversation.problem_type = "商品咨询"
+        conversation.conversion_status = "converted"
+        conversation.service_issues = "无"
+        conversation.summary_text = "已标注"
+        conversation.analysis_source = source
+        conversation.annotated_at = timezone.now()
+        conversation.analyzed_at = timezone.now() if source == "ai" else None
+        conversation.save()
+        return conversation
+
+    def annotation(self) -> dict[str, object]:
+        row = CustomerServiceConversation.objects.get(conversation_key="志高商用设备:conversation-1")
+        return {
+            "robot_scope": row.robot_scope, "problem_type": row.problem_type, "conversion_status": row.conversion_status,
+            "service_issues": row.service_issues, "summary_text": row.summary_text, "analysis_source": row.analysis_source,
+            "analyzed_at": row.analyzed_at, "annotated_at": row.annotated_at,
+        }
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_reimport_with_unchanged_content_keeps_ai_annotation(self) -> None:
+        self.assertEqual(self.post(self.reimport_payload(extra_key="extra-a", raw="a"), "reimport-same-1").status_code, 201)
+        self.annotate("ai")
+        before = self.annotation()
+        again = self.post(self.reimport_payload(extra_key="extra-b", raw="b"), "reimport-same-2")
+        self.assertEqual(again.status_code, 201, again.content)
+        self.assertEqual(again.json()["status"], "imported")
+        row = CustomerServiceConversation.objects.get(conversation_key="志高商用设备:conversation-1")
+        self.assertEqual(row.version, 2)
+        self.assertEqual(self.annotation(), before)
+        self.assertEqual(before["analysis_source"], "ai")
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_reimport_with_changed_messages_resets_ai_annotation_for_auto_analysis(self) -> None:
+        self.assertEqual(self.post(self.reimport_payload(extra_key="extra-a", raw="a"), "reimport-ai-1").status_code, 201)
+        self.annotate("ai")
+        changed = [{"sender": "顾客", "sentAt": "2026-09-01 10:00:00", "content": "请问价格？"}, {"sender": "客服", "sentAt": "2026-09-01 10:00:05", "content": "99元"}]
+        response = self.post(self.reimport_payload(messages=changed, extra_key="extra-a", raw="b"), "reimport-ai-2")
+        self.assertEqual(response.status_code, 201, response.content)
+        row = CustomerServiceConversation.objects.get(conversation_key="志高商用设备:conversation-1")
+        self.assertEqual(row.messages, changed)
+        self.assertEqual(row.version, 2)
+        self.assertEqual(self.annotation(), {
+            "robot_scope": "", "problem_type": "", "conversion_status": "", "service_issues": "", "summary_text": "",
+            "analysis_source": "", "analyzed_at": None, "annotated_at": None,
+        })
+        from customer_service.query import auto_analysis_candidates
+        result = auto_analysis_candidates(limit=50)
+        self.assertIn(row.id, result["ids"])
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_reimport_with_changed_messages_keeps_manual_annotation(self) -> None:
+        self.assertEqual(self.post(self.reimport_payload(extra_key="extra-a", raw="a"), "reimport-manual-1").status_code, 201)
+        self.annotate("manual")
+        before = self.annotation()
+        changed = [{"sender": "顾客", "sentAt": "2026-09-01 10:00:00", "content": "改了"}]
+        response = self.post(self.reimport_payload(messages=changed, extra_key="extra-a", raw="b"), "reimport-manual-2")
+        self.assertEqual(response.status_code, 201, response.content)
+        row = CustomerServiceConversation.objects.get(conversation_key="志高商用设备:conversation-1")
+        self.assertEqual(row.messages, changed)
+        self.assertEqual(self.annotation(), before)
+
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_four_shop_import_scopes_and_duplicates_remain_isolated(self) -> None:
         # Identical source identities and shared agents must still belong to

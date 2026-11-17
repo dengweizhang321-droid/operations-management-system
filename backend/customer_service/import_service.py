@@ -239,6 +239,11 @@ def record_edge_rejection(payload: dict[str, object], actor_email: str) -> dict[
     return {"status": "rejected", "attemptId": str(attempt.id)}
 
 
+# Fields the AI prompt reads (shop_name is fixed within a shop scope).
+AI_VISIBLE_FIELDS = ("consulted_at", "agent", "product_sku", "consultation_type", "messages")
+AI_ANNOTATION_TEXT_FIELDS = ("robot_scope", "problem_type", "conversion_status", "service_issues", "summary_text")
+
+
 def import_customer_service(payload: dict[str, object], actor_email: str) -> dict[str, object]:
     allowed = {
         "action", "shopName", "sessionFileName", "chatFileName", "rawFileHash", "fileSizeBytes",
@@ -348,6 +353,17 @@ def import_customer_service(payload: dict[str, object], actor_email: str) -> dic
                 "messages": row["messages"],
             }
             if existing:
+                # The 35-day window re-imports existing conversations. When the
+                # content the AI sees changed, an AI annotation is stale: clear
+                # it so auto-analysis re-annotates. Manual annotations are kept.
+                if existing.analysis_source == "ai" and any(
+                    getattr(existing, field) != values[field] for field in AI_VISIBLE_FIELDS
+                ):
+                    for field in AI_ANNOTATION_TEXT_FIELDS:
+                        setattr(existing, field, "")
+                    existing.analysis_source = ""
+                    existing.analyzed_at = None
+                    existing.annotated_at = None
                 for field, value in values.items():
                     setattr(existing, field, value)
                 existing.version = int(existing.version) + 1
