@@ -4,15 +4,17 @@
 
 共享错误工作流 `TeruisiHourlyRetry2026` 的分类器是「没命中终局正则就每小时重试」。天猫两店的两条确定性内容校验错误没有命中任何终局正则，被无限重试：
 
-- 丽力 `TmallLiliDaily2026`：「天猫商品报表计划维度包含非商品主体，拒绝汇总」（`lib/netshop/normalized-import.ts`），7 天 61 次。
-- 拓丰 `TmallTuofengDaily2026`：「天猫分批商品 XLSX 的商品 ID 集合与提交批次不一致」（`tools/tmall-direct-product-master-export.ts`），7 天 53 次。
+- 丽力 `TmallLiliDaily2026`：「天猫商品报表计划维度包含非商品主体，拒绝汇总」（`lib/netshop/normalized-import.ts`），统计为 61 次。
+- 拓丰 `TmallTuofengDaily2026`：「天猫分批商品 XLSX 的商品 ID 集合与提交批次不一致」（`tools/tmall-direct-product-master-export.ts`），统计为 53 次。
+
+次数口径：任务提出时的统计为近 7 天丽力 61、拓丰 53；独立审查用生产 156 条错误载荷回放，丽力 61、拓丰 52。拓丰差 1 条的原因未核实，也未取得精确统计区间，以回放数字为可复核口径。
 
 活动清单停在 downloading，每次重试只重新校验同一个本地文件，结果必然相同；每次重试还要登录千牛或阿里妈妈，疑似因此触发验证码。可重试失败不发钉钉，问题持续数日无人知晓。
 
 ## 改动
 
 - `tools/n8n-hourly-retry-policy.mjs`：`terminalFailurePatterns` 新增一条精确字面量规则，覆盖上述两条及同类本地文件校验失败（下表）；`terminalAlertReasons` 与「准备人工提醒参数」的 `codes` 新增 `manual_action_content_invalid`；「收集被丢弃的终局失败」不再把 `terminalCode` 写死为「dispatch result unknown…」。
-- `tools/n8n-manual-action-alert.ps1`：`$hints` 新增 `manual_action_content_invalid` 文案。
+- `tools/n8n-manual-action-alert.ps1`：`$hints` 新增 `manual_action_content_invalid` 文案（仓库副本；生产使用主检出副本，见文末注意）。
 - `automation/n8n/data-import-hourly-safe-retry.workflow.json`：由生成器重新生成，仅 3 个节点的 `jsCode` 变化：「仅保留可安全自动重试的失败」「收集被丢弃的终局失败」「准备人工提醒参数」。节点数、连线、settings 与其余 13 个节点不变。
 - `tests/n8n-hourly-retry-workflow.test.ts`：新增 4 个测试（精确终局、窄匹配不误伤、文案分类、终局告警链透传原因码）。
 
@@ -43,3 +45,8 @@
 ## 生产生效
 
 本分支只改仓库定义，没有发布或导入任何 n8n 工作流。生产生效须按 2026-11-06 [`n8n-classifier-publish-20261106/REPORT.md`](../n8n-classifier-publish-20261106/REPORT.md) 的方式，只替换上述 3 个节点的 `jsCode` 并在 n8n UI 发布，这一步需要另行授权。
+
+注意：
+
+- ps1 不会随合并生效。钉钉命令调用的是主检出 `D:\运营管理系统\tools\n8n-manual-action-alert.ps1`，合并到 origin/main 不会更新它；旧 ps1 对未知 code 抛 `invalid_payload`，返回 `not_sent`，提醒节点 `continueErrorOutput` 后整条提醒静默丢失。发布前必须先让主检出 ps1 包含 `manual_action_content_invalid`，并用预览模式（不带 `-Execute`）验证退出码为 0，再发布 n8n。
+- 生产现役共享错误工作流版本是 `dbe5c5ea`（2026-11-06，来源 `e3f2b1b8`），不含 `cf05e971` 的 `alertCode`，生产终局提醒至今使用通用 `terminal_manual_action` 文案。本次发布会同时首次上线 `cf05e971` 与本分支改动。

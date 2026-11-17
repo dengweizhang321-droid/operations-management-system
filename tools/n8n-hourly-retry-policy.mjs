@@ -110,7 +110,7 @@ function collectFailureText(value, output = []) {
  * is a `join(" ")` of error fields and the node name, so a `.*` would let an
  * unrelated field supply the tail. Forbid whitespace instead of bounding length.
  */
-const terminalAlertReasons = [
+export const terminalAlertReasons = [
   // A fixed token the customer-service helper now returns alongside the
   // collapsed code. Matched first and anchored to the field name so it beats
   // the text heuristics below, which cannot see past that collapsing.

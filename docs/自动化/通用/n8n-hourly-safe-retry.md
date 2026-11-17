@@ -39,7 +39,7 @@
 
 ### 同一失败连续三次止损（未实现）
 
-分类器的规则是「没命中终局正则就每小时重试」，所以任何漏项都会被无限重试（2026-11-04 至 11-17 丽力 61 次、拓丰 53 次即是）。设想用 n8n 工作流静态数据按 workflowId 记录最近失败指纹，同指纹第 3 次出现时转终局人工提醒。**该方案在当前部署下不可行，本分支没有实现。**
+分类器的规则是「没命中终局正则就每小时重试」，所以任何漏项都会被无限重试（丽力、拓丰各被重试数十次即是；次数口径见[本次任务记录](../../retry-repeat-stop-20261117/README.md#问题)）。设想用 n8n 工作流静态数据按 workflowId 记录最近失败指纹，同指纹第 3 次出现时转终局人工提醒。**该方案在当前部署下不可行，本分支没有实现。**
 
 - 共享错误工作流 ID `TeruisiHourlyRetry2026` 长 22 个字符，而 n8n 2.32.7 的 `isWorkflowIdValid` 只接受长度不超过 21 的 ID（`dist/utils.js:14-16`）。执行结束保存静态数据的两处钩子（`dist/execution-lifecycle/execution-lifecycle-hooks.js:407`、`:477`）与 `WorkflowStaticDataService.saveStaticData`（`dist/workflows/workflow-static-data.service.js:33`）都以此为前提，因此这个工作流的静态数据永远不会落库，每次执行读到的都是空对象，计数恒为 1，止损永不触发，而且不会有任何报错。
 - 改工作流 ID 会牵动 16 条目标工作流的 `settings.errorWorkflow`、发布记账与回退依据，不属于小改动。
@@ -50,11 +50,13 @@
 ## 终局提醒文案
 
 - 新增原因码 `manual_action_content_invalid`（「已下载文件或汇总内容未通过确定性校验，重试只会得到相同结果」），分类器 `terminalAlertReasons`、「准备人工提醒参数」节点的 `codes` 与 `tools/n8n-manual-action-alert.ps1` 的 `$hints` 三处同步，由测试逐键比对。排在登录类原因之后，同时出现验证码等更可操作的原因时仍以后者为准。
-- 「收集被丢弃的终局失败」节点此前把 `terminalCode` 写死为「dispatch result unknown…」，经「准备人工提醒参数」后成为末端 `stopAndError` 的错误文案，使所有终局失败的错误工作流 execution 看起来像「重试派发结果未知」。钉钉正文由 `code` 决定，一直是对的；现在 `terminalCode` 与实际原因码一致。
+- 「收集被丢弃的终局失败」节点此前把 `terminalCode` 写死为「dispatch result unknown…」，经「准备人工提醒参数」后成为末端 `stopAndError` 的错误文案，使所有终局失败的错误工作流 execution 看起来像「重试派发结果未知」。钉钉正文由 `code` 决定，但生产现役的共享错误工作流版本 `dbe5c5ea`（2026-11-06，来源 `e3f2b1b8`）不含 `cf05e971` 引入的 `alertCode`，所以生产终局提醒至今用的是通用 `terminal_manual_action` 文案；本次发布会同时首次上线 `cf05e971` 的分条文案与本分支改动。现在 `terminalCode` 与实际原因码一致。
 
 ## 生产生效
 
-本分支只改仓库定义。要在生产生效，须按 [2026-11-06 分类器发布记录](../../n8n-classifier-publish-20261106/REPORT.md) 的方式，只替换「仅保留可安全自动重试的失败」「收集被丢弃的终局失败」「准备人工提醒参数」三个节点的 `jsCode`，并在 n8n UI 发布；同时 `tools/n8n-manual-action-alert.ps1` 随合并生效。这一步需要另行授权。
+本分支只改仓库定义。要在生产生效，须按 [2026-11-06 分类器发布记录](../../n8n-classifier-publish-20261106/REPORT.md) 的方式，只替换「仅保留可安全自动重试的失败」「收集被丢弃的终局失败」「准备人工提醒参数」三个节点的 `jsCode`，并在 n8n UI 发布。这一步需要另行授权。
+
+**发布前置条件（ps1 不会随合并生效）：** 「转人工发钉钉提醒」节点调用的是主检出 `D:\运营管理系统\tools\n8n-manual-action-alert.ps1`，合并到 origin/main 不会更新它。旧版 ps1 对不认识的 `code` 执行 `throw 'invalid_payload'` 并返回 `not_sent`，提醒节点走 `continueErrorOutput` 后整条提醒静默丢失。因此必须先让主检出的 ps1 包含 `manual_action_content_invalid`（以及 `cf05e971` 的全部分条码），并用预览模式（不带 `-Execute`）对该码构造 payload，验证退出码为 0、输出 `local_preview`，之后才能发布 n8n 节点。
 
 吉客云另有精确例外：仅当新 helper 在 B 节点登录前读取 DPAPI 凭据连续失败，并在原全局锁内确认 v2 原计划无导出意图、空 exports，浏览器事件、下载、验证和导入四类效果路径全不存在，才 create-only 保存自动闭合回执并返回 `JACKYUN_PREFLIGHT_RETRY_READY`。错误工作流只对吉客云 B 节点的精确标记安排 60 分钟后从原 Webhook 创建完整 execution；新执行仍须重新通过原计划、active、回执和日期门禁。任何闭合失败、迟到效果、文件缺失、路径异常或其他凭据/登录错误继续停止自动重试。旧 4299 不会因新规则自动闭合，必须单独按原运行证据处理。
 

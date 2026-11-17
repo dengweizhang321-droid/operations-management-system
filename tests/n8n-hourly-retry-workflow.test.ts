@@ -13,6 +13,7 @@ import {
   hourlyRetryTriggerName,
   hourlyRetryWebhookPath,
   terminalAlertReason,
+  terminalAlertReasons,
 } from "../tools/n8n-hourly-retry-policy.mjs";
 
 const workflowDirectory = new URL("../automation/n8n/", import.meta.url);
@@ -542,4 +543,58 @@ test("terminal alert chain carries the real reason code through to the final err
   const manual = collect({ first: () => ({ json: { droppedFailures: [{ workflowId: "TmallLiliDaily2026", failedExecutionId: "9101", reason: "触发方式 manual 不参与自动重试" }] } }) });
   assert.equal(manual[0].json.manualAction.code, "execution_mode_not_automatic");
   assert.equal(prepare({ all: () => manual })[0].json.terminalCode, "execution_mode_not_automatic");
+});
+
+// 双向钉住三处手抄的原因码：分类器能产出的码 ⊆ 准备节点放行的 codes，
+// 且放行的 codes === ps1 $hints 的键。任何一侧多或少，要么整条提醒静默丢失
+// （ps1 对未知 code 抛 invalid_payload），要么存在永远发不出的死码。
+test("alert codes agree both ways across classifier, prepare node and alert script (generator and repo JSON)", async () => {
+  const script = await readFile(new URL("../tools/n8n-manual-action-alert.ps1", import.meta.url), "utf8");
+  const start = script.indexOf("$hints=@{");
+  const hints = script.slice(start, script.indexOf("\n  }", start));
+  const scripted = [...hints.matchAll(/([a-z_]+)=@\(/g)].map(match => match[1]!).sort();
+  assert.ok(scripted.length >= 10);
+  const repoJson = JSON.parse(await readFile(new URL("data-import-hourly-safe-retry.workflow.json", workflowDirectory), "utf8")) as ReturnType<typeof buildHourlyRetryErrorWorkflow>;
+  const classifierCodes = new Set<string>(terminalAlertReasons.map(([code]: [string, string]) => code));
+  classifierCodes.add("terminal_manual_action");
+  for (const [label, workflow] of [["generator", buildHourlyRetryErrorWorkflow()], ["repo json", repoJson]] as const) {
+    const prepare = workflow.nodes.find(node => node.name === "准备人工提醒参数")!.parameters.jsCode as string;
+    const literal = /const codes = \[([^\]]*)\];/.exec(prepare);
+    assert.ok(literal, `${label}: codes list not found`);
+    const node = [...literal![1]!.matchAll(/'([a-z_]+)'/g)].map(match => match[1]!).sort();
+    assert.deepEqual(node, scripted, `${label}: prepare-node codes must equal alert-script $hints keys`);
+    const unlisted = [...classifierCodes].filter(code => !node.includes(code));
+    assert.deepEqual(unlisted, [], `${label}: classifier codes missing from prepare node: ${unlisted.join(",")}`);
+  }
+});
+
+// 新终局片段在仓库中的抛出点清单（以文件+文案计，不钉行号）。新增一个匹配这些
+// 片段的抛出点时本测试失败：请人工判断它是否同样「重试必然得到相同结果」，是则
+// 加入清单，否则收窄片段，不要直接改清单了事。
+test("every throw site matching the deterministic content terminal fragments is pinned", async () => {
+  const fragments = /计划维度包含非商品主体|缺少有效商品\s*ID|商品\s*ID\s*集合与提交批次不一致|与活动清单证据(?:数量)?不一致/u;
+  const expected = [
+    "lib/netshop/normalized-import.ts | 天猫商品报表缺少有效商品 ID，拒绝汇总",
+    "lib/netshop/normalized-import.ts | 天猫商品报表计划维度包含非商品主体，拒绝汇总",
+    "tools/tmall-direct-product-master-export.ts | 天猫分批商品 XLSX 的商品 ID 集合与提交批次不一致",
+    "tools/tmall-direct-product-master-export.ts | 恢复时第 ${} 批商品文件与活动清单证据不一致",
+    "tools/tmall-direct-product-master-export.ts | MTOP 恢复时合并货品文件与活动清单证据不一致",
+    "tools/tmall-direct-promotion-export.ts | 推广直连恢复文件与活动清单证据不一致",
+    "tools/tmall-pagewise-product-master-export.ts | 逐页货品文件与活动清单证据数量不一致",
+    "tools/tmall-pagewise-product-master-export.ts | 逐页货品文件 ${} 与活动清单证据不一致",
+    "tools/tmall-pagewise-product-master-export.ts | 逐页货品文件 ${} 回读结果与活动清单证据不一致",
+  ].sort();
+  const { readdir } = await import("node:fs/promises");
+  const found: string[] = [];
+  for (const dir of ["tools", "lib/netshop"]) {
+    for (const name of await readdir(new URL(`../${dir}/`, import.meta.url))) {
+      if (!name.endsWith(".ts")) continue;
+      const source = await readFile(new URL(`../${dir}/${name}`, import.meta.url), "utf8");
+      for (const match of source.matchAll(/throw new Error\((["`])(.*?)\1\)/gu)) {
+        if (fragments.test(match[2]!)) found.push(`${dir}/${name} | ${match[2]!.replace(/\$\{[^}]*\}/g, "${}")}`);
+      }
+    }
+  }
+  assert.deepEqual(found.sort(), expected,
+    "throw site set changed: decide by hand whether the new/removed error is deterministic on a retry before editing this list");
 });
