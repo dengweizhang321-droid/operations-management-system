@@ -1089,6 +1089,30 @@ def _payment_daily(
     }
 
 
+def _store_level_summary(shops, products) -> dict[str, object] | None:
+    """“其中店铺级推广”：店铺日汇总中不属于任何商品的部分（店铺直达等）。
+
+    店铺日汇总与商品日汇总在同一事务内重建，且商品行只由商品主体生成，因此
+    “店铺 − Σ商品”恰好等于店铺级主体行；没有这类行（所有京东数据、历史天猫数据）时
+    返回 None，响应与此前逐字一致。
+    """
+    totals = shops.filter(platform="天猫").aggregate(rows=Sum("source_row_count"), **_sum_annotations(PROMOTION_SUM_FIELDS))
+    shop_rows = _zero(totals["rows"])
+    if shop_rows <= 0:
+        return None
+    product_totals = products.filter(platform="天猫").aggregate(rows=Sum("source_row_count"), **_sum_annotations(PROMOTION_SUM_FIELDS))
+    store_rows = shop_rows - _zero(product_totals["rows"])
+    if store_rows <= 0:
+        return None
+    # 只给“花费”：它是报表必备列，店铺日汇总里的值一定来自来源字段。成交、展现等字段在店铺行里
+    # 可能为空，汇总只存 0，无法区分“真 0”与“缺失”，所以不在此推出（逐字段存在性见推广洞察 storeLevel）。
+    return {
+        "definition": "阿里妈妈主体类型为“店铺”的推广行（如店铺直达），计入店铺推广总额，未分摊到商品",
+        "rowCount": store_rows,
+        "spendCents": _zero(totals["spend_cents"]) - _zero(product_totals["spend_cents"]),
+    }
+
+
 def promotion_overview(
     *,
     platforms: Sequence[str],
@@ -1114,6 +1138,7 @@ def promotion_overview(
         **_sum_annotations(PROMOTION_SUM_FIELDS),
     )
     product_count = products.values("platform", "shop_name", "product_id").distinct().count()
+    store_level = _store_level_summary(shops, products) if "天猫" in platforms else None
     payment_pairs = _payment_daily(
         platforms=platforms, outlets=outlets, requested_period=requested_period
     )
@@ -1215,6 +1240,7 @@ def promotion_overview(
             "spendRate": ratio_spend / platform_payment if complete_pairs and platform_payment > 0 else None,
             "promotionTransactionShare": ratio_transaction / platform_payment if complete_pairs and platform_payment > 0 else None,
             "spendRateReason": None if complete_pairs and platform_payment > 0 else "zero_denominator" if complete_pairs else "incomplete_coverage",
+            **({"storeLevel": store_level} if store_level is not None else {}),
             "matchedRange": {"spendCents": ratio_spend, "platformPaymentAmountCents": platform_payment, "spendRate": ratio_spend/platform_payment if platform_payment > 0 else None,
                              "coveredShopDatePairs": len(matched_pairs), "expectedShopDatePairs": len(expected_pairs),
                              "byShop": [{"shopKey": p+OUTLET_SEPARATOR+n, "dates": [d for d in requested_dates if (p, n, d) in matched_pairs]} for p, n in sorted(identities)]},

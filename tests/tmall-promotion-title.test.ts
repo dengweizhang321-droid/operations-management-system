@@ -51,5 +51,5 @@ test("title reconciliation still rejects missing IDs and non-product subjects", 
     "日期": "2026-09-05", "主体ID": id, "主体类型": type, "主体名称": title, "花费": 1,
   } });
   assert.throws(() => prepareTmallPromotionRows([row("商品", "", "A"), row("商品", "", "B")]), /有效商品 ID/);
-  assert.throws(() => prepareTmallPromotionRows([row("商品", "10001", "A"), row("店铺", "10001", "B")]), /非商品主体/);
+  assert.throws(() => prepareTmallPromotionRows([row("商品", "10001", "A"), row("品牌", "10001", "B")]), /非商品主体/);
 });

@@ -73,10 +73,27 @@ export type PromotionDiagnosticCapability = {
   message: string; shopName: string | null; maximumDays: 7;
   paidModelAllowed: false; reportFormats: Array<"html" | "xlsx">;
 };
+/**
+ * 店铺级推广（店铺直达等，阿里妈妈主体类型为“店铺”）：计入 `summary` 的店铺总额，
+ * 但不属于任何商品、未分摊到商品，所以商品对象列表的合计小于店铺总额。仅在所选范围
+ * 含此类行时出现；缺省即“没有店铺级推广”，不得显示为 0。
+ */
+export type PromotionStoreLevelWindow = {
+  /** null = 窗口内至少一条店铺级来源行缺少该字段（例如店铺行的净成交金额为空），不是 0。 */
+  spendCents: number | null; attributedPaymentCents: number | null; impressions: number | null; clicks: number | null; orders: number | null;
+  rowCount: number;
+  dates: string[];
+  byShop: Array<{ shopKey: string; shopName: string; spendCents: number | null; attributedPaymentCents: number | null; impressions: number | null; clicks: number | null; orders: number | null; rowCount: number }>;
+};
+export type PromotionStoreLevel = {
+  definition: string; unit: "CNY_CENT"; reconciled: boolean;
+  periods: Record<"current" | "previous" | "yearAgo", PromotionStoreLevelWindow>;
+};
 export type PromotionInsightsResponse = {
   columnVersion: typeof PROMOTION_COLUMN_VERSION;
   context: InsightsContext; sectionToken: string;
   sections: {
+    storeLevel?: PromotionStoreLevel;
     summary: PromotionMetrics; comparisons: PromotionComparisons; changes: PromotionChanges;
     attribution: {
       amountDefinition: "jd_total_order_amount" | "tmall_net_amount";

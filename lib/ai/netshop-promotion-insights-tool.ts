@@ -26,7 +26,8 @@ export const NETSHOP_PROMOTION_RANKING_ROWS_PER_DIRECTION = 10;
 /** What each view carries; `capabilities` is the pseudo key for context.capabilities. Tokens, effective dates, coverage and limitations are always kept. */
 export const NETSHOP_PROMOTION_VIEW_PLAN: AiViewPlan = {
   // listScope carries productFocus (未确认/多义映射时“不能据此判断无投放”，对象行被清空)，所以每个视图都保留；objectKind仅9字符。
-  always: ["coverage", "limitations", "dataQuality", "objectKind", "listScope"],
+  // storeLevel（店铺直达等，已含在 summary 总额内、未分摊到商品）仅含店铺级行时出现；缺它会让只读 list/rankings 的读者误以为商品合计等于总额。
+  always: ["coverage", "limitations", "dataQuality", "objectKind", "listScope", "storeLevel"],
   keep: {
     overview: ["summary", "comparisons", "changes", "attribution", "matchedRange", "shops", "trend", "diagnostic", "objectCapabilities", "sourceMatrix", "capabilities"],
     rankings: ["contributions"],

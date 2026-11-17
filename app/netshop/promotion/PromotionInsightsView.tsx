@@ -16,7 +16,7 @@ import {
 import MetricTrend from "./MetricTrend";
 import PromotionContributions from "./PromotionContributions";
 import { validatePromotionQuery } from "@/lib/netshop/promotion-insights-query";
-import { CapabilityGap, ComparisonCell, MetricCard, MetricCell, PromotionSection } from "./presentation";
+import { CapabilityGap, ComparisonCell, MetricCard, MetricCell, PromotionSection, StoreLevelPromotionNote } from "./presentation";
 import { readPromotion } from "./read";
 import { useNetshopIntegratedLayout } from "../shared/integrated-layout";
 import "./promotion.css";
@@ -225,6 +225,7 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
         <article className="promotion-kpi"><InsightDerivedMoneyMetric label="点击成本 CPC" metric={s.summary.cpc}/><div className="promotion-comparisons">{context.previous && <span>环比 <ComparisonCell value={s.comparisons.cpc.previous}/></span>}{context.yearAgo && <span>同比 <ComparisonCell value={s.comparisons.cpc.yearAgo}/></span>}</div></article>
         <MetricCard label="广告点击率 CTR" metric={s.summary.ctr} previous={s.comparisons.ctr.previous} yearAgo={s.comparisons.ctr.yearAgo} showPrevious={context.previous} showYearAgo={context.yearAgo}/>
       </div>
+      <StoreLevelPromotionNote storeLevel={s.storeLevel}/>
       <nav className="promotion-integrated-nav" aria-label="推广经营章节">{[["trend", "归因趋势"], ["objects", "投放对象"], ["more", "其他分析"], ["sources", "数据与口径"]].map(([key, label]) => <button type="button" key={key} onClick={() => scrollChapter(key)}>{label}</button>)}</nav>
       <div className="promotion-integrated-overview">
         <PromotionSection id="promotion-trend" title="广告归因成交趋势" note="沿用推广来源归因口径。点击日期定位对象期间，整期摘要保持不变。">
@@ -234,7 +235,7 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
           <div className="promotion-fact-list">
             <div className="promotion-fact-row"><span>花费变化</span><div>{context.previous ? <ComparisonCell value={s.comparisons.spend.previous}/> : <span className="promotion-caption">环比未开启</span>}{context.yearAgo && <small>同比 <ComparisonCell value={s.comparisons.spend.yearAgo}/></small>}</div></div>
             <div className="promotion-fact-row"><span>归因成交变化</span><div>{context.previous ? <ComparisonCell value={s.comparisons.attributedPayment.previous}/> : <span className="promotion-caption">环比未开启</span>}{context.yearAgo && <small>同比 <ComparisonCell value={s.comparisons.attributedPayment.yearAgo}/></small>}</div></div>
-            <div className="promotion-fact-row"><span>推广费率</span><MetricCell metric={s.summary.spendRate}/></div>
+            <div className="promotion-fact-row"><span>推广费率（含店铺级推广花费）</span><MetricCell metric={s.summary.spendRate}/></div>
           </div>
           <p className="promotion-caption">归因窗口：{s.attribution.window ?? "来源尚未核验"}。归因成交不等于平台成交，不推算自然成交或增量利润。</p>
           <p className="promotion-caption">保本判断：当前页面未提供已核验成本与到手价；ROI 不能单独判断亏损。</p>
@@ -278,7 +279,8 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
     {data && s && <>
       {rangeSummary}
       <div className="promotion-columns" id="promotion-overview"><div className="promotion-main"><div className="promotion-column-label"><span>投入与产出</span><small>本期 {startDate}—{endDate}</small></div>
-        <div className="promotion-kpis">{(["spend", "attributedPayment", "roas", "spendRate"] as const).map((key, index) => <MetricCard key={key} label={["推广花费", amountLabel, "ROI", "推广费率"][index]} metric={s.summary[key]} previous={s.comparisons[key].previous} yearAgo={s.comparisons[key].yearAgo} showPrevious={context.previous} showYearAgo={context.yearAgo} previousChange={key === "spend" || key === "attributedPayment" ? s.changes[key].previous : undefined} yearAgoChange={key === "spend" || key === "attributedPayment" ? s.changes[key].yearAgo : undefined} note={key === "roas" ? "平台归因成交 ÷ 花费，单位倍数" : key === "spendRate" ? "同平台 × 店铺 × 日期完整配对" : undefined}/>)}</div>
+        <div className="promotion-kpis">{(["spend", "attributedPayment", "roas", "spendRate"] as const).map((key, index) => <MetricCard key={key} label={["推广花费", amountLabel, "ROI", "推广费率"][index]} metric={s.summary[key]} previous={s.comparisons[key].previous} yearAgo={s.comparisons[key].yearAgo} showPrevious={context.previous} showYearAgo={context.yearAgo} previousChange={key === "spend" || key === "attributedPayment" ? s.changes[key].previous : undefined} yearAgoChange={key === "spend" || key === "attributedPayment" ? s.changes[key].yearAgo : undefined} note={key === "roas" ? "平台归因成交 ÷ 花费，单位倍数" : key === "spendRate" ? "同平台 × 店铺 × 日期完整配对；花费含店铺级推广" : undefined}/>)}</div>
+        <StoreLevelPromotionNote storeLevel={s.storeLevel}/>
         <PromotionSection id="promotion-trend" title="投入产出趋势" note="点击日期联动对象列表；顶部仍为整期汇总。缺日或缺字段处断开。" tools={<div className="promotion-trend-tabs">{([["amount", "花费 / 产出"], ["roas", "ROI"], ["clicks", "点击"], ["cpc", "CPC"]] as const).map(([key, label]) => <button type="button" key={key} aria-pressed={trendMetric === key} onClick={() => setTrendMetric(key)}>{label}</button>)}</div>}>
           <MetricTrend key={`${requestScope}:${trendMetric}`} points={s.trend.items.map(point => ({ ...point, values: trendMetric === "amount" ? [point.metrics.spend, point.metrics.attributedPayment] : [point.metrics[trendMetric]] }))} labels={trendMetric === "amount" ? ["推广花费 / 元", `${amountLabel} / 元`] : [trendMetric === "roas" ? "ROI / 倍" : trendMetric === "cpc" ? "CPC / 元/次" : "点击 / 次"]} onSelect={selectTrend}/>
           <div className="promotion-context-line"><span>{focus ? `已定位对象期间 ${focus.startDate}—${focus.endDate}` : "选择趋势日期查看同范围对象"}</span>{focus && <button type="button" className="row-action" onClick={() => { setChosen(null); onContextChange({ promotionPrefs: { schemaVersion: "promotion-ui-v1", sort, objectDateFocus: null }, page: 1 }); }}>返回整期对象</button>}</div>

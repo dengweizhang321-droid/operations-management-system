@@ -199,7 +199,8 @@ def read_page(spec, limit, cursor):
                                 "reportedOrderLines": "平台报告订单口径，不保证跨商品去重。",
                                 "productDayVisitors": "商品×日累计访客，不能解释为店铺去重 UV。",
                                 "b2b": "仅 jd_b2b 事实；字段不存在时为 null，不推断商用商品等于 B 端成交。",
-                                "attributionWindow": "unknown_unless_source_separately_verified"},
+                                "attributionWindow": "unknown_unless_source_separately_verified",
+                                "promotionStoreSubjects": "天猫推广行 spuId 以“店铺:”开头的是店铺级推广（如店铺直达），不是商品 SPU；金额计入店铺总额，不得按 SPU 分组、映射商品或分摊到商品。"},
             "control": control, "coverage": source_coverage, "availableDates": available,
             "items": items, "pageEvidence": {"sha256": digest(items), "rowCount": len(items)},
             "pagination": {"hasMore": has_more, "nextCursor": next_cursor, "limit": limit}}

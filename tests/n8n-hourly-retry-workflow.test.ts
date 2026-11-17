@@ -575,6 +575,7 @@ test("every throw site matching the deterministic content terminal fragments is 
   const fragments = /计划维度包含非商品主体|缺少有效商品\s*ID|商品\s*ID\s*集合与提交批次不一致|与活动清单证据(?:数量)?不一致/u;
   const expected = [
     "lib/netshop/normalized-import.ts | 天猫商品报表缺少有效商品 ID，拒绝汇总",
+    "lib/netshop/normalized-import.ts | 天猫商品报表缺少有效商品 ID，拒绝汇总（店铺级主体缺少有效店铺 ID）",
     "lib/netshop/normalized-import.ts | 天猫商品报表计划维度包含非商品主体，拒绝汇总",
     "tools/tmall-direct-product-master-export.ts | 天猫分批商品 XLSX 的商品 ID 集合与提交批次不一致",
     "tools/tmall-direct-product-master-export.ts | 恢复时第 ${} 批商品文件与活动清单证据不一致",

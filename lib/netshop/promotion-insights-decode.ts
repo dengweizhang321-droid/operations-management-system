@@ -153,6 +153,25 @@ function pairedRange(value: unknown, primaryRaw: unknown, covers: Record<string,
   if (decoded.spendRate.numerator !== decoded.spend.value || decoded.spendRate.denominator !== decoded.payment.value) fail("辅助费率不是匹配范围金额的比值");
   if (whole.complete && primary.reasonCode !== "not_applicable" && (primary.numerator !== decoded.spend.value || primary.denominator !== decoded.payment.value || primary.value !== decoded.spendRate.value || primary.status !== decoded.spendRate.status || primary.reasonCode !== decoded.spendRate.reasonCode)) fail("同一完整范围的主费率与配对金额证据矛盾");
 }
+function storeLevel(value: unknown, context: InsightsContext) {
+  const v = rec(value);
+  if (!txt(v.definition, 500) || v.unit !== "CNY_CENT" || typeof v.reconciled !== "boolean") fail("店铺级推广定义、单位或核对状态无效");
+  const periods = rec(v.periods);
+  for (const kind of ["current", "previous", "yearAgo"] as const) {
+    const w = rec(periods[kind]);
+    const nullableInt = (value: unknown) => value === null || int(value);
+    for (const key of ["spendCents", "attributedPaymentCents", "impressions", "clicks", "orders"]) if (!nullableInt(w[key])) fail("店铺级推广金额或计数无效");
+    if (!int(w.rowCount)) fail("店铺级推广来源行数无效");
+    dates(w.dates, context, kind);
+    if (!Array.isArray(w.byShop) || w.byShop.length > context.effectiveScope.shopKeys.length) fail("店铺级推广店铺集合无效");
+    const seen = new Set<string>();
+    for (const raw of w.byShop) {
+      const r = rec(raw), o = shop(r.shopKey, context);
+      if (seen.has(String(r.shopKey)) || r.shopName !== o.shopName || !int(r.rowCount) || !["spendCents", "attributedPaymentCents", "impressions", "clicks", "orders"].every(key => nullableInt(r[key]))) fail("店铺级推广店铺行重复、跨店或数值无效");
+      seen.add(String(r.shopKey));
+    }
+  }
+}
 function focusedRow(value: unknown, identity: ReturnType<typeof validatePromotionQuery>["productIdentity"]) {
   if (identity === null) return;
   const r = rec(value), mapping = rec(r.mapping);
@@ -219,6 +238,7 @@ export function decodePromotionInsightsForQuery(value: unknown, query: URLSearch
       seen.add(String(r.rowKey)); prior = score;
     }
   }
+  if (s.storeLevel !== undefined) storeLevel(s.storeLevel, context);
   notes(s.limitations); return p as unknown as PromotionInsightsResponse;
 }
 export function decodePromotionDetailForQuery(value: unknown, query: URLSearchParams, owningRevision: string | null): PromotionDetailResponse {
