@@ -1,8 +1,6 @@
-import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
-import { link, lstat, mkdir, open, readFile, readdir, realpath, rm } from "node:fs/promises";
+import { lstat, mkdir, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
+import { createOnly, moveNoReplace, readControlFile as readKernelControlFile, sha256 } from "../lib/closure/kernel";
 import { assertLogisticsManifest, type JdLogisticsManifest } from "../lib/jd/logistics-manifest";
 import { canonicalLogisticsJson } from "../lib/jd/logistics-policy";
 
@@ -44,8 +42,7 @@ const manifestKeys = new Set(["datePolicy", "timeZone", "protocolVersion", "work
 const operationKeys = new Set(["operationId", "departmentId", "businessUnitCode", "sourceKind", "rangeStart", "rangeEnd", "warehouseCode", "collectorStoreKey",
   "contractVersion", "policyHash", "initialScopeRevision", "storeIdentityHash", "sourceStatus", "stage"]);
 const maxDownloadEntries = 2000;
-const exec = promisify(execFile);
-const sha = (bytes: string | Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+const sha = sha256;
 const jsonBytes = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 const same = (a: unknown, b: unknown) => canonicalLogisticsJson(a) === canonicalLogisticsJson(b);
 /** A consistency refusal. The caller maps it to the unchanged PREVIOUS_RUN_UNRESOLVED error. */
@@ -58,19 +55,12 @@ function pipelinePaths(root: string, runId?: string) {
   return { directory, active: path.join(directory, "active.json"), manifest: runId ? path.join(directory, `${runId}.json`) : "", downloads: runId ? path.join(directory, "downloads", runId) : "" };
 }
 /** Regular, single-link file; no ancestor may be a link. Returns null when absent. */
-async function readControlFile(file: string, limit = 4 * 1024 * 1024): Promise<Buffer | null> {
-  const info = await lstat(file).catch(error => { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; });
-  if (!info) return null;
-  if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1 || info.size > limit) refuse("control_file_identity");
-  const data = await readFile(file);
-  if (data.length !== info.size) refuse("control_file_changed");
-  return data;
-}
-function parseObject(bytes: Buffer): Record<string, any> {
+const readControlFile = (file: string, limit = 4 * 1024 * 1024) => readKernelControlFile(file, limit, refuse);
+function parseObject(bytes: Buffer): Record<string, unknown> {
   let value: unknown;
   try { value = JSON.parse(bytes.toString("utf8").replace(/^﻿/, "")); } catch { refuse("control_file_not_json"); }
   if (!value || typeof value !== "object" || Array.isArray(value)) refuse("control_file_not_object");
-  return value as Record<string, any>;
+  return value as Record<string, unknown>;
 }
 const reasonOf = (error: unknown) => error instanceof ZeroEffectRefusal ? error.reason : null;
 
@@ -138,21 +128,8 @@ export async function assessJdLogisticsZeroEffect(root: string, active: ZeroEffe
   }
 }
 
-async function createOnly(file: string, data: string | Uint8Array) {
-  const handle = await open(file, "wx");
-  try { await handle.writeFile(data); await handle.sync(); } finally { await handle.close(); }
-}
-/** Same absolute PowerShell path as lib/jackyun/json-file.ts: never resolved through PATH or the cwd. */
-const windowsPowerShell = () => path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
 /** Moves without ever replacing an existing destination (exported for the safety test). */
-export async function zeroEffectMoveNoReplace(from: string, to: string) {
-  if (process.platform === "win32") {
-    // .NET File.Move refuses to replace an existing destination; fs.rename may replace it.
-    const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
-    await exec(windowsPowerShell(), ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `$ErrorActionPreference='Stop';[System.IO.File]::Move(${quote(from)},${quote(to)})`],
-      { timeout: 15000, windowsHide: true });
-  } else { await link(from, to); await rm(from); }
-}
+export const zeroEffectMoveNoReplace = moveNoReplace;
 async function absentOrRefuse(file: string) {
   if (await lstat(file).then(() => true, error => { if ((error as NodeJS.ErrnoException).code === "ENOENT") return false; throw error; })) refuse("archive_target_exists");
 }

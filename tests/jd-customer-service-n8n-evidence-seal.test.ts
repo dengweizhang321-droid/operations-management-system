@@ -42,8 +42,8 @@ async function fixture(t: TestContext, options: { status?: string; data?: string
   t.mock.method(os, "homedir", () => home); syncBuiltinESMExports();
   t.after(() => syncBuiltinESMExports());
   const sealFile = path.join(directory, "n8n-evidence", `${old}.json`);
-  const readSeal = async () => JSON.parse(await readFile(sealFile, "utf8"));
-  const rewriteSeal = async (mutate: (value: Record<string, any>) => void) => { const value = await readSeal(); mutate(value); await writeFile(sealFile, JSON.stringify(value)); };
+  const readSeal = async () => JSON.parse(await readFile(sealFile, "utf8")) as SealJson;
+  const rewriteSeal = async (mutate: (value: SealJson) => void) => { const value = await readSeal(); mutate(value); await writeFile(sealFile, JSON.stringify(value)); };
   const purge = () => change("DELETE FROM execution_entity WHERE id=?", old);
   const readers = (sealed: boolean) => ({
     failure: () => readCustomerServiceFailureEvidence(store.storeKey, old, next, sealed ? directory : undefined),
@@ -55,6 +55,7 @@ async function fixture(t: TestContext, options: { status?: string; data?: string
 }
 const invalid = /CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID/;
 
+type SealJson = { row: Record<string, unknown>; failure: Record<string, unknown>; [key: string]: unknown };
 test("live row: sealing succeeds and reads are unchanged with or without the sealed directory", async t => {
   const f = await fixture(t);
   const before = { failure: f.readers(false).failure(), close: f.readers(false).close() };
@@ -96,9 +97,9 @@ test("pruned row: sealed copy yields field-for-field identical evidence; no seal
 test("sealed copy with another store, execution or null failure is not accepted", async t => {
   const f = await fixture(t); f.seal(); f.purge();
   const original = await f.readSeal();
-  for (const mutate of [(v: any) => { v.storeKey = "jd-yiyong-director"; }, (v: any) => { v.executionId = "11051"; },
-    (v: any) => { v.workflowId = "JdCustomerService2026"; }, (v: any) => { v.version = "v0"; }, (v: any) => { v.extra = 1; },
-    (v: any) => { v.row.retrySuccessId = "11070"; }, (v: any) => { v.failure.bStatus = "success"; }]) {
+  for (const mutate of [(v: SealJson) => { v.storeKey = "jd-yiyong-director"; }, (v: SealJson) => { v.executionId = "11051"; },
+    (v: SealJson) => { v.workflowId = "JdCustomerService2026"; }, (v: SealJson) => { v.version = "v0"; }, (v: SealJson) => { v.extra = 1; },
+    (v: SealJson) => { v.row.retrySuccessId = "11070"; }, (v: SealJson) => { v.failure.bStatus = "success"; }]) {
     await writeFile(f.sealFile, JSON.stringify(original)); await f.rewriteSeal(mutate);
     assert.throws(f.readers(true).close, invalid); assert.throws(f.readers(true).failure, invalid);
   }
