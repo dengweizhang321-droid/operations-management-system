@@ -143,13 +143,19 @@ async function createOnly(file: string, data: string | Uint8Array) {
   const handle = await open(file, "wx");
   try { await handle.writeFile(data); await handle.sync(); } finally { await handle.close(); }
 }
-async function moveNoReplace(from: string, to: string) {
+/** Same absolute PowerShell path as lib/jackyun/json-file.ts: never resolved through PATH or the cwd. */
+const windowsPowerShell = () => path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+/** Moves without ever replacing an existing destination (exported for the safety test). */
+export async function zeroEffectMoveNoReplace(from: string, to: string) {
   if (process.platform === "win32") {
     // .NET File.Move refuses to replace an existing destination; fs.rename may replace it.
     const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
-    await exec("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `$ErrorActionPreference='Stop';[System.IO.File]::Move(${quote(from)},${quote(to)})`],
+    await exec(windowsPowerShell(), ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `$ErrorActionPreference='Stop';[System.IO.File]::Move(${quote(from)},${quote(to)})`],
       { timeout: 15000, windowsHide: true });
   } else { await link(from, to); await rm(from); }
+}
+async function absentOrRefuse(file: string) {
+  if (await lstat(file).then(() => true, error => { if ((error as NodeJS.ErrnoException).code === "ENOENT") return false; throw error; })) refuse("archive_target_exists");
 }
 const safeName = (value: string) => value.replace(/[^A-Za-z0-9._-]/g, "_");
 export function zeroEffectClosureDirectoryName(executionId: string, activeSha256: string) { return `zero-effect-${safeName(executionId)}-${activeSha256.slice(0, 16)}`; }
@@ -224,7 +230,8 @@ export async function reconcileJdLogisticsZeroEffectClosures(root: string, execu
 }
 
 /** Close a zero-effect previous plan. Returns false when the previous plan is not closable. */
-export async function closeJdLogisticsZeroEffectPlan(root: string, active: ZeroEffectActive, executionId: string, lock: ZeroEffectLock, now = new Date()) {
+export async function closeJdLogisticsZeroEffectPlan(root: string, active: ZeroEffectActive, executionId: string, lock: ZeroEffectLock, now = new Date(),
+  hooks: { afterIntent?: () => Promise<void> } = {}) {
   const verdict = await assessJdLogisticsZeroEffect(root, active);
   if (verdict.verdict !== "zero_effect" || !verdict.evidence) return false;
   const evidence = verdict.evidence, files = pipelinePaths(root, active.runId);
@@ -246,11 +253,13 @@ export async function closeJdLogisticsZeroEffectPlan(root: string, active: ZeroE
     original: { runId: evidence.runId, executionId: evidence.executionId, planHash: evidence.planHash, activeSha256: evidence.activeSha256, manifestSha256: evidence.manifestSha256 },
     evidence, archiveFile: "active.archived.json", originalFailureRetained: true, oldExecutionReplayAllowed: false };
   if (!existingIntent) await createOnly(path.join(directory, names.intent), jsonBytes(intent));
+  await hooks.afterIntent?.(); // test seam between the intent and the archive step
   // Re-verify nothing moved while the intent was being written.
   await lock.assertOwned();
   const again = await assessJdLogisticsZeroEffect(root, active);
   if (again.verdict !== "zero_effect" || !same(again.evidence, evidence)) refuse("evidence_changed_before_archive");
-  await moveNoReplace(files.active, path.join(directory, names.archive));
+  await absentOrRefuse(path.join(directory, names.archive));
+  await zeroEffectMoveNoReplace(files.active, path.join(directory, names.archive));
   await verifyArchived(files, directory, intent);
   await lock.assertOwned();
   await writeCommitted(directory, intent, executionId);

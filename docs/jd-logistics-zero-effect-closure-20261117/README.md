@@ -40,7 +40,7 @@
 4. 核对归档字节、原件、原 manifest 摘要，写 `committed.json`（含 intent 摘要）。
 5. 继续按原流程建新计划。
 
-原失败 manifest 不被修改。`not_closable` 时抛出的仍是原错误文案 `JD_LOGISTICS_PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION`（n8n 每小时重试的终局正则依赖它）；内部原因放在 `error.cause`。同一 execution 重入的既有逻辑未改。
+原失败 manifest 不被修改。`not_closable` 时抛出的仍是原错误文案 `JD_LOGISTICS_PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION`（保持不变以免改动对外错误文案；是否自动重试并不取决于它：`jd-logistics-daily.workflow.json` 的 A/B/C/D 等业务节点失败出口都经「失败后释放原执行 helper」汇入同一个固定的 stop 文案「京东物流流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入」，`classifyHourlyRetryFailure` 对该文案判为终局，测试已钉住这条链路，`n8n-hourly-retry-policy.mjs` 未改）；内部原因放在 `error.cause`。同一 execution 重入的既有逻辑未改。
 
 ## 中断续做
 
@@ -53,7 +53,21 @@
 
 ## 11037 只读判定
 
-2026-11-17 在主检出对生产目录只读运行 `inspect`（未写任何文件，未 apply）：判为 `zero_effect`。证据：`activeSha256=c34404de…57b7`（与旧工具的恢复目录名 `login-11037-c34404deffc764f2` 一致）、`manifestSha256=eb40de00…1231`、`failureCode=JD_LOGISTICS_LOGIN_REQUIRED`、`failure.stage=run`、`failureAt=2026-10-30T00:50:26.393Z`；operations 为 flow `exporting`，其余三项 `planned`；通知 `pending`；下载目录仅含空目录。发布后的下一次 A 将自动闭合并建立新计划。
+2026-11-17 在主检出对生产目录只读运行 `inspect`（未写任何文件，未 apply）：判为 `zero_effect`。证据：`activeSha256=c34404de…57b7`（旧工具会据此算出恢复目录名 `login-11037-c34404deffc764f2`；该目录在生产上并不存在，只是同一摘要前缀的对照）、`manifestSha256=eb40de00…1231`、`failureCode=JD_LOGISTICS_LOGIN_REQUIRED`、`failure.stage=run`、`failureAt=2026-10-30T00:50:26.393Z`；operations 为 flow `exporting`，其余三项 `planned`；通知 `pending`；下载目录仅含空目录。发布后的下一次 A 将自动闭合并建立新计划。
+
+## 人工收尾：残留的 zero-effect-* 目录
+
+若日志持续报 `JD_LOGISTICS_PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION` 且 `error.cause` 为 `pending_closure_state_inconsistent`（或 `pending_closure_without_intent`、`multiple_pending_closures` 等），说明 `outputs/jd-logistics-pipeline/` 下留着没有 `committed.json` 的 `zero-effect-*` 目录，且状态与自动续做的三种情形都不符。
+
+只读判断（不改任何文件）：
+
+1. 列出目录内文件：`active.original.json`、`manifest.original.json`、`intent.json`、`active.archived.json`、`committed.json` 各是否存在。
+2. 判断 `active.json` 是否存在，并计算它、`active.archived.json`、`active.original.json` 与 `intent.json` 中 `original.activeSha256` 的 SHA-256 是否一致；对原失败 manifest（`<runId>.json`）及 `manifest.original.json` 对照 `original.manifestSha256`。
+3. 对照结果：
+   - 摘要全部一致，只是缺 `committed.json`，且 `active.json` 不存在：属于已归档未提交，下一次 A 会自动补写，无需人工。
+   - `active.json` 与归档同时存在、或两者都缺、或摘要不一致：说明有人或别的进程动过这些文件，不要让自动流程猜测。
+
+人工收尾原则：**不得删除或改写任何证据文件**（原件、intent、归档、原失败 manifest），也不得手写 `committed.json`。需要放行时，先保留整个目录，确认原失败计划确无业务效果，再由有权限的人按「摘要一致、active 仅一份」把现场恢复到上表前两种自动可续的状态，或另行制定人工对账方案；拿不准就保持现状，计划保持阻塞好过误放行。
 
 ## 发布范围
 

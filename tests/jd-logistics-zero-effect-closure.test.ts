@@ -280,3 +280,75 @@ test("pin: exporter calls the session guard only before its first export manifes
     assert.ok(!/navigate/.test(functionSlice(text, start)), `${start} must not re-run the session guard after business actions`);
   }
 });
+
+// --- archive safety --------------------------------------------------------
+import { closeJdLogisticsZeroEffectPlan, zeroEffectMoveNoReplace, ZeroEffectRefusal } from "../tools/jd-logistics-zero-effect-closure";
+const lockStub = { assertOwned: async () => undefined };
+
+test("archive move never replaces an existing destination", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "jd-zero-move-"));
+  const from = path.join(dir, "a.json"), to = path.join(dir, "b.json");
+  await writeFile(from, "from"); await writeFile(to, "to");
+  await assert.rejects(zeroEffectMoveNoReplace(from, to));
+  assert.equal(await readFile(from, "utf8"), "from"); assert.equal(await readFile(to, "utf8"), "to");
+  await rm(to); await zeroEffectMoveNoReplace(from, to);
+  assert.equal(await readFile(to, "utf8"), "from"); await assert.rejects(lstat(from));
+});
+
+test("an existing active.archived.json fails closed and leaves the original active untouched", async () => {
+  const f = await fixture(); const old = await f.failedPlan();
+  const verdict = await assessJdLogisticsZeroEffect(f.root, old.active);
+  const dir = path.join(f.directory, zeroEffectClosureDirectoryName("11037", verdict.evidence!.activeSha256));
+  await mkdir(dir); await writeFile(path.join(dir, "active.archived.json"), "squatter");
+  const activeBefore = await f.read("active.json"), manifestBefore = await f.read(`${old.runId}.json`);
+  await assert.rejects(closeJdLogisticsZeroEffectPlan(f.root, old.active, "exec-new", lockStub), ZeroEffectRefusal);
+  assert.ok((await f.read("active.json")).equals(activeBefore)); assert.ok((await f.read(`${old.runId}.json`)).equals(manifestBefore));
+  assert.equal(await readFile(path.join(dir, "active.archived.json"), "utf8"), "squatter");
+  assert.deepEqual((await readdir(dir)).includes("committed.json"), false);
+});
+
+test("evidence changed between intent and archive is re-verified and blocks the move", async () => {
+  const mutations: Array<[string, (f: Awaited<ReturnType<typeof fixture>>, runId: string) => Promise<void>]> = [
+    ["active bytes", async f => { await writeFile(path.join(f.directory, "active.json"), `${(await f.read("active.json")).toString()} `); }],
+    ["manifest bytes", async (f, runId) => { await writeFile(path.join(f.directory, `${runId}.json`), `${(await f.read(`${runId}.json`)).toString()} `); }],
+    ["manifest progress", async (f, runId) => {
+      const manifest = JSON.parse((await f.read(`${runId}.json`)).toString()); manifest.operations[0].rowCount = 1;
+      await writeFile(path.join(f.directory, `${runId}.json`), JSON.stringify(manifest)); }],
+  ];
+  for (const [label, mutate] of mutations) {
+    const f = await fixture(); const old = await f.failedPlan();
+    await assert.rejects(closeJdLogisticsZeroEffectPlan(f.root, old.active, "exec-new", lockStub, new Date(), { afterIntent: () => mutate(f, old.runId) }), ZeroEffectRefusal, label);
+    const [name] = await f.closures(); const dir = path.join(f.directory, name);
+    assert.ok((await readdir(dir)).includes("intent.json"), label);
+    assert.deepEqual((await readdir(dir)).filter(entry => ["active.archived.json", "committed.json"].includes(entry)), [], label);
+    await lstat(path.join(f.directory, "active.json"));
+  }
+});
+
+// --- defense in depth: the workflow stops on the fixed message --------------
+import { classifyHourlyRetryFailure } from "../tools/n8n-hourly-retry-policy.mjs";
+test("every business failure exit of the logistics workflow ends at the fixed stop message, classified terminal", async () => {
+  const workflow = JSON.parse(await readFile(path.join(repoRoot, "automation", "n8n", "jd-logistics-daily.workflow.json"), "utf8"));
+  const nodes: Array<{ name: string; type: string; onError?: string; parameters: { errorMessage?: string } }> = workflow.nodes;
+  const edges = (name: string, output?: number): string[] => (workflow.connections[name]?.main ?? [])
+    .flatMap((targets: Array<{ node: string }>, index: number) => output === undefined || output === index ? targets.map(target => target.node) : []);
+  const stops = nodes.filter(node => node.type === "n8n-nodes-base.stopAndError");
+  assert.equal(stops.length, 1);
+  const message = stops[0].parameters.errorMessage!; assert.ok(message.startsWith("京东物流流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入"));
+  const business = nodes.filter(node => /^[ABCD]·/.test(node.name) || node.name === "领取共享 helper" || node.name.includes("成功后释放"));
+  assert.ok(business.length >= 6);
+  for (const node of business) {
+    assert.equal(node.onError, "continueErrorOutput", node.name);
+    const seen = new Set<string>(), terminals = new Set<string>(), queue = edges(node.name, 1);
+    assert.ok(queue.length > 0, `${node.name} has no failure exit`);
+    while (queue.length) {
+      const next = queue.pop()!; if (seen.has(next)) continue; seen.add(next);
+      const following = edges(next); if (!following.length) terminals.add(next); queue.push(...following);
+    }
+    assert.deepEqual([...terminals], [stops[0].name], `${node.name} failure exit must end only at the stop node`);
+  }
+  const release = nodes.find(node => node.name.startsWith("失败后释放"))!; assert.equal(release.onError, "continueRegularOutput");
+  assert.deepEqual(edges(release.name), [stops[0].name]);
+  const decision = classifyHourlyRetryFailure({ workflow: { id: workflow.id }, execution: { mode: "trigger", error: { message } } });
+  assert.equal(decision.retry, false);
+});

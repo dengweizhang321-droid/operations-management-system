@@ -105,7 +105,8 @@ export async function planJdLogisticsN8nRun(options: Dependencies & { baseUrl?: 
   const files = paths(options.root); await mkdir(files.directory, { recursive: true });
   return withJackyunRunLock({ runId: `jdl-plan-${logisticsHash(options.executionId).slice(0, 24)}`, purpose: "jd-logistics-plan", lockDirectory: files.lock }, async lock => {
     // Zero-effect closure is the only exception to an unresolved previous plan. Any
-    // inconsistency fails closed with the unchanged error the hourly retry matches.
+    // inconsistency fails closed with the unchanged error text. (The hourly retry stops on the
+    // workflow's fixed stop message, not on this code.)
     const unresolved = (cause?: unknown) => new Error("JD_LOGISTICS_PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION", cause === undefined ? undefined : { cause });
     try { await reconcileJdLogisticsZeroEffectClosures(options.root, options.executionId, lock); }
     catch (error) { throw error instanceof ZeroEffectRefusal ? unresolved(error) : error; }
