@@ -40,6 +40,7 @@ function Invoke-ManualActionAlert([string]$EncodedPayload,[bool]$SendEnabled,[st
     manual_action_session_absent=@('登录态缺失或已失效，需要人工登录','打开该店铺的浏览器完成人工登录，确认进入目标页面后再恢复')
     manual_action_login_pending=@('登录状态在限定时间内未确认，多为页面加载慢','通常下一轮定时会自行恢复，一般不需要处理登录；连续多轮同样失败再去核查会话')
     manual_action_content_invalid=@('已下载文件或汇总内容未通过确定性校验，重试只会得到相同结果','到 n8n 打开原 execution 查看失败节点，核对该店铺本地活动清单与已下载文件；不要反复重跑，也不要重新登录')
+    manual_action_repeated_failure=@('同一节点的同一错误已连续出现 4 次，已停止每小时自动重试','到 n8n 打开失败 execution 查看错误并处理根因；处理后从原工作流手动运行一次，成功即自动清零计数；不要反复重跑，也不要重新登录')
     execution_mode_not_automatic=@('本次触发方式不参与自动重试','到 n8n 查看原 execution 与业务状态，确认下一步人工处理方式')
     retry_dispatch_result_unknown=@('重试 Webhook 派发结果未知，可能已受理','核查该流程最近的 execution 与原计划；禁止直接再次派发')
     retry_context_wait_expired_manual_action=@('等待原计划核验已达 72 小时上限','核查原计划为何未完成，按原恢复入口处理，禁止盲目重跑')

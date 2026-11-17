@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { createServer, request as httpRequest, type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
 import { automationDrainProtocol, readAutomationDrain } from "./automation-drain";
-import { readN8nRetryContext, readN8nJackyunRecoveryEntry, readJackyunFailedStoppedAt, readAcceptedJackyunDispatch, n8nJackyunRequiresRecoveryHeader } from "../lib/jackyun/n8n-preflight-evidence";
+import { readN8nRetryContext, readN8nFailureStreak, readN8nJackyunRecoveryEntry, readJackyunFailedStoppedAt, readAcceptedJackyunDispatch, n8nJackyunRequiresRecoveryHeader } from "../lib/jackyun/n8n-preflight-evidence";
 import { reserveRetryDispatch } from "../lib/jackyun/retry-dispatch-reservation";
 import { reserveJackyunFailureRetry } from "../lib/jackyun/retry-budget";
 import { readJackyunRecoveryTarget, dispatchHumanJackyunRetry } from "../lib/jackyun/human-retry";
@@ -375,6 +375,16 @@ export async function serveIsolatedHelper(options: {
         }
         const value = JSON.parse(raw) as { authorizationId: string };
         reply(response, 200, await dispatchHumanJackyunRetry(options.mutableRoot, value.authorizationId)); return;
+      }
+      if (request.method === "POST" && route === "/coordination/retry-failure-streak") {
+        // Read-only n8n execution-history query; no drain check and no file writes.
+        if (request.headers["transfer-encoding"] !== undefined || Number(request.headers["content-length"] ?? 0) !== 0) {
+          reply(response, 400, { ok: false, error: "invalid_retry_failure_streak_request" }); return;
+        }
+        try {
+          reply(response, 200, { ok: true, ...readN8nFailureStreak(scalar(request.headers, "x-teruisi-source-workflow-id") ?? "", scalar(request.headers, "x-teruisi-failed-execution-id") ?? "") });
+        } catch { reply(response, 409, { ok: false, error: "retry_failure_streak_unavailable" }); }
+        return;
       }
       if (request.method === "POST" && ["/coordination/retry-context", "/coordination/reserve-retry"].includes(route)) {
         if (request.headers["transfer-encoding"] !== undefined || Number(request.headers["content-length"] ?? 0) !== 0) {

@@ -33,9 +33,9 @@
 - 「逐页货品文件 … 校验失败」：文件名含空格时无法写出不跨字段的字面量，且该文件已在下载时通过同一校验。
 - 各类表头缺失、文件格式不符：范围过宽，留给后续同指纹止损兜底。
 
-## 同指纹连续失败止损：未实现
+## 同指纹连续失败止损
 
-静态数据方案在当前部署下无法落库，原因与源码行号见 [n8n-hourly-safe-retry.md](../自动化/通用/n8n-hourly-safe-retry.md#同一失败连续三次止损未实现)：`TeruisiHourlyRetry2026` 长 22 个字符，n8n 2.32.7 的 `isWorkflowIdValid` 只接受不超过 21 个字符，保存静态数据的钩子因此对它直接跳过，计数永远是 1 且无报错。按任务约定停止硬做，替代方向是用 `reserve-retry` 账本按 `originalExecutionId` 计数，需另立任务。
+本任务当时没有实现：静态数据方案在当前部署下无法落库。后续改用 n8n 执行历史实现，阈值为 4，见 [retry-same-fingerprint-stop-20261117](../retry-same-fingerprint-stop-20261117/README.md)。
 
 ## 验证
 

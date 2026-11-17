@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { stringify } from "flatted";
 import { decodeN8nRetryContext, retryAnchorNode } from "../lib/jackyun/n8n-retry-context";
-import { buildHourlyRetryErrorWorkflow } from "../tools/n8n-hourly-retry-policy.mjs";
+import { buildHourlyRetryErrorWorkflow, hourlyRetrySameFailureStopThreshold as threshold } from "../tools/n8n-hourly-retry-policy.mjs";
 import { reserveRetryDispatch } from "../lib/jackyun/retry-dispatch-reservation";
 import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -97,4 +97,53 @@ test("retry dispatch reservation is create-only across duplicate error execution
     assert.equal(receipt.retryExecutionId,"50");assert.equal(receipt.status,"reserved");
     assert.equal(reserveRetryDispatch(root,{...context,failedExecutionId:"52"},"53").reservationStatus,"reserved");
   } finally {rmSync(root,{recursive:true});}
+});
+
+test("same-failure stop routes to manual action without reserving; every streak-check problem degrades to the old flow",async()=>{
+  const workflow=buildHourlyRetryErrorWorkflow();
+  const code=workflow.nodes.find(n=>n.name==="读取原执行计划时间")!.parameters.jsCode;
+  const AsyncFunction=Object.getPrototypeOf(async()=>{}).constructor;
+  const execute=new AsyncFunction("$","$runIndex","$execution",code);
+  const run=async(workflowId:string,streak:()=>unknown)=>{
+    const pending={failedExecutionId:"42",retryPolicy:{workflowId,retryUrl:"http://127.0.0.1:5678/webhook/test"}};
+    const f=fixture();f.row.workflowId=workflowId;f.anchor.workflowId=workflowId;
+    const context=decodeN8nRetryContext(f.row,stringify(f.document));
+    const urls:string[]=[];
+    const client={helpers:{httpRequest:async(request:{url:string})=>{
+      urls.push(request.url.split("/coordination/")[1]!);
+      if(request.url.endsWith("retry-failure-streak")) return streak();
+      return request.url.endsWith("reserve-retry")
+        ?{statusCode:200,body:{ok:true,reservationStatus:"reserved",failedExecutionId:"42",retryExecutionId:"50"}}
+        :{statusCode:200,body:{ok:true,...context}};
+    }}};
+    const out=(await execute.call(client,()=>({first:()=>({json:pending})}),0,{id:"50"}))[0].json;
+    return {out,urls};
+  };
+  const good={version:"teruisi-retry-failure-streak-v1",workflowId:"TmallLiliDaily2026",failedExecutionId:"42",threshold,consecutive:threshold,stop:true,fingerprint:"f"};
+  const stopped=await run("TmallLiliDaily2026",()=>({statusCode:200,body:{ok:true,...good}}));
+  assert.equal(stopped.out.manualAction.code,"manual_action_repeated_failure");
+  assert.equal(stopped.out.terminalCode,"manual_action_repeated_failure");
+  assert.equal(stopped.out.manualAction.logicalExecutionId,"30");
+  assert.deepEqual(stopped.urls,["retry-context","retry-failure-streak"],"reserve-retry must not be called");
+  const degraded:Array<[string,()=>unknown]>=[
+    ["throws",()=>{throw new Error("socket hang up");}],
+    ["404",()=>({statusCode:404,body:{}})],["409",()=>({statusCode:409,body:{ok:false}})],["500",()=>({statusCode:500,body:{}})],
+    ["undefined response",()=>undefined],
+    ["missing fields",()=>({statusCode:200,body:{ok:true}})],
+    ["stop false",()=>({statusCode:200,body:{ok:true,...good,stop:false}})],
+    ["below threshold",()=>({statusCode:200,body:{ok:true,...good,consecutive:threshold-1}})],
+    ["non integer",()=>({statusCode:200,body:{ok:true,...good,consecutive:"3"}})],
+    ["old version",()=>({statusCode:200,body:{ok:true,...good,version:"old"}})],
+    ["workflow mismatch",()=>({statusCode:200,body:{ok:true,...good,workflowId:"TmallTuofengDaily2026"}})],
+    ["execution mismatch",()=>({statusCode:200,body:{ok:true,...good,failedExecutionId:"41"}})],
+    ["ok false",()=>({statusCode:200,body:{...good,ok:false}})],
+  ];
+  for(const [label,streak] of degraded){
+    const result=await run("TmallLiliDaily2026",streak);
+    assert.equal(result.out.contextStatus,"verified",label);
+    assert.deepEqual(result.urls,["retry-context","retry-failure-streak","reserve-retry"],label);
+  }
+  const jackyun=await run("J8kY2mQ5vR7sT4pN",()=>({statusCode:200,body:{ok:true,...good,workflowId:"J8kY2mQ5vR7sT4pN"}}));
+  assert.equal(jackyun.out.contextStatus,"verified");
+  assert.deepEqual(jackyun.urls,["retry-context","reserve-retry"],"Jackyun keeps its own budget and never asks the streak endpoint");
 });

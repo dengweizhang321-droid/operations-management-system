@@ -2,6 +2,12 @@ import { createHash } from "node:crypto";
 
 export const hourlyRetryErrorWorkflowId = "TeruisiHourlyRetry2026";
 export const hourlyRetryDelayMinutes = 60;
+// Same workflow + same normalized failure fingerprint failing this many times in
+// a row stops hourly retry. Jackyun keeps its own retry budget and is exempt.
+// 4, not 3: JdN8nSilentCopy2026 self-healed on 11-15 after 3 identical failures
+// (11519/11532/11548, success at 11560); 4 has zero false stops in existing history.
+export const hourlyRetrySameFailureStopThreshold = 4;
+export const hourlyRetrySameFailureExemptWorkflowIds = ["J8kY2mQ5vR7sT4pN"];
 export const hourlyRetryTriggerName = "失败后每小时安全重试入口";
 
 export const hourlyRetryTargets = [
@@ -379,7 +385,9 @@ export function buildHourlyRetryErrorWorkflow() {
 // All other errors still throw unchanged; no notification HTTP side channel.
 const manualCodes = new Set(['retry_context_wait_expired_manual_action',
   'retry_context_unverified_manual_action','retry_reservation_result_unknown_manual_action',
-  'retry_already_reserved_or_unverified_manual_action']);
+  'retry_already_reserved_or_unverified_manual_action','manual_action_repeated_failure']);
+const sameFailureStopThreshold = ${hourlyRetrySameFailureStopThreshold};
+const sameFailureExemptWorkflowIds = ${JSON.stringify(hourlyRetrySameFailureExemptWorkflowIds)};
 let knownOriginalExecutionId = '';
 try {
 
@@ -401,6 +409,22 @@ try {
   if(context?.ok !== true || context.version !== 'teruisi-retry-context-v1' || context.workflowId !== pending.retryPolicy.workflowId
     || context.failedExecutionId !== pending.failedExecutionId || !context.originalScheduledAt || !context.originalExecutionId) throw new Error('retry_context_unverified_manual_action');
   knownOriginalExecutionId = String(context.originalExecutionId);
+  // Same-failure stop. Any problem with this check degrades to the original flow:
+  // it must never block a retry or turn into a manual-action code by itself.
+  let repeatedFailure = false;
+  if(!sameFailureExemptWorkflowIds.includes(pending.retryPolicy.workflowId)) {
+    try {
+      const streak = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/retry-failure-streak',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
+        headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId}});
+      const body = streak?.body;
+      repeatedFailure = Number(streak?.statusCode) === 200 && body?.ok === true && body.version === 'teruisi-retry-failure-streak-v1'
+        && body.workflowId === pending.retryPolicy.workflowId && body.failedExecutionId === pending.failedExecutionId
+        && body.stop === true && Number.isInteger(body.consecutive) && body.consecutive >= sameFailureStopThreshold;
+    } catch (streakError) {
+      console.warn('retry_failure_streak_check_degraded: ' + String(streakError?.message ?? streakError).slice(0, 120));
+    }
+  }
+  if(repeatedFailure) throw new Error('manual_action_repeated_failure');
   let reservation;
   try {
     reservation = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/reserve-retry',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
@@ -555,7 +579,8 @@ const codes = ['terminal_manual_action','execution_mode_not_automatic','retry_di
   'retry_reservation_result_unknown_manual_action','retry_already_reserved_or_unverified_manual_action',
   'manual_action_challenge','manual_action_credential','manual_action_locked',
   'manual_action_identity','manual_action_submit_unknown','manual_action_source_not_ready',
-  'manual_action_session_absent','manual_action_login_pending','manual_action_content_invalid'];
+  'manual_action_session_absent','manual_action_login_pending','manual_action_content_invalid',
+  'manual_action_repeated_failure'];
 // 逐条校验、逐条产出：sender 的 executeOnce=false，每条 item 调一次脚本，
 // 所以合法条目各自都会发出去。整批 throw 会让同批合法告警一起发不出去
 // （失败点在 sender 上游），那是「终局但人收不到通知」——只满足要求的一半。
