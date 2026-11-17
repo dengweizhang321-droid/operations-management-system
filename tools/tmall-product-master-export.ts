@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rename, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -669,14 +669,23 @@ export async function abandonActiveTmallProductMasterAudit(options: {
   operatorConfirmed: boolean;
   auditDirectory?: string;
   now?: Date;
+  /** Operator checks only: run every precondition, write nothing. Absent => unchanged behaviour. */
+  dryRun?: boolean;
+  /** Required by the operator CLI: active-manifest sha256 reported by dry-run. Compared before any write. */
+  expectSha256?: string;
 }) {
-  if (options.operatorConfirmed !== true) {
+  const dryRun = options.dryRun === true;
+  if (dryRun && options.operatorConfirmed === true) {
+    throw new Error("dryRun 与操作者确认不能同时使用");
+  }
+  if (!dryRun && options.operatorConfirmed !== true) {
     throw new Error("作废已提交的天猫货品任务必须取得操作者明确确认");
   }
-  const reason = options.reason.replace(/\s+/g, " ").trim();
-  if (reason.length < 4 || reason.length > 300) {
+  const reason = (options.reason ?? "").replace(/\s+/g, " ").trim();
+  if (!(dryRun && reason.length === 0) && (reason.length < 4 || reason.length > 300)) {
     throw new Error("天猫货品任务作废原因必须为 4 至 300 个字符");
   }
+  const evidenceMode = dryRun || options.expectSha256 !== undefined;
   const store = await getTmallStore(options.storeKey);
   const auditDirectory = path.resolve(options.auditDirectory ?? artifactDirectory);
   const existing = await readActiveAudit(store.storeKey, auditDirectory);
@@ -694,6 +703,42 @@ export async function abandonActiveTmallProductMasterAudit(options: {
   const archivePath = path.join(auditDirectory, archiveFileName);
   if (await stat(archivePath).then(() => true).catch(() => false)) {
     throw new Error("天猫货品任务作废归档已存在，拒绝覆盖");
+  }
+  let activeSha256: string | undefined;
+  if (evidenceMode) {
+    const originalCopyFileName = archiveFileName.replace(/\.json$/, "-original.json");
+    const originalCopyPath = path.join(auditDirectory, originalCopyFileName);
+    activeSha256 = createHash("sha256").update(await readFile(existing.filePath)).digest("hex");
+    if (await stat(originalCopyPath).then(() => true).catch(() => false)) {
+      throw new Error("天猫货品任务原始清单副本已存在，拒绝覆盖");
+    }
+    if (dryRun) {
+      return {
+        ok: true as const,
+        stage: "dry_run_abandonable" as const,
+        storeKey: store.storeKey,
+        shopName: store.shopName,
+        snapshotDate: audit.snapshotDate,
+        runId: audit.runId,
+        previousStage,
+        activeSha256,
+        archiveFileName,
+        originalCopyFileName,
+        wouldWrite: [archiveFileName, originalCopyFileName],
+        reason: reason || undefined,
+        exportSubmittedAt: audit.exportSubmittedAt,
+        exportTaskCreatedAt: audit.exportTaskCreatedAt,
+      };
+    }
+    if (activeSha256 !== options.expectSha256) {
+      throw Object.assign(new Error("活动清单 sha256 与 --expect-sha256 不一致，拒绝作废"), { reason: "expect_sha256_mismatch" });
+    }
+    // Create-only byte-for-byte copy of the original manifest before anything moves.
+    await writeFile(originalCopyPath, await readFile(existing.filePath), { flag: "wx" });
+    const again = createHash("sha256").update(await readFile(existing.filePath)).digest("hex");
+    if (again !== activeSha256) {
+      throw Object.assign(new Error("移走前活动清单字节已变化，失败关闭"), { reason: "active_changed" });
+    }
   }
 
   // Renaming first removes the manifest from the active slot atomically while

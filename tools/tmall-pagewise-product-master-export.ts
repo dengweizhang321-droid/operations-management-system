@@ -219,14 +219,23 @@ export async function abandonInvalidDownloadedTmallPagewiseAudit(options: {
   operatorConfirmed: boolean;
   auditDirectory?: string;
   now?: Date;
+  /** Operator checks only: run every precondition, write nothing. Absent => unchanged behaviour. */
+  dryRun?: boolean;
+  /** Required by the operator CLI: active-manifest sha256 reported by dry-run. Compared before any write. */
+  expectSha256?: string;
 }) {
-  if (options.operatorConfirmed !== true) {
+  const dryRun = options.dryRun === true;
+  if (dryRun && options.operatorConfirmed === true) {
+    throw new Error("dryRun 与操作者确认不能同时使用");
+  }
+  if (!dryRun && options.operatorConfirmed !== true) {
     throw new Error("作废无效的逐页货品下载必须取得操作者明确确认");
   }
-  const reason = options.reason.replace(/\s+/g, " ").trim();
-  if (reason.length < 4 || reason.length > 300) {
+  const reason = (options.reason ?? "").replace(/\s+/g, " ").trim();
+  if (!(dryRun && reason.length === 0) && (reason.length < 4 || reason.length > 300)) {
     throw new Error("逐页货品任务作废原因必须为 4 至 300 个字符");
   }
+  const evidenceMode = dryRun || options.expectSha256 !== undefined;
   const store = await getTmallStore(options.storeKey);
   const auditRoot = path.resolve(options.auditDirectory ?? artifactDirectory);
   const existing = await readActiveAudit(store.storeKey, auditRoot);
@@ -259,6 +268,46 @@ export async function abandonInvalidDownloadedTmallPagewiseAudit(options: {
   const archivePath = path.join(auditRoot, archiveFileName);
   if (await stat(archivePath).then(() => true).catch(() => false)) {
     throw new Error("逐页货品无效下载作废归档已存在，拒绝覆盖");
+  }
+  let originalCopyPath: string | undefined;
+  let activeSha256: string | undefined;
+  if (evidenceMode) {
+    const originalCopyFileName = archiveFileName.replace(/\.json$/, "-original.json");
+    originalCopyPath = path.join(auditRoot, originalCopyFileName);
+    activeSha256 = createHash("sha256").update(await readFile(existing.filePath)).digest("hex");
+    if (await stat(originalCopyPath).then(() => true).catch(() => false)) {
+      throw new Error("逐页货品无效下载原始清单副本已存在，拒绝覆盖");
+    }
+    if (dryRun) {
+      return {
+        ok: true as const,
+        stage: "dry_run_abandonable" as const,
+        storeKey: store.storeKey,
+        shopName: store.shopName,
+        snapshotDate: audit.snapshotDate,
+        runId: audit.runId,
+        previousStage: "downloaded" as const,
+        activeSha256,
+        archiveFileName,
+        originalCopyFileName,
+        wouldWrite: [archiveFileName, originalCopyFileName],
+        reason: reason || undefined,
+        integrityFailure,
+        totalProducts: audit.totalProducts,
+        totalPages: audit.totalPages,
+        fileCount: audit.files.length,
+        taskCount: audit.tasks.length,
+      };
+    }
+    if (activeSha256 !== options.expectSha256) {
+      throw Object.assign(new Error("活动清单 sha256 与 --expect-sha256 不一致，拒绝作废"), { reason: "expect_sha256_mismatch" });
+    }
+    // Create-only byte-for-byte copy of the original manifest before anything moves.
+    await writeFile(originalCopyPath, await readFile(existing.filePath), { flag: "wx" });
+    const again = createHash("sha256").update(await readFile(existing.filePath)).digest("hex");
+    if (again !== activeSha256) {
+      throw Object.assign(new Error("移走前活动清单字节已变化，失败关闭"), { reason: "active_changed" });
+    }
   }
 
   // The atomic rename releases only this store's active slot while preserving
