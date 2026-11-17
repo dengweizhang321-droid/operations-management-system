@@ -3,13 +3,14 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
 from customer_service.import_service import _batch_payload, _warnings
+from customer_service.query import auto_analysis_candidates
 from customer_service.models import CustomerServiceConversation, CustomerServiceDataRevision, CustomerServiceImportBatch, CustomerServiceWriteAuthority
 from sales.tests.factories import TEST_SECRET, signed_headers
 
@@ -264,12 +265,60 @@ class CustomerServiceAutoAnalysisTests(TestCase):
             status=status, completed_at=completed_at,
         )
 
-    def conversation(self, key: str, batch_id: str, *, source: str = "", analyzed_at=None) -> CustomerServiceConversation:
+    def conversation(
+        self, key: str, batch_id: str, *, source: str = "", analyzed_at=None, messages=None,
+        consulted_at: str = "2026-11-16 10:00:00", match_status: str = "matched",
+    ) -> CustomerServiceConversation:
+        if messages is None:
+            messages = [{"sender": "顾客", "sentAt": "2026-11-16 10:00:00", "content": "在吗"}]
         return CustomerServiceConversation.objects.create(
             conversation_key=key, first_import_batch_id=batch_id, last_import_batch_id=batch_id, shop_name="店",
-            consulted_at="2026-11-16 10:00:00", match_status="matched", match_confidence="exact",
-            analysis_source=source, analyzed_at=analyzed_at,
+            consulted_at=consulted_at, match_status=match_status, match_confidence="exact",
+            analysis_source=source, analyzed_at=analyzed_at, messages=messages,
         )
+
+    def test_candidates_exclude_conversations_without_chat_messages(self) -> None:
+        wanted = self.conversation("with-chat", "fresh").id
+        self.conversation("session-only", "fresh", messages=[], match_status="session_only")
+        self.conversation("matched-empty", "fresh", messages=[], match_status="matched")
+        data = self.get().json()
+        self.assertEqual(data["ids"], [wanted])
+        self.assertEqual(data["pendingCount"], 1)
+
+    def test_candidates_come_from_newest_pool_in_newest_first_order(self) -> None:
+        base = datetime(2026, 11, 1, 0, 0, 0)
+        rows = []
+        for index in range(72):
+            stamp = (base + timedelta(minutes=index)).strftime("%Y-%m-%d %H:%M:%S")
+            rows.append(self.conversation(f"n{index}", "fresh", consulted_at=stamp))
+        # Newest row is manual: it must never be selected even though it is the newest.
+        self.conversation("newest-manual", "fresh", source="manual", consulted_at="2026-11-30 00:00:00")
+        by_id = {row.id: row.consulted_at for row in rows}
+        newest_pool = {row.id for row in rows[-64:]}
+        oldest = {row.id for row in rows[:8]}
+        seen: set[int] = set()
+        for _ in range(20):
+            ids = auto_analysis_candidates(limit=8)["ids"]
+            self.assertEqual(len(ids), 8)
+            self.assertTrue(set(ids) <= newest_pool)
+            self.assertFalse(set(ids) & oldest)
+            stamps = [by_id[item] for item in ids]
+            self.assertEqual(stamps, sorted(stamps, reverse=True))
+            seen.update(ids)
+        # Bounded randomness, not a strict top-8: 20 draws from a pool of 64 must vary.
+        self.assertGreater(len(seen), 8)
+
+    def test_candidate_order_is_consulted_at_then_id_descending(self) -> None:
+        rows = [self.conversation(f"s{index}", "fresh", consulted_at=f"2026-11-16 10:00:0{index % 3}") for index in range(12)]
+        expected = [row.id for row in sorted(rows, key=lambda row: (row.consulted_at, row.id), reverse=True)][:8]
+        with patch("customer_service.query.random.sample", side_effect=lambda pool, k: list(pool)[:k]):
+            self.assertEqual(auto_analysis_candidates(limit=8)["ids"], expected)
+
+    def test_fewer_candidates_than_limit_are_all_returned_newest_first(self) -> None:
+        rows = [self.conversation(f"f{index}", "fresh", consulted_at=f"2026-11-16 10:0{index}:00") for index in range(3)]
+        data = auto_analysis_candidates(limit=8)
+        self.assertEqual(data["ids"], [row.id for row in reversed(rows)])
+        self.assertEqual(data["pendingCount"], 3)
 
     def get(self, query: str = "", **kwargs):
         url = self.URL + query

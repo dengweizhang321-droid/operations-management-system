@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from decimal import Decimal
 import json
+import random
 import uuid
 from zoneinfo import ZoneInfo
 
@@ -196,20 +197,30 @@ def get_conversation(conversation_id: int) -> dict[str, object]:
 
 
 AUTO_ANALYSIS_WINDOW_HOURS = 72
+AUTO_ANALYSIS_NEWEST_POOL = 64
 
 
 def auto_analysis_candidates(limit: int) -> dict[str, object]:
-    """Never-analyzed conversations from recently completed import batches.
+    """Newest never-analyzed conversations that have chat messages, from recently completed import batches.
 
     Selection uses analysis_source == "" (not analyzed_at IS NULL) because manual edits set
     analysis_source="manual" without analyzed_at and must never be overwritten by the model.
+    Conversations without chat messages (messages == []) are skipped: there is nothing to analyze.
     """
     now = timezone.now()
     since = now - timedelta(hours=AUTO_ANALYSIS_WINDOW_HOURS)
     batch_ids = CustomerServiceImportBatch.objects.filter(status="completed", completed_at__gte=since).values("id")
-    pending = CustomerServiceConversation.objects.filter(analysis_source="", last_import_batch_id__in=batch_ids)
-    # Random order so one batch that keeps failing cannot starve the rest every minute.
-    ids = list(pending.order_by("?").values_list("id", flat=True)[:limit])
+    pending = CustomerServiceConversation.objects.filter(
+        analysis_source="", last_import_batch_id__in=batch_ids,
+    ).exclude(messages=[])
+    # Newest first, but sample at random inside a bounded newest pool instead of taking a strict
+    # top-N: when the model fails deterministically on some content the whole batch is not written
+    # back, and a strict order would re-pick the same stuck conversations every minute (burning the
+    # daily dispatch quota). Sampling the pool gives a stuck row only ~limit/pool odds per round,
+    # and as new data arrives daily the old rows slide out of the pool.
+    pool = list(pending.order_by("-consulted_at", "-id").values_list("id", flat=True)[:max(limit, AUTO_ANALYSIS_NEWEST_POOL)])
+    picked = set(random.sample(pool, min(limit, len(pool))))
+    ids = [item for item in pool if item in picked]
     day_start = now.astimezone(ZoneInfo("Asia/Shanghai")).replace(hour=0, minute=0, second=0, microsecond=0)
     analyzed_today = CustomerServiceConversation.objects.filter(analysis_source="ai", analyzed_at__gte=day_start).count()
     return {"ids": ids, "pendingCount": pending.count(), "analyzedToday": analyzed_today, "windowHours": AUTO_ANALYSIS_WINDOW_HOURS}

@@ -50,7 +50,7 @@ export type CustomerServiceAutoAnalysisResult =
   | { skipped: "disabled" | "owner_unavailable" | "owner_invalid" | "daily_limit" | "no_model" | "no_candidates" | "quota" | "model_unavailable"; analyzedToday?: number }
   | { analyzed: number; requested: number; conflicts: number; failed: number; pendingCount: number };
 
-/** One bounded batch per scheduler tick. Only never-analyzed conversations from recent imports are selected. */
+/** One bounded batch per scheduler tick. Selects the newest never-analyzed conversations that have chat messages. */
 export async function runScheduledCustomerServiceAnalysis(
   dependencies: CustomerServiceAutoAnalysisDependencies = {},
 ): Promise<CustomerServiceAutoAnalysisResult> {
