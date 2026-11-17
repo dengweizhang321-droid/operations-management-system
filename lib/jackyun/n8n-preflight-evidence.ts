@@ -5,6 +5,8 @@ import { homedir } from "node:os";
 import { jackyunWorkflowId } from "./preflight-recovery";
 import { decodeN8nPreflightEvidence, isProvenJackyunPreclaimWaiter, n8nEvidenceTime, assertFreshRestartSerialFailure } from "./n8n-preflight-decode";
 import { assertRetryContextIdentity, decodeN8nRetryContext, decodeN8nFixedPlanContext } from "./n8n-retry-context";
+import { computeFailureStreak, failureFingerprint, retryFailureStreakProtocol, retryFailureStreakThreshold, type FailureStreakRow } from "./n8n-retry-failure-streak";
+import { hourlyRetrySameFailureExemptWorkflowIds } from "../../tools/n8n-hourly-retry-policy.mjs";
 import { parseRecoveryRequest, type RecoveryRequest } from "./recovery-control";
 import { customerServiceStore } from "../jd/customer-service-stores";
 
@@ -449,5 +451,53 @@ export function readN8nRetryContext(workflowId: string, executionId: string, ret
     const data = db.prepare("SELECT data FROM execution_data WHERE executionId=? AND length(data)<=1048576").get(executionId)?.data;
     if (typeof data !== "string") throw new Error("retry_context_missing_manual_action");
     return decodeN8nRetryContext(row, data);
+  } finally { db.close(); }
+}
+
+/** Fingerprint of one stored failed execution; null when unreadable (conservative: ends the streak). */
+function failureFingerprintOf(db: DatabaseSync, workflowId: string, executionId: string): string | null {
+  try {
+    const raw = db.prepare("SELECT data FROM execution_data WHERE executionId=? AND length(data)<=1048576").get(Number(executionId))?.data;
+    if (typeof raw !== "string") return null;
+    const values: unknown = JSON.parse(raw);
+    if (!Array.isArray(values) || !values.length || values.length > 10000) return null;
+    const ref = (v: unknown): unknown => typeof v === "string" && /^\d+$/.test(v) ? values[Number(v)] : v;
+    const obj = (v: unknown): Record<string, unknown> | null => { const x = ref(v); return x && typeof x === "object" && !Array.isArray(x) ? x as Record<string, unknown> : null; };
+    const result = obj(obj(values[0])?.resultData);
+    const error = obj(result?.error);
+    if (!result || !error) return null;
+    const text = (v: unknown) => { const x = ref(v); return typeof x === "string" ? x : ""; };
+    return failureFingerprint({ workflowId, lastNodeExecuted: text(result.lastNodeExecuted), message: text(error.message), description: text(error.description) });
+  } catch { return null; }
+}
+
+/** Reads execution metadata from an opened n8n database; fingerprints are read lazily. */
+export function queryN8nFailureStreak(db: DatabaseSync, workflowId: string, failedExecutionId: string, threshold: number = retryFailureStreakThreshold) {
+  const rows = db.prepare("SELECT id,status,mode FROM execution_entity WHERE workflowId=? AND id<=? AND deletedAt IS NULL ORDER BY id DESC LIMIT 200")
+    .all(workflowId, Number(failedExecutionId)) as Array<{ id: number | bigint | string; status: unknown; mode: unknown }>;
+  // A newer success (any mode) means the failure is already superseded; a streak alert would be false.
+  const newerSuccess = db.prepare("SELECT 1 AS found FROM execution_entity WHERE workflowId=? AND id>? AND deletedAt IS NULL AND status='success' LIMIT 1")
+    .get(workflowId, Number(failedExecutionId)) !== undefined;
+  const lazy: FailureStreakRow[] = rows.map(row => ({ id: String(row.id), status: String(row.status), mode: String(row.mode), fingerprint: null }));
+  const fingerprints = new Map<string, string | null>();
+  // Getter-backed fingerprints: the pure scan reads stored data only for rows it actually reaches.
+  const needs = (row: FailureStreakRow) => ["error", "crashed"].includes(row.status) && ["trigger", "webhook"].includes(row.mode);
+  const filled = lazy.map(row => Object.defineProperty({ ...row }, "fingerprint", { enumerable: true, get() {
+    if (!needs(row)) return null;
+    if (!fingerprints.has(row.id)) fingerprints.set(row.id, failureFingerprintOf(db, workflowId, row.id));
+    return fingerprints.get(row.id)!;
+  } }));
+  const computed = computeFailureStreak(filled, failedExecutionId, threshold);
+  const result = newerSuccess ? { ...computed, consecutive: 0, stop: false } : computed;
+  return { version: retryFailureStreakProtocol, workflowId, failedExecutionId, threshold, ...result };
+}
+
+export function readN8nFailureStreak(workflowId: string, failedExecutionId: string) {
+  assertRetryContextIdentity(workflowId, failedExecutionId);
+  if (hourlyRetrySameFailureExemptWorkflowIds.includes(workflowId)) throw new Error("retry_failure_streak_exempt_workflow");
+  const db = openN8nMetadata();
+  try {
+    db.exec("PRAGMA query_only=ON; PRAGMA busy_timeout=3000; BEGIN");
+    return queryN8nFailureStreak(db, workflowId, failedExecutionId);
   } finally { db.close(); }
 }
