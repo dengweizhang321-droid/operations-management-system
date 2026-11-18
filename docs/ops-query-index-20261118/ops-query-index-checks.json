@@ -1,0 +1,35 @@
+{
+  "version": "ops-query-index-mandatory-code-checks-v1",
+  "status": "code-checked",
+  "checkedAt": "2026-11-18T08:34:08.604543+00:00",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "fullBackupOrRestorePerformed": false,
+  "generations": [
+    159,
+    162
+  ],
+  "parentVariants": [
+    [
+      159,
+      162
+    ]
+  ],
+  "steps": [
+    "sales.0013_customer_service_online_spec_index",
+    "netshop.0005_market_projection_page_index",
+    "customer_service.0003_ai_analyzed_at_index"
+  ],
+  "codeSha256": "0612d4fb685a29a65f35fbefeddb511f6f040a98b73ec1b4749c3daa48ed1372",
+  "migrationSha256": "b97df02139b903dbe74f21de830c3ad0f7be897c571f8989c8f7b13dbe654c53",
+  "checks": [
+    "migration-closure",
+    "node-syntax",
+    "powershell-syntax",
+    "python-syntax"
+  ],
+  "evidence": {
+    "path": "docs/ops-query-index-20261118/ops-query-index-execution.json",
+    "sha256": "5dd2abab70b62984e16d2554c0a3d668043560daa06f89607bdd2e2e1d7f0c8d"
+  }
+}
