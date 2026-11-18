@@ -145,8 +145,9 @@ test("invalid later source blocks every import at the full-file barrier", async 
   const f = await fixture(["shop_products", "realtime_inventory"]); const p = await f.plan();
   await assert.rejects(runJdLogisticsN8nPlan(p, { ...f.dependencies, exporter: async input => {
     const result = await f.exporter(input); if (input.sourceKind === "realtime_inventory") await writeFile(result.filePath, "invalid workbook"); return result;
-  } }), /PIPELINE_FAILED_MANUAL_ACTION/);
+  } }), /^Error: JD_LOGISTICS_SOURCE_FILE_REJECTED_MANUAL_ACTION$/);
   assert.equal(f.state.exports, 2); assert.equal(f.state.imports, 0);
+  assert.equal(JSON.parse(await readFile(path.join(f.root, "outputs/jd-logistics-pipeline", `${p.runId}.json`), "utf8")).failure.code, "JD_LOGISTICS_SOURCE_FILE_REJECTED_MANUAL_ACTION");
   await assert.rejects(f.run(p), /REPLAY_REQUIRES_MANUAL_ACTION/); assert.equal(f.state.exports, 2);
 });
 test("source identity, exact scope and browser cleanup are required before import", async () => {

@@ -6,7 +6,8 @@ import { connect } from "node:net";
 import type { Browser, BrowserContext, Download, Frame, Locator, Page, Response } from "playwright-core";
 import { withJdChromiumRunLock, defaultJdChromiumRunLockDirectory } from "../lib/jd/chromium-run-lock";
 import { jdBrowserLaunchMode } from "../lib/jd/browser-mode";
-import { JD_LOGISTICS_MAX_FILE_BYTES, parseJdLogisticsWorkbook } from "../lib/inventory/jd-logistics-workbook";
+import { JD_LOGISTICS_MAX_FILE_BYTES } from "../lib/inventory/jd-logistics-workbook";
+import { parseJdLogisticsSourceFile } from "./jd-logistics-source-file";
 import { launchDedicatedChrome, closeChromeBrowser, waitForChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
 import { writeJsonDurable } from "../lib/jackyun/json-file";
@@ -442,7 +443,7 @@ async function exportJhSource(page: Page, options: JdLogisticsExportOptions, man
   const bytes = new Uint8Array(await readFile(filePath));
   if (!bytes.length || bytes.length > JD_LOGISTICS_MAX_FILE_BYTES || bytes[0] !== 0x50 || bytes[1] !== 0x4b) fail("JD_LOGISTICS_DOWNLOAD_NOT_XLSX");
   const collectedAt = manifest.requestEvidence.requestedAt;
-  const rows = parseJdLogisticsWorkbook(bytes, options.sourceKind, options.businessUnitCode, { ...collectionDateContext(options), collectedAt, allowDeclaredBusinessUnit: true });
+  const rows = parseJdLogisticsSourceFile(bytes, options.sourceKind, options.businessUnitCode, { ...collectionDateContext(options), collectedAt, allowDeclaredBusinessUnit: true });
   if (rows.length !== count) fail("JD_LOGISTICS_EXPORT_ROW_COUNT_NOT_CONFIRMED");
   const result: JdLogisticsExportResult = { filePath, taskIdentity: manifest.taskIdentity!, complete: true, browserClosed: true, collectedAt,
     sourceAsOf: options.rangeStart, identityEvidence: { observedBusinessUnitCode, observedAt: collectedAt,
@@ -628,7 +629,7 @@ async function exportEnabledProducts(page: Page, context: BrowserContext, surfac
     const filePath = path.join(options.downloadDirectory, "source.csv"); await file.saveAs(filePath); downloads.assertUnique();
     const bytes = new Uint8Array(await readFile(filePath));
     await binding.assertDownload(file.url(), bytes); downloads.assertUnique();
-    const rows = parseJdLogisticsWorkbook(bytes, "shop_products", options.businessUnitCode, { ...collectionDateContext(options), collectedAt, allowDeclaredBusinessUnit: true }); assertLogisticsEnabledProducts(rows);
+    const rows = parseJdLogisticsSourceFile(bytes, "shop_products", options.businessUnitCode, { ...collectionDateContext(options), collectedAt, allowDeclaredBusinessUnit: true }); assertLogisticsEnabledProducts(rows);
     if (rows.length !== expectedRowCount) fail("JD_LOGISTICS_EXPORT_ROW_COUNT_NOT_CONFIRMED");
     const result: JdLogisticsExportResult = { filePath, taskIdentity: manifest.taskIdentity, complete: true, browserClosed: true, collectedAt, sourceStatus: "enabled",
       sourceAsOf: options.rangeStart, identityEvidence: { observedBusinessUnitCode, observedAt: collectedAt, sourceUrl: jdLogisticsSourceUrls.shop_products, storeKey: options.store.storeKey },
@@ -671,7 +672,7 @@ async function exportFlowSource(page: Page, context: BrowserContext, surface: Su
     if (new URL(file.url()).href !== attachment || await file.failure()) fail("JD_LOGISTICS_FLOW_ATTACHMENT_DOWNLOAD_MISMATCH");
     const filePath = path.join(options.downloadDirectory, "source.csv"); await file.saveAs(filePath); downloads.assertUnique();
     const bytes = new Uint8Array(await readFile(filePath));
-    const rows = parseJdLogisticsWorkbook(bytes, "flow", options.businessUnitCode, { ...collectionDateContext(options), collectedAt });
+    const rows = parseJdLogisticsSourceFile(bytes, "flow", options.businessUnitCode, { ...collectionDateContext(options), collectedAt });
     if (rows.length !== expectedRowCount) fail("JD_LOGISTICS_EXPORT_ROW_COUNT_NOT_CONFIRMED");
     const result: JdLogisticsExportResult = { filePath, taskIdentity: manifest.taskIdentity, complete: true, browserClosed: true, collectedAt,
       identityEvidence: { observedBusinessUnitCode, observedAt: collectedAt, sourceUrl: jdLogisticsSourceUrls.flow, storeKey: options.store.storeKey },

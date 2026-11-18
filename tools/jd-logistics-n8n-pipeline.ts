@@ -5,7 +5,8 @@ import path from "node:path";
 import { readJsonDurableOr, writeJsonDurable } from "../lib/jackyun/json-file";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { validateJdStoreRegistry, type JdStore } from "../lib/jd/store-registry";
-import { JD_LOGISTICS_MAX_FILE_BYTES, parseJdLogisticsWorkbook } from "../lib/inventory/jd-logistics-workbook";
+import { JD_LOGISTICS_MAX_FILE_BYTES } from "../lib/inventory/jd-logistics-workbook";
+import { parseJdLogisticsSourceFile } from "./jd-logistics-source-file";
 import { JD_LOGISTICS_PATH } from "../lib/inventory/jd-logistics-contract";
 import { assertLogisticsEnabledProducts, assertLogisticsExport, assertLogisticsManifest, assertLogisticsReceipt, logisticsContentHash, logisticsPlanHash, logisticsRawHash,
   type JdLogisticsManifest, type JdLogisticsNotificationResult, type JdLogisticsOperation, type JdLogisticsReceipt } from "../lib/jd/logistics-manifest";
@@ -180,7 +181,7 @@ export async function runJdLogisticsN8nPlan(reference: Pick<JdLogisticsManifest,
     const plan = await loadOwned(options, reference);
     if (plan.stage === "executed") { await assertPolicy(options, plan); return publicJdLogisticsPlan(plan); }
     if (plan.stage !== "planned" || plan.operations.some(op => op.stage !== "planned")) throw new Error("JD_LOGISTICS_REPLAY_REQUIRES_MANUAL_ACTION");
-    const rowsByOperation = new Map<string, ReturnType<typeof parseJdLogisticsWorkbook>>();
+    const rowsByOperation = new Map<string, ReturnType<typeof parseJdLogisticsSourceFile>>();
     const assertOwner = async () => { await lock.assertOwned(); await loadOwned(options, plan); await assertPolicy(options, plan); };
     try {
       await assertOwner(); plan.stage = "running"; await persist(options.root, plan);
@@ -203,7 +204,7 @@ export async function runJdLogisticsN8nPlan(reference: Pick<JdLogisticsManifest,
           identityEvidence: result.identityEvidence, scope: result.scope, contractVersion: result.contractVersion };
         operation.export = { ...evidence, relativePath, rawFileHash: logisticsRawHash(bytes), bytes: bytes.length };
         operation.stage = "downloaded"; await persist(options.root, plan);
-        const rows = parseJdLogisticsWorkbook(bytes, operation.sourceKind, operation.businessUnitCode,
+        const rows = parseJdLogisticsSourceFile(bytes, operation.sourceKind, operation.businessUnitCode,
           { ...collectionDateContext(plan), collectedAt: result.collectedAt, allowDeclaredBusinessUnit: true });
         if (operation.sourceKind === "shop_products") assertLogisticsEnabledProducts(rows);
         rowsByOperation.set(operation.operationId, rows);
@@ -254,7 +255,7 @@ export async function verifyJdLogisticsN8nPlan(reference: Pick<JdLogisticsManife
         if (!operation.receipt || !["imported", "verified"].includes(operation.stage) || operation.parserVersion !== parserVersion) throw new Error("JD_LOGISTICS_EXACT_RECEIPT_MISSING");
         assertLogisticsExport(operation, { ...operation.export!, filePath: fileFor(options.root, operation) }, new Date(operation.export!.collectedAt), plan);
         const file = await controlledBytes(options.root, plan, operation, fileFor(options.root, operation));
-        const rows = parseJdLogisticsWorkbook(file.bytes, operation.sourceKind, operation.businessUnitCode,
+        const rows = parseJdLogisticsSourceFile(file.bytes, operation.sourceKind, operation.businessUnitCode,
           { ...collectionDateContext(plan), collectedAt: operation.export!.collectedAt, allowDeclaredBusinessUnit: true });
         if (operation.sourceKind === "shop_products") assertLogisticsEnabledProducts(rows);
         if (file.bytes.length !== operation.export!.bytes || logisticsRawHash(file.bytes) !== operation.export!.rawFileHash

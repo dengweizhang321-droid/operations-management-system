@@ -42,13 +42,18 @@ export function createJdLogisticsSessionGuard(
       if (state.credentialRejected) fail("LOGIN_CREDENTIAL_REJECTED_MANUAL_ACTION");
       if (state.temporarilyLocked) fail("LOGIN_LOCKED_MANUAL_ACTION");
       const frames = page.frames();
-      const logins = frames.filter(frame => isJdLogisticsLoginOrigin(frame.url()));
+      // Any passport frame means the page is a login surface, but the real login page also carries
+      // hidden passport frames (e.g. the mobile login). Only visible ones are login controls.
+      const passports = frames.filter(frame => isJdLogisticsLoginOrigin(frame.url()));
+      const logins: Frame[] = [];
+      for (const frame of passports) if (await frame.locator("body").isVisible().catch(() => false)) logins.push(frame);
       const businesses = frames.filter(frame => businessFrames[kind].test(frame.url()));
       if (logins.length > 1) fail("LOGIN_CONTROL_AMBIGUOUS");
       if (businesses.length > 1) fail("BUSINESS_FRAME_AMBIGUOUS");
-      if (logins.length) {
-        if (!attempted) {
+      if (passports.length) {
+        if (logins.length && !attempted) {
           if (!store.enabled || store.loginMode !== "windows_dpapi_credentials") fail("LOGIN_REQUIRED");
+          const selected = logins[0];
           attempted = true; // Includes missing/rejected/unknown submission: never resubmit.
           const authorize = async (frame: Frame) => {
             await assertOwner();
@@ -56,13 +61,13 @@ export function createJdLogisticsSessionGuard(
             if (current.challengePresent) fail("LOGIN_CHALLENGE_MANUAL_ACTION");
             if (current.credentialRejected) fail("LOGIN_CREDENTIAL_REJECTED_MANUAL_ACTION");
             if (current.temporarilyLocked) fail("LOGIN_LOCKED_MANUAL_ACTION");
-            if (!isJdLogisticsLoginOrigin(frame.url()) || !page.frames().includes(frame)
+            if (frame !== selected || !isJdLogisticsLoginOrigin(frame.url()) || !page.frames().includes(frame)
               || ![expectedPortal, ...loginOrigins].includes(origin(page.url()))) fail("LOGIN_ORIGIN_REJECTED");
           };
           let result;
           try { result = await dependencies.login(page, store.storeKey, async key => {
             if (key !== store.storeKey) fail("LOGIN_STORE_MISMATCH");
-            await authorize(logins[0]);
+            await authorize(selected);
             try { return await dependencies.load(key); } catch { return fail("LOGIN_CREDENTIAL_UNAVAILABLE_MANUAL_ACTION"); }
           }, 20_000, authorize); }
           catch (error) {
