@@ -34,7 +34,13 @@ active 与 manifest 的 runId/executionId/planHash 一致且通过 `assertLogist
 
 ## 验证
 
-见交付汇报：jd-logistics 相关测试、tsc 错误数与基线对比、lint 基线、helper 打包均为本次必需检查，结果以汇报为准。
+2026-11-18 在本分支（提交 10ab74cc）上：
+
+- 相关测试 8 个文件（session、zero-effect、pre-import、flow CSV、source-file、pipeline、helper-bundle-contract、frontend）共 92 条全部通过。jd-logistics 全部测试中唯一失败的 `jd-logistics-workflow.test.ts`「…claim A B C D release chain」在基线 e22dd208 同样失败（时区期望 `Asia/Shanghai` 实得 `undefined`），非本次引入。
+- `tsc --noEmit` 错误数基线 169、本分支 169，无新增；改动文件 eslint 无问题；`check-lint-baseline.mjs` 两边均为 65，无新增。
+- helper 打包（全新空目录）exit 0；产物 `import.meta` 4 处与基线相同，CLI `tools/jd-logistics-pre-import-closure.ts` 未进入产物。
+- 用本分支解析器离线解析 11740 实际下载的 `source.csv`（31 列）：5494 行，与导出前查询总数一致。
+- 用本分支 CLI 对生产目录只读 `inspect`：11740 判 `closable`（`no_import_started`），未写任何文件。
 
 ## 上线后操作步骤（需另有上线授权）
 
