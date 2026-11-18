@@ -27,6 +27,19 @@ class RehearsalGuardTests(unittest.TestCase):
             with self.assertRaises(RuntimeError, msg=key + bad):
                 rehearsal.assert_private_identity({**good, key: bad})
 
+    def test_write_paths_and_ports_are_hard_rejected(self):
+        for bad in ("D:/teruisi-runtime/django-sales/postgres-data", "D:/teruisi-runtime/x", "D:/\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf/tmp",
+                    "D:/codex-worktrees/ops-index-gen160-20261118/.codex-tmp/x", "E:/anything/postgres-data/q"):
+            with self.assertRaises(RuntimeError, msg=bad):
+                rehearsal.assert_private_path(bad)
+        import tempfile
+        rehearsal.assert_private_path(tempfile.gettempdir())
+        for port in (5432, 5433, 55531, 55542, 0):
+            with self.assertRaises(RuntimeError, msg=str(port)):
+                rehearsal.assert_private_port(port)
+        for port in rehearsal.PORTS:
+            rehearsal.assert_private_port(port)
+
     def test_production_port_never_in_rehearsal_range(self):
         self.assertNotIn(5432, rehearsal.PORTS)
         self.assertTrue(all(55440 <= port <= 55999 for port in rehearsal.PORTS))

@@ -51,8 +51,30 @@ def assert_isolated_source(root=ROOT):
         raise RuntimeError("Require isolated source outside production checkout/runtime")
 
 
+FORBIDDEN_WRITE_ROOTS = (Path("D:/\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf"), Path("D:/teruisi-runtime"))
+TEMP_PREFIX = "ops162-pg17-"
+
+
+def assert_private_path(path, root=ROOT):
+    """Every write path (data dir, logs, password file) must be outside production, the runtime tree and the source tree."""
+    resolved = Path(path).resolve()
+    for forbidden in (*(p.resolve() for p in FORBIDDEN_WRITE_ROOTS), Path(root).resolve()):
+        if resolved == forbidden or forbidden in resolved.parents:
+            raise RuntimeError("Forbidden write location: " + str(resolved))
+    if "postgres-data" in {part.lower() for part in resolved.parts}:
+        raise RuntimeError("Forbidden production data directory name: " + str(resolved))
+    return resolved
+
+
+def assert_private_port(port):
+    if port == 5432 or port not in PORTS:
+        raise RuntimeError("Port is not in the synthetic rehearsal range")
+    return port
+
+
 def assert_private_identity(settings):
     """Hard-coded private identity; a wrong host, port, database or role never proceeds."""
+    assert_private_port(int(settings["PORT"]))
     if (settings["HOST"] != "127.0.0.1" or int(settings["PORT"]) not in PORTS
             or settings["NAME"] != DATABASE or settings["USER"] != FIXTURE_USER):
         raise RuntimeError("Private synthetic database identity differs")
@@ -322,9 +344,10 @@ def child():
 
 def launch():
     assert_isolated_source()
-    scratch = ROOT / ".codex-tmp"
-    scratch.mkdir(exist_ok=True)
-    directory = Path(tempfile.mkdtemp(prefix="ops162-pg17-", dir=scratch))
+    scratch = Path(tempfile.gettempdir()).resolve()  # the user's temp directory, never inside the worktree or runtime tree
+    assert_private_path(scratch)
+    directory = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX, dir=scratch))
+    assert_private_path(directory)
     port = None
     for candidate in PORTS:
         try:
@@ -336,6 +359,7 @@ def launch():
             pass
     if port is None:
         raise RuntimeError("No isolated port")
+    assert_private_port(port)
     password = secrets.token_hex(32)
     pwfile = directory / "password"
     pwfile.write_text(password, encoding="ascii")
@@ -378,8 +402,10 @@ def launch():
         pwfile.unlink(missing_ok=True)
         data = directory / "data"
         if data.exists() and (stopped or not started):
-            if directory.resolve().parent != scratch.resolve() or data.is_symlink():
+            if (directory.resolve().parent != scratch or not directory.name.startswith(TEMP_PREFIX)
+                    or data.resolve() != directory.resolve() / "data" or data.is_symlink()):
                 raise RuntimeError("Unexpected private cleanup target")
+            assert_private_path(data)
             shutil.rmtree(data)
         cleanup = {"started": started, "stopped": stopped, "privateDataRemoved": not data.exists(), "passwordFileRemoved": not pwfile.exists(), "childExitZero": succeeded}
         (directory / "cleanup.json").write_text(json.dumps(cleanup), encoding="utf8")
@@ -388,6 +414,8 @@ def launch():
     result["cleanup"] = cleanup
     RESULT.parent.mkdir(parents=True, exist_ok=True)
     RESULT.write_text(json.dumps(result, indent=2) + "\n", encoding="utf8", newline="\n")
+    if directory.parent == scratch and directory.name.startswith(TEMP_PREFIX) and not directory.is_symlink():
+        shutil.rmtree(directory)  # success: logs are no longer needed; on failure they are retained
 
 
 if __name__ == "__main__":
