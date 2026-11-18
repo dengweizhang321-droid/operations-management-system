@@ -1,7 +1,7 @@
 {
   "version": "teruisi-schema-mandatory-code-execution-v1",
-  "checkedAt": "2026-11-18T12:48:36.850367+00:00",
-  "baseCommit": "f2c3fc1b448f1dead2e2feb88e3dfe23b46b76d3",
+  "checkedAt": "2026-11-18T12:52:05.262496+00:00",
+  "baseCommit": "5e405b5fe17c2fd59c742e25ad52a357e3f84778",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "fullBackupOrRestorePerformed": false,
@@ -143,7 +143,7 @@
     "tests/schema-addition-enumeration-consistency.test.mjs": "51b8937853fcbf6fc167552304a1c4370cae6f5b482e33e7410a93d3bb629e85",
     "tests/test_ops_query_index_addition.py": "06ed77791df1b77227e766bd436f9131feb19f4f5bbe38ef6b6a9430f73d9d42",
     "tests/test_ops_query_index_rehearsal.py": "28ca56842155f01da3fa140ae0c7c03d7470f5d98a77478d6f8c028df2cd520f",
-    "tools/ops_query_index_rehearsal.py": "71c2b0d7b3584b6d77e45159db03e684635334477802bcadbd3f325925ce6f8e",
+    "tools/ops_query_index_rehearsal.py": "943e3c1a737e0009d3204e87963174929f5c4f34ae259baed7fff28dcc7c7149",
     "docs/ops-query-index-20261118/run-mandatory-checks.py": "c954e4ddadf7957ed5fb4b676e446b02d2865f3e9a49eb9f1eb1e0bc5469f5cb"
   },
   "syntax": {
@@ -281,9 +281,9 @@
         },
         {
           "host": "pwsh.exe",
+          "status": "passed",
           "version": "7.7.0",
-          "files": 11,
-          "status": "passed"
+          "files": 11
         }
       ]
     }
