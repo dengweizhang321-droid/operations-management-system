@@ -139,6 +139,53 @@ class CatalogTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 gate.source_delta(ROOT, baseline)
 
+    def _roots(self, tmp):
+        """A baseline without the three steps, and a root that is the real repository migrations."""
+        baseline, root = Path(tmp) / "baseline", Path(tmp) / "root"
+        for path in (ROOT / "backend").glob("*/migrations/*.py"):
+            relative = path.relative_to(ROOT).as_posix()
+            for base in (root, baseline):
+                if base is baseline and relative in gate.FILES:
+                    continue
+                target = base / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(path, target)
+        return root, baseline
+
+    def test_source_delta_five_exact_cases(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, baseline = self._roots(tmp)
+            # 5. exactly the three reviewed files: accepted.
+            self.assertEqual(gate.source_delta(root, baseline), gate.common.digest(gate.common.migrations(root)))
+            # 1. one extra migration in an unrelated app: refused.
+            extra = root / "backend/inventory/migrations/0099_unreviewed.py"
+            extra.write_text("# extra\n", encoding="utf8")
+            with self.assertRaises(ValueError):
+                gate.source_delta(root, baseline)
+            extra.unlink()
+            # 2. one of the three missing from root: refused (each in turn).
+            for name in gate.FILES:
+                saved = (root / name).read_bytes()
+                (root / name).unlink()
+                with self.assertRaises(ValueError, msg=name):
+                    gate.source_delta(root, baseline)
+                (root / name).write_bytes(saved)
+            # 3. a migration already in the baseline is rewritten in root: refused.
+            victim = root / "backend/sales/migrations/0001_initial.py"
+            saved = victim.read_bytes()
+            victim.write_bytes(saved + b"\n# rewritten\n")
+            with self.assertRaises(ValueError):
+                gate.source_delta(root, baseline)
+            victim.write_bytes(saved)
+            # 4. any of the three differs from its FILES digest: refused (each in turn).
+            for name in gate.FILES:
+                saved = (root / name).read_bytes()
+                (root / name).write_bytes(saved + b"\n# changed\n")
+                with self.assertRaises(ValueError, msg=name):
+                    gate.source_delta(root, baseline)
+                (root / name).write_bytes(saved)
+            self.assertEqual(gate.source_delta(root, baseline), gate.common.digest(gate.common.migrations(root)))
+
 
 class MigrationStateTests(unittest.TestCase):
     def test_models_match_migrations_and_state_definitions_are_exact(self):

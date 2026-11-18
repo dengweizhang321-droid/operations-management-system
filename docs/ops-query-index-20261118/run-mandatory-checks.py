@@ -64,7 +64,8 @@ for name, digest in files.items():
 supplemental_names = ["backend/teruisi_backend/settings.py", "tools/check_schema_code_digest.py",
                       "tools/check_catalog_baselines.py", "tools/manual-maintenance-continuation.mjs",
                       "tests/test_postgres_no_key_generation_159.py", "tests/schema-addition-enumeration-consistency.test.mjs",
-                      "tests/test_ops_query_index_addition.py", REL + "/run-mandatory-checks.py"]
+                      "tests/test_ops_query_index_addition.py", "tests/test_ops_query_index_rehearsal.py",
+                      "tools/ops_query_index_rehearsal.py", REL + "/run-mandatory-checks.py"]
 supplemental = {name: gate.common.sha(ROOT / name) for name in supplemental_names}
 selected = list(dict.fromkeys([*files, *supplemental]))
 groups = {suffix: [name for name in selected if Path(name).suffix == suffix]
