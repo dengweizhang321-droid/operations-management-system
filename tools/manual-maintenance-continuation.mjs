@@ -320,8 +320,14 @@ export const djangoSupervisorRelaunchDjangoScriptSha256='ff63a968e6df23ce96034f4
 // (0e5459dd...), which is appended-to, never replaced, in the lists below. The hash
 // is over the git-stored bytes (UTF-8 BOM + CRLF, -text in .gitattributes).
 export const workerStopExitingProcessWorkerScriptSha256='ae99c2464820f23dcf6b9c73fd476e12ed5acad4aeb7daeb61fd276f97b496f4';
+// OpsQueryIndex 162 (codex/ops-index-gen160-20261118): finite schema branch, bi-app-adopt selectors and
+// CopyApp members for three partial-index migrations (sales 0013, netshop 0005, customer_service 0003).
+// Candidate-only entry appended to the list below: every older generation, including the bytes
+// installed in production, stays registered so forward adoption and rollback both remain admissible.
+// The hash is over the git-stored bytes (UTF-8 BOM + CRLF, -text in .gitattributes).
+export const opsQueryIndexDjangoScriptSha256='f42613d8f1582cd7d70a4db780280f58d6d91566c11b645f036168f3b095a523';
 export const piNativeCandidateControllerSha256=Object.freeze({
- 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256,djangoSupervisorRelaunchDjangoScriptSha256]),
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256,djangoSupervisorRelaunchDjangoScriptSha256,opsQueryIndexDjangoScriptSha256]),
  'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });

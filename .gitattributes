@@ -71,3 +71,6 @@ tools/worker-authority-guard.mjs -text whitespace=cr-at-eol
 tools/worker-local-release.mjs -text whitespace=cr-at-eol
 tools/worker-local-runtime-supervisor.mjs -text whitespace=cr-at-eol
 tools/worker-local-service.ps1 -text whitespace=cr-at-eol
+
+# OpsQueryIndex 162 delivery evidence is kept verbatim.
+docs/ops-query-index-20261118/*.json -text whitespace=cr-at-eol

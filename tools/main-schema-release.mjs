@@ -31,7 +31,11 @@ export const workflowAutomationMigrations=['backend/workflow/migrations/0009_aut
 export const aiTaskFeedbackCandidatesSchema={version:'teruisi-main-schema-release-v1',additionKind:'AiTaskFeedbackCandidates',fromGeneration:156,toGeneration:158,steps:['ai_assistant.0088_task_feedback','ai_assistant.0089_skill_candidates']};
 export const aiTaskFeedbackCandidatesMigrations=['backend/ai_assistant/migrations/0088_task_feedback.py','backend/ai_assistant/migrations/0089_skill_candidates.py'];
 export const aiUnifiedTasksSchema={version:'teruisi-main-schema-release-v1',additionKind:'AiUnifiedTasks',fromGeneration:158,toGeneration:159,steps:['ai_assistant.0090_unified_tasks']};
+// 159 -> 162: three independent single-index migrations in three apps, one generation.
+export const opsQueryIndexSchema={version:'teruisi-main-schema-release-v1',additionKind:'OpsQueryIndex',fromGeneration:159,toGeneration:162,steps:['sales.0013_customer_service_online_spec_index','netshop.0005_market_projection_page_index','customer_service.0003_ai_analyzed_at_index']};
+export const opsQueryIndexMigrations=['backend/sales/migrations/0013_customer_service_online_spec_index.py','backend/netshop/migrations/0005_market_projection_page_index.py','backend/customer_service/migrations/0003_ai_analyzed_at_index.py'];
 const finite=[
+ {schema:opsQueryIndexSchema,migrations:opsQueryIndexMigrations,recipe:'config/main-schema-releases/ops-query-index-0162.json',binder:'ops_query_index_candidate.py',evidence:'ops-query-index-0162-evidence.json'},
  {schema:aiUnifiedTasksSchema,migrations:['backend/ai_assistant/migrations/0090_unified_tasks.py'],recipe:'config/main-schema-releases/ai-0090.json',binder:'ai_unified_tasks_candidate.py',evidence:'ai-0090-evidence.json'},
  {schema:aiTaskFeedbackCandidatesSchema,migrations:aiTaskFeedbackCandidatesMigrations,recipe:'config/main-schema-releases/ai-0088-0089.json',binder:'ai_task_feedback_candidates_candidate.py',evidence:'ai-0088-0089-evidence.json'},
  {schema:workflowAutomationSchema,migrations:workflowAutomationMigrations,recipe:'config/main-schema-releases/workflow-0009.json',binder:'workflow_automation_candidate.py',evidence:'workflow-0009-evidence.json'},

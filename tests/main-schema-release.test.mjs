@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
-import {monitoringSchema,monitoringMigration,monitoringRecipe,schemaForRequest,readSchemaRecipe,prepareMainSchemaRelease,verifyMainSchemaRelease,schemaPreparationEnvironment,aiTaskFeedbackCandidatesSchema,aiTaskFeedbackCandidatesMigrations,aiUnifiedTasksSchema,assertMainSchemaPlanSupported} from '../tools/main-schema-release.mjs';
+import {monitoringSchema,monitoringMigration,monitoringRecipe,schemaForRequest,readSchemaRecipe,prepareMainSchemaRelease,verifyMainSchemaRelease,schemaPreparationEnvironment,aiTaskFeedbackCandidatesSchema,aiTaskFeedbackCandidatesMigrations,aiUnifiedTasksSchema,opsQueryIndexSchema,opsQueryIndexMigrations,assertMainSchemaPlanSupported} from '../tools/main-schema-release.mjs';
 const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 async function fixture(t){
@@ -91,4 +91,13 @@ test('Ai159 supports only the exact0090 addition and rejects rewritten or combin
  assert.deepEqual(assertMainSchemaPlanSupported({migrate:true,changes:[change]}),aiUnifiedTasksSchema);
  for(const changes of [[{...change,status:'M'}],[change,{status:'A',path:'backend/ai_assistant/migrations/0091_unknown.py'}]])
   assert.throws(()=>assertMainSchemaPlanSupported({migrate:true,changes}));
+});
+
+test('OpsQueryIndex supports only the exact three-app index set, in any change order, and nothing less or more',()=>{
+ const changes=opsQueryIndexMigrations.map(path=>({status:'A',path}));
+ assert.deepEqual(assertMainSchemaPlanSupported({migrate:true,changes}),opsQueryIndexSchema);
+ assert.deepEqual(assertMainSchemaPlanSupported({migrate:true,changes:[...changes].reverse()}),opsQueryIndexSchema);
+ assert.equal(opsQueryIndexSchema.toGeneration,opsQueryIndexSchema.fromGeneration+opsQueryIndexSchema.steps.length);
+ for(const bad of [changes.slice(0,2),changes.slice(1),[{...changes[0],status:'M'},...changes.slice(1)],[...changes,{status:'A',path:'backend/ai_assistant/migrations/0091_unknown.py'}],[...changes,{status:'A',path:'backend/sales/migrations/0014_unknown.py'}]])
+  assert.throws(()=>assertMainSchemaPlanSupported({migrate:true,changes:bad}));
 });

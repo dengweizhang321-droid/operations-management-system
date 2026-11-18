@@ -146,6 +146,11 @@ class NetshopRow(models.Model):
             models.Index(fields=["spu_id"], name="net_spu_idx"),
             models.Index(fields=["product_code"], name="net_product_idx"),
             models.Index(fields=["last_import_batch_id", "shop_name", "product_name"], name="net_batch_page_idx"),
+            models.Index(
+                fields=["source", "source_row_key"],
+                name="net_projection_page_idx",
+                condition=models.Q(dataset__in=["sku_daily", "spu_daily"]),
+            ),
         ]
 
 

@@ -353,7 +353,7 @@ function Assert-MaintenanceNoKeyGeneration([object]$Evidence) {
   $auditErpCount = 0
   $auditSalesCount = 0
   $scheduleCount = 0
-  $jd12Count = 0; $jd13Count = 0; $jd14Count = 0; $jd15Count = 0; $jd16Count = 0; $tm17Count = 0; $pi84Count = 0; $pi85Count = 0; $pi86Count = 0; $pi87Count = 0; $sales12Count = 0; $wf09Count = 0; $wf10Count = 0; $ai88Count = 0; $ai89Count = 0; $ai90Count = 0
+  $jd12Count = 0; $jd13Count = 0; $jd14Count = 0; $jd15Count = 0; $jd16Count = 0; $tm17Count = 0; $pi84Count = 0; $pi85Count = 0; $pi86Count = 0; $pi87Count = 0; $sales12Count = 0; $wf09Count = 0; $wf10Count = 0; $ai88Count = 0; $ai89Count = 0; $ai90Count = 0; $sales13Count = 0; $net05Count = 0; $cs03Count = 0
   foreach ($migration in @($Evidence.migrations)) {
     if ($migration -isnot [pscustomobject] -or $migration.app -isnot [string] -or $migration.name -isnot [string]) {
       throw "无新增密钥备份迁移必须为标量字符串身份"
@@ -373,6 +373,9 @@ function Assert-MaintenanceNoKeyGeneration([object]$Evidence) {
     elseif ($app -ceq 'workflow' -and $name -ceq '0010_customer_service_chain_modules') { $wf10Count++ }
     elseif ($app -ceq 'ai_assistant' -and $name -ceq '0088_task_feedback') { $ai88Count++ }
     elseif ($app -ceq 'ai_assistant' -and $name -ceq '0089_skill_candidates') { $ai89Count++ }
+    elseif ($app -ceq 'sales' -and $name -ceq '0013_customer_service_online_spec_index') { $sales13Count++ }
+    elseif ($app -ceq 'netshop' -and $name -ceq '0005_market_projection_page_index') { $net05Count++ }
+    elseif ($app -ceq 'customer_service' -and $name -ceq '0003_ai_analyzed_at_index') { $cs03Count++ }
     elseif ($app -ceq 'ai_assistant' -and $name -ceq '0090_unified_tasks') { $ai90Count++ }
     elseif ($app -ceq 'ai_assistant' -and $name -ceq '0085_pi_workspace_controls') { $pi85Count++ }
     elseif ($app -ceq 'ai_assistant' -and $name -ceq '0084_pi_agent_independent_runtime') { $pi84Count++ }
@@ -386,26 +389,28 @@ function Assert-MaintenanceNoKeyGeneration([object]$Evidence) {
     else { $migrationIdentities.Add($app + '.' + $name) }
   }
   $generation = @($Evidence.migrations).Count
-  if (($generation -cnotin @(138,139,140,142,143,146,147,148,149,150,151,152,153,154,156,158,159)) -or
+  if (($generation -cnotin @(138,139,140,142,143,146,147,148,149,150,151,152,153,154,156,158,159,162)) -or
       ($generation -eq 138 -and ($presenceCount -ne 0 -or $erpGoalCount -ne 0)) -or
       ($generation -eq 139 -and ($presenceCount -ne 1 -or $erpGoalCount -ne 0)) -or
-      ($generation -cin @(140,142,143,146,147,148,149,150,151,152,153,154,156,158,159) -and ($presenceCount -ne 1 -or $erpGoalCount -ne 1)) -or
+      ($generation -cin @(140,142,143,146,147,148,149,150,151,152,153,154,156,158,159,162) -and ($presenceCount -ne 1 -or $erpGoalCount -ne 1)) -or
       ($generation -cin @(138,139,140) -and ($auditErpCount -ne 0 -or $auditSalesCount -ne 0 -or $scheduleCount -ne 0)) -or
-      ($generation -cin @(142,143,146,147,148,149,150,151,152,153,154,156,158,159) -and ($auditErpCount -ne 1 -or $auditSalesCount -ne 1)) -or
-      ($generation -eq 142 -and $scheduleCount -ne 0) -or ($generation -cin @(143,146,147,148,149,150,151,152,153,154,156,158,159) -and $scheduleCount -ne 1) -or
-      ($generation -cin @(146,147,148,149,150,151,152,153,154,156,158,159) -and ($jd12Count -ne 1 -or $jd13Count -ne 1 -or $jd14Count -ne 1)) -or
-      ($generation -cnotin @(146,147,148,149,150,151,152,153,154,156,158,159) -and ($jd12Count -ne 0 -or $jd13Count -ne 0 -or $jd14Count -ne 0)) -or
-      ($generation -cin @(147,148,149,150,151,152,153,154,156,158,159) -and $jd15Count -ne 1) -or ($generation -cnotin @(147,148,149,150,151,152,153,154,156,158,159) -and $jd15Count -ne 0) -or
-      ($generation -cin @(148,149,150,151,152,153,154,156,158,159) -and $jd16Count -ne 1) -or ($generation -cnotin @(148,149,150,151,152,153,154,156,158,159) -and $jd16Count -ne 0) -or
-      ($generation -cin @(149,150,151,152,153,154,156,158,159) -and $tm17Count -ne 1) -or ($generation -cnotin @(149,150,151,152,153,154,156,158,159) -and $tm17Count -ne 0) -or
-      ($generation -cin @(150,151,152,153,154,156,158,159) -and $pi84Count -ne 1) -or ($generation -cnotin @(150,151,152,153,154,156,158,159) -and $pi84Count -ne 0) -or
-      ($generation -cin @(151,152,153,154,156,158,159) -and $pi85Count -ne 1) -or ($generation -cnotin @(151,152,153,154,156,158,159) -and $pi85Count -ne 0) -or
-      ($generation -cin @(152,153,154,156,158,159) -and $pi86Count -ne 1) -or ($generation -cnotin @(152,153,154,156,158,159) -and $pi86Count -ne 0) -or
-      ($generation -cin @(153,154,156,158,159) -and $pi87Count -ne 1) -or ($generation -cnotin @(153,154,156,158,159) -and $pi87Count -ne 0) -or
-      ($generation -cin @(154,156,158,159) -and $sales12Count -ne 1) -or ($generation -cnotin @(154,156,158,159) -and $sales12Count -ne 0) -or
-      ($generation -cin @(156,158,159) -and ($wf09Count -ne 1 -or $wf10Count -ne 1)) -or ($generation -cnotin @(156,158,159) -and ($wf09Count -ne 0 -or $wf10Count -ne 0)) -or
-      ($generation -cin @(158,159) -and ($ai88Count -ne 1 -or $ai89Count -ne 1)) -or ($generation -cnotin @(158,159) -and ($ai88Count -ne 0 -or $ai89Count -ne 0)) -or
-      ($generation -eq 159 -and $ai90Count -ne 1) -or ($generation -ne 159 -and $ai90Count -ne 0) -or
+      ($generation -cin @(142,143,146,147,148,149,150,151,152,153,154,156,158,159,162) -and ($auditErpCount -ne 1 -or $auditSalesCount -ne 1)) -or
+      ($generation -eq 142 -and $scheduleCount -ne 0) -or ($generation -cin @(143,146,147,148,149,150,151,152,153,154,156,158,159,162) -and $scheduleCount -ne 1) -or
+      ($generation -cin @(146,147,148,149,150,151,152,153,154,156,158,159,162) -and ($jd12Count -ne 1 -or $jd13Count -ne 1 -or $jd14Count -ne 1)) -or
+      ($generation -cnotin @(146,147,148,149,150,151,152,153,154,156,158,159,162) -and ($jd12Count -ne 0 -or $jd13Count -ne 0 -or $jd14Count -ne 0)) -or
+      ($generation -cin @(147,148,149,150,151,152,153,154,156,158,159,162) -and $jd15Count -ne 1) -or ($generation -cnotin @(147,148,149,150,151,152,153,154,156,158,159,162) -and $jd15Count -ne 0) -or
+      ($generation -cin @(148,149,150,151,152,153,154,156,158,159,162) -and $jd16Count -ne 1) -or ($generation -cnotin @(148,149,150,151,152,153,154,156,158,159,162) -and $jd16Count -ne 0) -or
+      ($generation -cin @(149,150,151,152,153,154,156,158,159,162) -and $tm17Count -ne 1) -or ($generation -cnotin @(149,150,151,152,153,154,156,158,159,162) -and $tm17Count -ne 0) -or
+      ($generation -cin @(150,151,152,153,154,156,158,159,162) -and $pi84Count -ne 1) -or ($generation -cnotin @(150,151,152,153,154,156,158,159,162) -and $pi84Count -ne 0) -or
+      ($generation -cin @(151,152,153,154,156,158,159,162) -and $pi85Count -ne 1) -or ($generation -cnotin @(151,152,153,154,156,158,159,162) -and $pi85Count -ne 0) -or
+      ($generation -cin @(152,153,154,156,158,159,162) -and $pi86Count -ne 1) -or ($generation -cnotin @(152,153,154,156,158,159,162) -and $pi86Count -ne 0) -or
+      ($generation -cin @(153,154,156,158,159,162) -and $pi87Count -ne 1) -or ($generation -cnotin @(153,154,156,158,159,162) -and $pi87Count -ne 0) -or
+      ($generation -cin @(154,156,158,159,162) -and $sales12Count -ne 1) -or ($generation -cnotin @(154,156,158,159,162) -and $sales12Count -ne 0) -or
+      ($generation -cin @(156,158,159,162) -and ($wf09Count -ne 1 -or $wf10Count -ne 1)) -or ($generation -cnotin @(156,158,159,162) -and ($wf09Count -ne 0 -or $wf10Count -ne 0)) -or
+      ($generation -cin @(158,159,162) -and ($ai88Count -ne 1 -or $ai89Count -ne 1)) -or ($generation -cnotin @(158,159,162) -and ($ai88Count -ne 0 -or $ai89Count -ne 0)) -or
+      ($generation -cin @(159,162) -and $ai90Count -ne 1) -or ($generation -cnotin @(159,162) -and $ai90Count -ne 0) -or
+      ($generation -eq 162 -and ($sales13Count -ne 1 -or $net05Count -ne 1 -or $cs03Count -ne 1)) -or
+      ($generation -ne 162 -and ($sales13Count -ne 0 -or $net05Count -ne 0 -or $cs03Count -ne 0)) -or
       $migrationIdentities.Count -ne 138 -or
       [long]$Evidence.tables.django_migrations -ne $generation) {
     throw "无新增密钥备份迁移代际未获核验"
@@ -589,7 +594,7 @@ function Assert-MaintenanceEvidence(
   $protectedTables = @()
   if ($NoKeys) {
     $generation = Assert-MaintenanceNoKeyGeneration $Evidence
-    if ($generation -cin @(140,142,143,146,147,148,149,150,151,152,153,154,156,158,159)) { $requiredTables += 'finance_erp_targets' }
+    if ($generation -cin @(140,142,143,146,147,148,149,150,151,152,153,154,156,158,159,162)) { $requiredTables += 'finance_erp_targets' }
     $protectedTables = @(
       "protected_business_budget_v11_verifier_keys", "protected_business_budget_v11_proof_tickets",
       "protected_business_budget_v11_proof_ticket_claims", "protected_business_v4_report_link_intents",
