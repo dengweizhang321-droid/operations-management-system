@@ -9,6 +9,7 @@ import { runDjangoMarketNetshopProjectionSync } from "../lib/market/django-netsh
 import { runScheduledCustomerServiceAnalysis } from "../lib/customer-service/auto-analysis-scheduled";
 import { enforceDynamicCachePolicy } from "./cache-policy";
 import { evaluateSameOriginWriteGate } from "./same-origin-write-gate";
+import { bootWarmupSkipFor, isBootWarmupRequest, type BootWarmupSkip } from "./boot-warmup";
 
 interface Env {
   ASSETS: Fetcher;
@@ -42,12 +43,16 @@ const localReadinessPath = "/_teruisi/local/health/ready";
 
 type ScheduledMarketTaskResult =
   | { ok: true; result: unknown }
-  | { ok: false; error: string };
+  | { ok: false; error: string }
+  | BootWarmupSkip;
 
 async function runScheduledMarketTask(
   label: string,
   task: () => Promise<unknown>,
+  // 仅开机预热期间传入：不执行任务，明确返回“因开机预热跳过”，既不算成功也不算失败。
+  bootWarmupSkip?: BootWarmupSkip,
 ): Promise<ScheduledMarketTaskResult> {
+  if (bootWarmupSkip) return bootWarmupSkip;
   try {
     return { ok: true, result: await task() };
   } catch (error) {
@@ -58,11 +63,14 @@ async function runScheduledMarketTask(
 }
 
 async function runScheduledMarketMaintenance(
-  input: { marketImageBucket?: R2Bucket; signal?: AbortSignal } = {},
+  input: { marketImageBucket?: R2Bucket; signal?: AbortSignal; bootWarmup?: boolean } = {},
 ) {
+  // 开机预热只暂缓市场标注、客服自动分析、网店投影同步三类重任务；其余队列照常推进。
+  const bootWarmupSkip = bootWarmupSkipFor(input.bootWarmup);
   const annotationsPending = runScheduledMarketTask(
     "market annotation scheduled runner failed",
     () => runScheduledDjangoMarketAnnotation(input.signal),
+    bootWarmupSkip,
   );
   // 文件构建独立推进；等待大文件不得阻塞取数、Agent 或市场维护。
   const aiFilesPending = runScheduledMarketTask(
@@ -73,6 +81,7 @@ async function runScheduledMarketMaintenance(
   const customerServiceAnalysisPending = runScheduledMarketTask(
     "customer service auto analysis runner failed",
     () => runScheduledCustomerServiceAnalysis(),
+    bootWarmupSkip,
   );
   // 证据按时间与页数双重限制采集，不依赖浏览器页面存活。
   const aiEvidence = await runScheduledMarketTask(
@@ -92,6 +101,7 @@ async function runScheduledMarketMaintenance(
   const netshopProjection = await runScheduledMarketTask(
     "market netshop projection scheduled runner failed",
     () => runDjangoMarketNetshopProjectionSync(),
+    bootWarmupSkip,
   );
   // 图片缓存每次只处理一个有界批次；任一 runner 失败都不能阻塞其余独立队列。
   const imageCache = await runScheduledMarketTask(
@@ -172,6 +182,8 @@ const worker = {
         const result = await runScheduledMarketMaintenance({
           marketImageBucket: env.SALES_IMPORT_FILES,
           signal: request.signal,
+          // 标记仅在本地 scheduled 鉴权通过后读取，且只会让任务变少。
+          bootWarmup: isBootWarmupRequest(request.headers),
         });
         return Response.json({ ok: true, result }, { headers: { "cache-control": "no-store" } });
       } catch (error) {
