@@ -25,7 +25,9 @@ const legacyPrefixes = ["/jd/", "/jd-market/", "/jd-promotion/", "/jd-promotion-
 export type SlotIdentity = { key: string; storeKey: string | null; workflow: string; executionId: string; scheduledAt?: string };
 export type HelperSlot = { port: number; token: string; stop: () => Promise<unknown> };
 export type SlotRecord = SlotIdentity & { status: "starting" | "running" | "closing" | "quarantined"; stage: string; ready: Promise<HelperSlot>;
-  instanceId: string; exited: boolean; inFlight: number };
+  instanceId: string; exited: boolean; inFlight: number;
+  // True once any business route (not /coordination/claim) was forwarded to this slot.
+  businessForwarded: boolean };
 
 const diagnosticPhases = new Set([
   "master_start", "master_audit_saved", "master_authentication", "master_browser_connect",
@@ -65,6 +67,12 @@ export type HelperThreadDiagnostic = {
   error?: ReturnType<typeof isolatedHelperErrorDiagnostic>;
 };
 
+// Fixed labels only: no token, URL, header or credential ever enters this record.
+export type HelperClaimDiagnostic = {
+  event: "helper_claim_rejected" | "helper_idle_release_not_retired";
+  workflow: string; storeKey: string | null; executionId: string; reason: string;
+};
+
 function scalar(headers: IncomingHttpHeaders, key: string) {
   const value = headers[key];
   return typeof value === "string" ? value : null;
@@ -97,9 +105,22 @@ export class IsolatedHelperSlots {
   private closeReservation: string | null = null;
   constructor(private readonly allowedStores: ReadonlySet<string>, private readonly spawn: (
     identity: SlotIdentity, finish: (clean: boolean) => void,
-  ) => Promise<HelperSlot>, private readonly draining: () => boolean = () => false) {}
+  ) => Promise<HelperSlot>, private readonly draining: () => boolean = () => false,
+  private readonly report: (diagnostic: HelperClaimDiagnostic) => void = () => undefined) {}
+
+  private diagnose(event: HelperClaimDiagnostic["event"], identity: SlotIdentity, reason: string) {
+    try {
+      this.report({ event, workflow: identity.workflow, storeKey: identity.storeKey, executionId: identity.executionId, reason });
+    } catch { /* Logging cannot change claim or release decisions. */ }
+  }
 
   claim(identity: SlotIdentity): { status: "granted" | "waiting" | "rejected"; reason?: string; slot?: SlotRecord } {
+    const decision = this.decide(identity);
+    if (decision.status === "rejected") this.diagnose("helper_claim_rejected", identity, decision.reason ?? "unknown");
+    return decision;
+  }
+
+  private decide(identity: SlotIdentity): { status: "granted" | "waiting" | "rejected"; reason?: string; slot?: SlotRecord } {
     if (this.closeReservation) return { status: "waiting", reason: "operator_close_in_progress" };
     if (identity.storeKey && !this.allowedStores.has(identity.storeKey)) return { status: "rejected", reason: "tmall_store_not_enabled_or_registered" };
     const active = this.slots.get(identity.key);
@@ -126,14 +147,18 @@ export class IsolatedHelperSlots {
     // Refuse new work rather than discard replay protection after a very long
     // service lifetime. A controlled idle restart can reset this bounded cache.
     if (this.retired.size >= 4096) return { status: "rejected", reason: "helper_replay_capacity_requires_manual_action" };
-    const slot = { ...identity, status: "starting", stage: "ready", instanceId: randomBytes(24).toString("hex"), exited: false, inFlight: 0 } as SlotRecord;
+    const slot = { ...identity, status: "starting", stage: "ready", instanceId: randomBytes(24).toString("hex"), exited: false, inFlight: 0, businessForwarded: false } as SlotRecord;
     this.slots.set(identity.key, slot); // synchronous reservation, before awaits
     slot.ready = Promise.resolve().then(() => this.spawn(identity, clean => {
       if (this.slots.get(identity.key) !== slot) return;
       slot.exited = true; // finish is emitted only by the actual Worker.exit.
-      this.retired.add(identity.executionId);
-      if (clean) this.slots.delete(identity.key);
-      else { slot.status = "quarantined"; slot.stage = "failed"; }
+      if (!clean) { this.retired.add(identity.executionId); slot.status = "quarantined"; slot.stage = "failed"; return; }
+      this.slots.delete(identity.key);
+      // A slot that only ever saw /coordination/claim ran nothing: its idle
+      // reaper closed it while n8n waited out a slow claim. Retiring the
+      // execution would turn the same-execution re-claim into a manual-action 409.
+      if (slot.businessForwarded) this.retired.add(identity.executionId);
+      else this.diagnose("helper_idle_release_not_retired", identity, "claim_only_idle_release");
     })).then(child => {
       if (slot.status === "starting") slot.status = "running";
       return child;
@@ -150,6 +175,13 @@ export class IsolatedHelperSlots {
   lookup(identity: SlotIdentity) {
     const slot = this.slots.get(identity.key);
     return slot && slot.executionId === identity.executionId && slot.workflow === identity.workflow && slot.status === "running" ? slot : null;
+  }
+  // Business-route admission: lookup plus the synchronous mark that makes a later
+  // clean exit retire the execution. Must run before any await in the caller.
+  admitBusiness(identity: SlotIdentity) {
+    const slot = this.lookup(identity);
+    if (slot) slot.businessForwarded = true;
+    return slot;
   }
   summary() {
     return [...this.slots.values()].map(({ storeKey, workflow, executionId, status, stage }) => ({ storeKey, workflow, executionId, status, stage }));
@@ -292,7 +324,8 @@ export async function serveIsolatedHelper(options: {
   health: () => Promise<Record<string, unknown>>;
   cors: (origin: string | undefined, privateNetwork: boolean) => Record<string, string>;
 }) {
-  const pool = new IsolatedHelperSlots(options.allowedStores, (identity, finish) => spawnIsolatedHelper(options.entryFile, identity, finish), () => readAutomationDrain() !== null);
+  const pool = new IsolatedHelperSlots(options.allowedStores, (identity, finish) => spawnIsolatedHelper(options.entryFile, identity, finish), () => readAutomationDrain() !== null,
+    diagnostic => { process.stderr.write(`${JSON.stringify(diagnostic)}\n`); });
   const closeCoordinator = pool.closeCoordinator();
   const customerServiceCoordinator = pool.closeCoordinator("jd");
   const server = createServer(async (request, response) => {
@@ -440,7 +473,7 @@ export async function serveIsolatedHelper(options: {
         // Plan anchor is owned by the admitted slot, never by later route input.
         const owner = pool.slots.get(identity.key);
         if (identity.scheduledAt && identity.scheduledAt !== owner?.scheduledAt) { reply(response, 409, { ok: false, error: "execution_plan_anchor_changed_manual_action" }); return; }
-        const slot = pool.lookup(identity);
+        const slot = pool.admitBusiness(identity);
         if (!slot) { reply(response, 409, { ok: false, error: "execution_not_claimed_or_store_mismatch" }); return; }
         await forward(request, response, slot);
       }

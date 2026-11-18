@@ -43,6 +43,7 @@ test("one failed/finished store releases only itself, and late callbacks cannot 
   const other = pool.claim(identity("tmall-yijiu", "200"));
   await Promise.all([first.slot!.ready, other.slot!.ready]);
   const finish = finishes.get("tmall-lili")!;
+  assert.equal(pool.admitBusiness(identity("tmall-lili", "100")), first.slot);
   finish(true);
   assert.equal(pool.lookup(identity("tmall-yijiu", "200")), other.slot);
   assert.equal(pool.claim(identity("tmall-lili", "100")).reason, "execution_already_finished");
@@ -50,6 +51,66 @@ test("one failed/finished store releases only itself, and late callbacks cannot 
   await retry.slot!.ready;
   finish(true);
   assert.equal(pool.lookup(identity("tmall-lili", "101")), retry.slot);
+});
+
+test("clean idle release of a claim-only slot does not retire the execution, so the same id can re-claim", async () => {
+  const diagnostics: Array<Record<string, unknown>> = [];
+  const finishes = new Map<string, (clean: boolean) => void>();
+  const pool = new IsolatedHelperSlots(new Set(["tmall-masitu"]), async (owner, finish) => {
+    finishes.set(owner.key, finish);
+    return { port: 12345, token: "synthetic", stop: async () => undefined };
+  }, () => false, diagnostic => { diagnostics.push(diagnostic); });
+  const first = pool.claim(identity("tmall-masitu", "300"));
+  await first.slot!.ready;
+  assert.equal(first.slot!.businessForwarded, false);
+  finishes.get("tmall-masitu")!(true);
+  assert.equal(pool.slots.size, 0);
+  const again = pool.claim(identity("tmall-masitu", "300"));
+  assert.equal(again.status, "granted");
+  assert.notEqual(again.slot, first.slot);
+  await again.slot!.ready;
+  assert.deepEqual(diagnostics, [{ event: "helper_idle_release_not_retired", workflow: "tmall", storeKey: "tmall-masitu", executionId: "300", reason: "claim_only_idle_release" }]);
+});
+
+test("clean release after a business route was forwarded still retires the execution, and rejection is reported", async () => {
+  const diagnostics: Array<Record<string, unknown>> = [];
+  const finishes = new Map<string, (clean: boolean) => void>();
+  const pool = new IsolatedHelperSlots(new Set(["tmall-masitu"]), async (owner, finish) => {
+    finishes.set(owner.key, finish);
+    return { port: 12345, token: "synthetic", stop: async () => undefined };
+  }, () => false, diagnostic => { diagnostics.push(diagnostic); });
+  const first = pool.claim(identity("tmall-masitu", "301"));
+  await first.slot!.ready;
+  assert.equal(pool.admitBusiness(identity("tmall-masitu", "301")), first.slot);
+  finishes.get("tmall-masitu")!(true);
+  const again = pool.claim(identity("tmall-masitu", "301"));
+  assert.equal(again.reason, "execution_already_finished");
+  assert.deepEqual(diagnostics, [{ event: "helper_claim_rejected", workflow: "tmall", storeKey: "tmall-masitu", executionId: "301", reason: "execution_already_finished" }]);
+});
+
+test("admitBusiness marks only a matching running slot; a mismatched identity leaves a claim-only slot re-claimable", async () => {
+  const { pool, finishes } = fixture();
+  const claimed = pool.claim(identity("tmall-lili", "400"));
+  await claimed.slot!.ready;
+  assert.equal(pool.admitBusiness(identity("tmall-lili", "999")), null);
+  assert.equal(claimed.slot!.businessForwarded, false);
+  finishes.get("tmall-lili")!(true);
+  const again = pool.claim(identity("tmall-lili", "400"));
+  assert.equal(again.status, "granted");
+  assert.notEqual(again.slot, claimed.slot);
+  await again.slot!.ready;
+  assert.equal(pool.admitBusiness(identity("tmall-lili", "400")), again.slot);
+  assert.equal(again.slot!.businessForwarded, true);
+  finishes.get("tmall-lili")!(true);
+  assert.equal(pool.claim(identity("tmall-lili", "400")).reason, "execution_already_finished");
+});
+
+test("unclean exit of a claim-only slot is still quarantined and retired",async () => {
+  const { pool, finishes } = fixture();
+  await pool.claim(identity("tmall-lili", "302")).slot!.ready;
+  finishes.get("tmall-lili")!(false);
+  assert.equal(pool.claim(identity("tmall-lili", "302")).reason, "helper_slot_cleanup_requires_manual_action");
+  assert.equal(pool.slots.get("tmall-lili")!.status, "quarantined");
 });
 
 test("unknown termination quarantines that store while other Tmall stores run", async () => {
