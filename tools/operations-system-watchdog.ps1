@@ -14,6 +14,8 @@ $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'watchdog-install.ps1')
 . (Join-Path $PSScriptRoot 'watchdog-driver-closure.ps1')
 $WatchdogVersion='teruisi-operations-watchdog-v2'
+# Run alerts wait until a failure has lasted this long; recovery attempts and evidence are not delayed.
+$WatchAlertDelayMinutes=30
 $TaskName='TERUISI Operations Watchdog'
 $ProjectRoot='D:\运营管理系统'
 $WatchdogRoot='D:\teruisi-runtime\operations-watchdog'
@@ -1015,6 +1017,12 @@ function Invoke-WatchRecoveryOutbox($CurrentSnapshot){
     return
   }
 }
+# Fails open: a missing or unparsable firstFailure must never swallow an alert.
+function Test-WatchAlertDue($State,[DateTimeOffset]$Now){
+  $first=[DateTimeOffset]::MinValue
+  if(-not $State -or -not $State.firstFailure -or -not [DateTimeOffset]::TryParse([string]$State.firstFailure,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$first)){return $true}
+  return (($Now-$first).TotalMinutes -ge $WatchAlertDelayMinutes)
+}
 function Invoke-WatchCycle([switch]$Recover){
   $previous=Read-WatchJson $StatePath
   $state=if($previous){$previous|ConvertTo-Json -Depth 10|ConvertFrom-Json -AsHashtable}else{New-WatchState}
@@ -1087,7 +1095,7 @@ function Invoke-WatchCycle([switch]$Recover){
   }
   if($state.incident){
     Write-WatchJson (Join-Path $WatchdogRoot "evidence\$($state.incident)-latest.json") (Get-WatchEvidence $snapshot)
-    if($Recover -and [int]$state.failures -ge 2 -and $decision -notin @('confirm_failure','verification_pending','healthy','recovered')){Send-WatchAlert $state $snapshot $decision}
+    if($Recover -and [int]$state.failures -ge 2 -and $decision -notin @('confirm_failure','verification_pending','healthy','recovered') -and (Test-WatchAlertDue $state $now)){Send-WatchAlert $state $snapshot $decision}
     if($decision -in @('healthy','recovered')){Confirm-WatchRecovery $state $snapshot}
   }
   if($decision -in @('healthy','recovered')){$state.failures=0;$state.lastHealthy=[DateTimeOffset]::UtcNow.ToString('o');$state.incident=$null;$state.notification=$null;$state.notificationReason=$null;$state.identityAttempts=0;$state.lastIdentityAttempt=$null;$state.identityFailureCode=$null;$state.notificationEscalations=0;$state.lastNotificationEscalation=$null;$state.notificationSuffix=$null;$state.blindnessSeen=$false;$state.incidentRecoveryFailures=0}

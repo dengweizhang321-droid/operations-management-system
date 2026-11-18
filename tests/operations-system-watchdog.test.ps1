@@ -57,6 +57,8 @@ try {
   Write-WatchJson $StatePath (New-WatchState)
   $r=Invoke-WatchCycle -Recover
   Assert-Watch ($r.status -eq 'confirm_failure' -and $script:recoveries -eq 0 -and $script:alerts -eq 0) 'first sample must have no recovery or notification side effects'
+  function Set-IncidentAge([int]$Minutes){$st=Read-WatchJson $StatePath;$st.firstFailure=[DateTimeOffset]::UtcNow.AddMinutes(-$Minutes).ToString('o');Write-WatchJson $StatePath $st}
+  Set-IncidentAge 31
   $r=Invoke-WatchCycle -Recover
   Assert-Watch ($r.status -eq 'recovery_failed' -and $script:recoveries -eq 1 -and $script:alerts -eq 1) 'confirmed failure should attempt once then alert'
   $r=Invoke-WatchCycle -Recover
@@ -151,10 +153,82 @@ try {
   function Get-WatchSnapshot {return (Fixture-Snapshot)}
   $script:alerts=0;$script:alertSeen=$null;$before=$script:recoveries
   $null=Invoke-WatchCycle -Recover
+  Set-IncidentAge 31
   $r=Invoke-WatchCycle -Recover
   Assert-Watch ($r.status -eq 'recovery_failed' -and $script:recoveries -eq $before+1) 'close test: the next incident must be able to recover again'
   Assert-Watch ($script:alerts -eq 1 -and $null -eq $script:alertSeen.suffix -and $script:alertSeen.blind -eq $false -and [int]$script:alertSeen.failures -eq 1) 'close test: the next incident must start with a base record, no blindness and a fresh recovery count'
   Assert-Watch ($script:alertSeen.text -notmatch '失明' -and $script:alertSeen.text -notmatch '持续提醒') 'close test: the next incident message carries the previous incident wording'
+  function Send-WatchAlert {$script:alerts++}
+
+  # Alert delay: run alerts wait for 30 minutes of continuous failure; recovery and evidence do not.
+  # Run alerts only: an outbox drain of an earlier incident delivers 'recovered' through the same function.
+  function Send-WatchAlert {if($args[2] -ceq 'recovered'){return};$script:alerts++;$args[0].notification='sent'}
+  function Get-WatchSnapshot {return (Fixture-Snapshot)}
+  $delayNow=[DateTimeOffset]::UtcNow
+  Assert-Watch ($WatchAlertDelayMinutes -eq 30) 'alert delay: the configured delay must be 30 minutes'
+  Assert-Watch ((Test-WatchAlertDue @{firstFailure=$delayNow.AddMinutes(-29.9).ToString('o')} $delayNow) -eq $false) 'alert delay: just under 30 minutes must wait'
+  Assert-Watch ((Test-WatchAlertDue @{firstFailure=$delayNow.AddMinutes(-30).ToString('o')} $delayNow) -eq $true) 'alert delay: exactly 30 minutes is due'
+  Assert-Watch ((Test-WatchAlertDue @{} $delayNow) -eq $true -and (Test-WatchAlertDue @{firstFailure=$null} $delayNow) -eq $true -and (Test-WatchAlertDue @{firstFailure='not-a-time'} $delayNow) -eq $true) 'alert delay: a missing or unparsable firstFailure must fail open'
+
+  # a. Under 30 minutes: several failed rounds, recovery attempts continue, evidence is written, no alert.
+  Write-WatchJson $StatePath (New-WatchState);$script:alerts=0;$script:recoveries=0
+  $null=Invoke-WatchCycle -Recover
+  $delayIncident=(Read-WatchJson $StatePath).incident
+  Set-IncidentAge 29
+  foreach($n in 1,2,3){
+    $r=Invoke-WatchCycle -Recover
+    Assert-Watch ($r.status -eq 'recovery_failed' -and $script:recoveries -eq $n) "alert delay a: recovery attempt $n must run inside the delay"
+    Reset-RecoveryWindow
+  }
+  Assert-Watch ($script:alerts -eq 0) 'alert delay a: no alert may be sent before 30 minutes'
+  foreach($e in 'first-failure','latest','recovery-attempt'){Assert-Watch (Test-Path -LiteralPath (Join-Path $testRoot "evidence\$delayIncident-$e.json")) "alert delay a: $e evidence must still be written"}
+
+  # b. Boundary: the same incident at exactly 30 minutes sends the alert once per round.
+  Set-IncidentAge 30;Reset-RecoveryWindow
+  $r=Invoke-WatchCycle -Recover
+  Assert-Watch ($script:alerts -eq 1) 'alert delay b: an incident at 30 minutes must alert'
+
+  # c. Missing or unparsable firstFailure: alert anyway.
+  foreach($bad in @($null,'not-a-time')){
+    Write-WatchJson $StatePath (New-WatchState);$script:alerts=0
+    $null=Invoke-WatchCycle -Recover
+    $st=(Read-WatchJson $StatePath)|ConvertTo-Json -Depth 10|ConvertFrom-Json -AsHashtable
+    if($null -eq $bad){$st.Remove('firstFailure')}else{$st.firstFailure=$bad}
+    Write-WatchJson $StatePath $st
+    $null=Invoke-WatchCycle -Recover
+    Assert-Watch ($script:alerts -eq 1) "alert delay c: firstFailure=$bad must fail open"
+  }
+
+  # d. Healed inside the delay: no alert was sent, so closing queues no recovery notice.
+  Get-ChildItem -LiteralPath $testRoot -Directory -Filter 'recovery-outbox' -ErrorAction SilentlyContinue|Remove-Item -Recurse -Force
+  Write-WatchJson $StatePath (New-WatchState);$script:alerts=0
+  $null=Invoke-WatchCycle -Recover
+  Set-IncidentAge 10
+  $null=Invoke-WatchCycle -Recover
+  function Get-WatchSnapshot {$v=Fixture-Snapshot;$v.healthy=$true;return $v}
+  $null=Invoke-WatchCycle -Recover;$r=Invoke-WatchCycle -Recover
+  Assert-Watch ($r.status -eq 'healthy' -and $null -eq (Read-WatchJson $StatePath).incident -and $script:alerts -eq 0) 'alert delay d: the incident must close without any alert'
+  $outbox=Join-Path $testRoot 'recovery-outbox'
+  Assert-Watch (-not (Test-Path -LiteralPath $outbox) -or @(Get-ChildItem -LiteralPath $outbox -File).Count -eq 0) 'alert delay d: a self-healed incident must not queue a recovery notice'
+  Assert-Watch (@(Get-ChildItem -LiteralPath (Join-Path $testRoot 'recovery-completed') -File -ErrorAction SilentlyContinue).Count -eq 0) 'alert delay d: a self-healed incident must not complete a recovery notice either'
+
+  # e. Alerted after 30 minutes, then healed: the recovery notice is queued. The outbox is not drained
+  # here because Invoke-WatchRecoveryOutbox is replaced by a recorder.
+  function Get-WatchSnapshot {return (Fixture-Snapshot)}
+  function Invoke-WatchRecoveryOutbox($CurrentSnapshot){}
+  Write-WatchJson $StatePath (New-WatchState);$script:alerts=0
+  $null=Invoke-WatchCycle -Recover
+  Set-IncidentAge 31
+  $null=Invoke-WatchCycle -Recover
+  $eIncident=(Read-WatchJson $StatePath).incident
+  Assert-Watch ($script:alerts -eq 1 -and (Read-WatchJson $StatePath).notification -ceq 'sent') 'alert delay e: the 30+ minute incident must alert'
+  function Get-WatchSnapshot {$v=Fixture-Snapshot;$v.healthy=$true;return $v}
+  $null=Invoke-WatchCycle -Recover;$r=Invoke-WatchCycle -Recover
+  Assert-Watch ($r.status -eq 'healthy') 'alert delay e: the alerted incident must close'
+  Assert-Watch (Test-Path -LiteralPath (Join-Path $testRoot "recovery-outbox\$eIncident.json")) 'alert delay e: an alerted incident must queue its recovery notice'
+  $ast0=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot '..\tools\operations-system-watchdog.ps1'),[ref]$null,[ref]$null)
+  Invoke-Expression ($ast0.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-WatchRecoveryOutbox'},$true)).Extent.Text
+  function Get-WatchSnapshot {return (Fixture-Snapshot)}
   function Send-WatchAlert {$script:alerts++}
 
   # Re-load the real delivery function to verify at-most-once admission even when remote result is unknown.
