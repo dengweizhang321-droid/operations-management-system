@@ -372,6 +372,10 @@ def launch():
         TERUISI_DJANGO_INTERNAL_SECRET=secrets.token_hex(32), DJANGO_SECRET_KEY=secrets.token_hex(32),
         PYTHONPATH=str(directory) + os.pathsep + str(ROOT / "backend") + os.pathsep + str(ROOT / "tools"),
         OPS162_REHEARSAL_DIR=str(directory))
+    # HONEST LIMIT: this sitecustomize patch only guards Python-level socket.connect. psycopg/libpq connects in C
+    # and is NOT stopped by it. The real database defences are (1) the private env built from scratch above,
+    # (2) assert_private_identity() on the only Django connection before any query, and (3) the fixed
+    # synthetic port range. Do not treat this patch as a barrier against a database connection.
     (directory / "sitecustomize.py").write_text("import socket\n_original=socket.socket.connect\ndef connect(sock,address):\n"
         f"    if not isinstance(address,tuple) or address[0]!='127.0.0.1' or address[1]!={port}:\n"
         "        raise RuntimeError('OpsQueryIndex rehearsal forbids external/production network')\n"
