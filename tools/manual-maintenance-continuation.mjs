@@ -330,8 +330,14 @@ export const dingTalkObserverRetryWorkerScriptSha256='301a56772070550d99985a1a07
 // Same retry, with the retry budget check reserving the full 30 s lock wait plus margin (codex/boot-resilience-20261118,
 // second commit). Appended after the entry above, which stays qualified; neither was ever installed.
 export const dingTalkObserverRetryBudgetWorkerScriptSha256='45ec6ff9203f2ef459be9e7c60ab369479f9892ab12cd66a3a6849286080626e';
+// OpsQueryIndex 162 (codex/ops-index-gen160-20261118): finite schema branch, bi-app-adopt selectors and
+// CopyApp members for three partial-index migrations (sales 0013, netshop 0005, customer_service 0003).
+// Candidate-only entry appended to the list below: every older generation, including the bytes
+// installed in production, stays registered so forward adoption and rollback both remain admissible.
+// The hash is over the git-stored bytes (UTF-8 BOM + CRLF, -text in .gitattributes).
+export const opsQueryIndexDjangoScriptSha256='f42613d8f1582cd7d70a4db780280f58d6d91566c11b645f036168f3b095a523';
 export const piNativeCandidateControllerSha256=Object.freeze({
- 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256,djangoSupervisorRelaunchDjangoScriptSha256]),
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256,djangoSupervisorRelaunchDjangoScriptSha256,opsQueryIndexDjangoScriptSha256]),
  'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256,dingTalkObserverRetryWorkerScriptSha256,dingTalkObserverRetryBudgetWorkerScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });

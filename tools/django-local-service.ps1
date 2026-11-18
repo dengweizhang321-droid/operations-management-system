@@ -1825,6 +1825,33 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   # sales_preflight_addition._verify_active_with_base, plus the exact
   # workflow-only delta against this generation's own baseline.
   # Ai158 is a finite schema-only child of the verified Workflow156 parent.
+  # OpsQueryIndex162 is a finite schema-only child of the verified Ai159 parent: three
+  # ordinary partial indexes in sales, netshop and customer_service, one generation.
+  # It is checked before every older marker, so the parent chain stays fully retained
+  # through ops_query_index_addition.parent_proof -> ai_unified_tasks_addition.
+  # _verify_active_with_base, plus the exact three-migration delta against its own baseline.
+  $opsQueryIndexGate = Join-Path $candidateRoot 'tools\ops_query_index_addition.py'
+  $opsQueryIndexDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('ops-query-index-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-ops-query-index-schema-addition-v1' -or $opsQueryIndexDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'ops-query-index-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $opsQueryIndexGate -PathType Leaf)) {throw 'OpsQueryIndex162 requires its exact verifier'}
+    $opsQueryIndexCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported OpsQueryIndex162 lifecycle operation'}
+    $opsQueryIndexArgs = @($opsQueryIndexGate,$opsQueryIndexCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($opsQueryIndexCommand -ceq 'admission') {$opsQueryIndexArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($opsQueryIndexCommand -ceq 'deployment') {$opsQueryIndexArgs += @('--operation',$IntegrationOperationId)}
+    $opsQueryIndexRun = Invoke-BoundedNativeProcess $Python $opsQueryIndexArgs $candidateRoot
+    if ($opsQueryIndexRun -isnot [pscustomobject] -or $opsQueryIndexRun.ExitCode -isnot [int] -or
+        $opsQueryIndexRun.LaunchFailed -isnot [bool] -or $opsQueryIndexRun.LaunchFailed -or
+        $opsQueryIndexRun.Diagnostic.OutputTruncated -isnot [bool] -or $opsQueryIndexRun.Diagnostic.OutputTruncated -or
+        @($opsQueryIndexRun.Output | Where-Object {$_ -is [string] -and $_.TrimStart().StartsWith('{')}).Count -ne 1) {
+      throw 'OpsQueryIndex162 requires one complete typed native JSON object'
+    }
+    $opsQueryIndexProof = ConvertFrom-UniqueNativeJson $opsQueryIndexRun 'Verify finite OpsQueryIndex162 schema addition'
+    if ($opsQueryIndexProof -isnot [pscustomobject] -or $opsQueryIndexProof.status -isnot [string] -or
+        $opsQueryIndexProof.status -cne 'verified') {throw 'OpsQueryIndex162 schema addition gate refused'}
+    return
+  }
   $aiUnifiedTasksGate = Join-Path $candidateRoot 'tools\ai_unified_tasks_addition.py'
   $aiUnifiedTasksDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
     (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('ai-unified-tasks-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
@@ -2313,6 +2340,9 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\ops_query_index_addition.py",
+      "tools\ops_query_index_catalog.py",
+      "tools\ops_query_index_candidate.py",
       "tools\ai_unified_tasks_addition.py",
       "tools\ai_unified_tasks_catalog.py",
       "tools\ai_unified_tasks_catalog.json",

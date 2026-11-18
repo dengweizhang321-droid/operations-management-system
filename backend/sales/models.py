@@ -174,6 +174,11 @@ class SalesOrderLine(models.Model):
                 condition=models.Q(is_business_row=True),
             ),
             models.Index(fields=["last_import_batch_id"], name="sales_line_batch_idx"),
+            models.Index(
+                fields=["online_spec_code"],
+                name="sales_cs_online_spec_idx",
+                condition=models.Q(is_business_row=True) & ~models.Q(online_spec_code=""),
+            ),
         ]
 
 

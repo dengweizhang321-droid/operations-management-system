@@ -84,6 +84,11 @@ class CustomerServiceConversation(models.Model):
             models.Index(fields=["consulted_at", "id"], name="cs_conversation_date_idx"),
             models.Index(fields=["agent", "match_status", "consulted_at"], name="cs_conversation_filter_idx"),
             models.Index(fields=["shop_name", "last_import_batch_id"], name="cs_conversation_batch_idx"),
+            models.Index(
+                fields=["analyzed_at"],
+                name="cs_conv_ai_analyzed_idx",
+                condition=models.Q(analysis_source="ai"),
+            ),
         ]
 
 

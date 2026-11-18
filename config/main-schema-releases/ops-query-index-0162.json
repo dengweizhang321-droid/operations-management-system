@@ -1,0 +1,19 @@
+{
+  "version": "teruisi-main-schema-recipe-v1",
+  "additionKind": "OpsQueryIndex",
+  "fromGeneration": 159,
+  "toGeneration": 162,
+  "steps": [
+    "sales.0013_customer_service_online_spec_index",
+    "netshop.0005_market_projection_page_index",
+    "customer_service.0003_ai_analyzed_at_index"
+  ],
+  "stepFiles": {
+    "backend/sales/migrations/0013_customer_service_online_spec_index.py": "75fb4c4d24114dd5d35bc73ce2453d31993a551c148b1c1920c8fab8c4379d09",
+    "backend/netshop/migrations/0005_market_projection_page_index.py": "8eb17873b003a98cc5e54ced612289d9a61771efe4198f2f92292900f2fda42b",
+    "backend/customer_service/migrations/0003_ai_analyzed_at_index.py": "1daac3fb522af39e2d2a2a1b54d2bd73a33cfbc302dd98721df42a9960e395e3"
+  },
+  "validation": "docs/ops-query-index-20261118/ops-query-index-checks.json",
+  "validationSha256": "6a5f1b37529ddc201aabbb832ff697778973ca611e8c2a461f7daa775ba847d2",
+  "codeSha256": "bab00e3952c80045bb874e9e3c9bb3afb2f3bf4a2b3c295058b5e274e891a6b7"
+}

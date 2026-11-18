@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {publishPreparedMain,piWorkspaceImage,piBusinessImage,piNativeImage,releaseLeaseTtlMs} from '../tools/publish-prepared-main.mjs';
-import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema,workflowAutomationSchema,aiTaskFeedbackCandidatesSchema,aiUnifiedTasksSchema} from '../tools/main-schema-release.mjs';
+import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema,workflowAutomationSchema,aiTaskFeedbackCandidatesSchema,aiUnifiedTasksSchema,opsQueryIndexSchema} from '../tools/main-schema-release.mjs';
 import {classifyRelease} from '../tools/release-scope-plan.mjs';
 
 async function fixture(t,components=['worker'],failAt=null){
@@ -836,4 +836,16 @@ test('predecessor qualification runs before expensive reused-package verificatio
  assert.equal(f.events.filter(e=>e==='readiness').length,2);
  assert.ok(f.events.indexOf('readiness')<f.events.indexOf('reuse'));
  assert.ok(f.events.indexOf('readiness')<f.events.indexOf('VerifyPreparedApp'));
+});
+
+test('OpsQueryIndex installs three indexes with no role provisioning, no Pi upgrade and finalizes at generation 162',async t=>{
+ const f=await migrationFixture(t,null,opsQueryIndexSchema),native=f.context.runStep,calls=[];
+ f.request.releasePlan.changes=[];
+ f.context.runStep=async args=>{if(args.action==='ProvisionRoles')calls.push(path.basename(args.script));return native(args);};
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ f.events.length=0;
+ const result=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.deepEqual(calls,[]);assert.equal(result.schemaReceipt.finalized.result.migrationCount,162);
+ assert.ok(f.events.indexOf('Install')<f.events.indexOf('Finalize'));
+ assert.ok(!f.events.includes('ProvisionRoles'));assert.ok(!f.events.includes('UpgradePi'));
 });
