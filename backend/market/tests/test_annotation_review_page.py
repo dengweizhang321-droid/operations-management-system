@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.db.models import Exists
 from django.utils import timezone
 
-from market.annotations import _matching_snapshot, _recognition_items, _review, _review_scope, _filter_review_items
+from market.annotations import _matching_snapshot, _recognition_items, _review, _review_eligibility, _review_scope, _filter_review_items
 from market.models import MarketAnnotationItem, MarketMasterAuditLog, MarketPriceSnapshot
 
 from .test_annotation_review import MarketAnnotationReviewTests as _Base
@@ -75,3 +75,31 @@ class MarketAnnotationReviewPageTwoStepTests(_Base):
         self.assertEqual(_review({})["items"], [])
         self.seed()
         self.assertEqual(_review({"aggregateJobs": True, "itemPage": 50, "itemPageSize": 10})["items"], [])
+
+
+class MarketAnnotationReviewCountsTests(_Base):
+    def reference_counts(self, params):
+        scope = _review_scope(params)
+        query = _filter_review_items(scope, params)
+        eligibility, _ = _review_eligibility(scope)
+        selectable = query.filter(eligibility)
+        return selectable.count(), selectable.filter(selected=True).count()
+
+    def check(self, params, expected):
+        selection = _review(params)["selection"]
+        got = (selection["filteredReviewableCount"], selection["filteredSelectedCount"])
+        self.assertEqual(got, self.reference_counts(params))
+        self.assertEqual(got, expected)
+        self.assertIsInstance(got[0], int)
+        self.assertIsInstance(got[1], int)
+
+    def test_aggregate_counts_match_two_query_form(self):
+        params = {"aggregateJobs": True}
+        self.check(params, (0, 0))  # empty set
+        self.item("c-sel", selected=True)
+        self.item("c-unsel-1")
+        self.item("c-unsel-2", ai_segment="")
+        self.item("c-working", status="inferencing", selected=True)
+        self.check(params, (3, 1))
+        self.check({"aggregateJobs": True, "recognitionSources": ["non_ai"]}, (1, 0))  # reviewable, none selected
+        self.check({"jobId": "no-such-job"}, (0, 0))

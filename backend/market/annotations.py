@@ -921,8 +921,8 @@ def _review(params: dict[str, object]) -> dict[str, object]:
     for row in page_rows:
         context = contexts.get(row.job_id, {"segments": [], "ready": False})
         items.append({**_item_value(row, context["segments"]), "reviewJobReady": context["ready"], "reviewSegments": context["segments"], "snapshotValid": row.snapshot_valid})
-    reviewable = selectable.count()
-    selected = selectable.filter(selected=True).count()
+    counts = selectable.aggregate(reviewable=Count("id"), selected=Count("id", filter=Q(selected=True)))
+    reviewable, selected = counts["reviewable"], counts["selected"]
     return {
         "items": items,
         "itemPagination": {"page": item_page, "pageSize": item_page_size, "total": total, "pageCount": max(1, math.ceil(total / item_page_size))},
