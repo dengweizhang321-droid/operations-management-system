@@ -334,8 +334,11 @@ function Get-DingTalkFailureClassification([object]$ErrorRecord) {
   return [pscustomobject]@{ Category = $category; Retryable = $retryable; MaxAttempts = $maxAttempts; Summary = $summary }
 }
 
+# One constant feeds both the lock wait and the retry budget check below.
+function Get-DingTalkLockWaitSeconds { return 30 }
+
 function Invoke-DingTalkReceiverAttempt([object]$Identity) {
-  $observerLease = Enter-WorkerServiceMutex -StartWaitSeconds 30
+  $observerLease = Enter-WorkerServiceMutex -StartWaitSeconds (Get-DingTalkLockWaitSeconds)
   try {
     Assert-WorkerMaintenanceInactive
     if (Read-WorkerAutomationDrain) { return @{status='deferred_drain'} }
@@ -356,8 +359,9 @@ function Invoke-DingTalkReceiverWithRetry([object]$Identity) {
     } catch {
       $failure = Get-DingTalkFailureClassification $_
       $delay = Get-DingTalkRetryDelayMilliseconds $attempt
-      # A further attempt must leave room for its lock wait after the backoff.
-      $canRetry = $failure.Retryable -and $attempt -lt $failure.MaxAttempts -and ((Get-ProcessRemaining $WorkerOperationDeadline) -gt ($delay + 20000))
+      # A further attempt must leave room for its full lock wait (plus a 5 s margin) after the backoff.
+      $attemptReserve = ((Get-DingTalkLockWaitSeconds) * 1000) + 5000
+      $canRetry = $failure.Retryable -and $attempt -lt $failure.MaxAttempts -and ((Get-ProcessRemaining $WorkerOperationDeadline) -gt ($delay + $attemptReserve))
       $script:DingTalkReceiverAttempts.Add([ordered]@{ attempt=$attempt; outcome='failed'; category=$failure.Category; retried=[bool]$canRetry; elapsedMilliseconds=[int]$clock.ElapsedMilliseconds })
       $script:DingTalkReceiverFailure = [ordered]@{ category=$failure.Category; summary=$failure.Summary; attempts=$attempt; retryable=[bool]$failure.Retryable; budgetLimited=[bool]($failure.Retryable -and $attempt -lt $failure.MaxAttempts -and -not $canRetry) }
       if (-not $canRetry) { throw }

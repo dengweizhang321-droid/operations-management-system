@@ -128,6 +128,28 @@ try {
   Check (@(Get-LogEvents $s | Where-Object { $_.event -eq 'end_session_cancelled' }).Count -eq 1 -and (Get-Calls $s).Count -eq 2) 'cancelled-end-session-only-logged'
   Stop-Scenario $s
 
+  # 6b. ENDSESSION_CLOSEAPP (Restart Manager) is not a shutdown: no pg_ctl call, shutdown answer unchanged.
+  $s = New-Scenario 'closeapp' 0 0
+  $result = [TeruisiTest.Messages]::Send($s.Guard.Handle, 0x11, 0, 1, 60000)
+  Check ($result -eq 1 -and (Get-Calls $s).Count -eq 0) 'close-app-query-does-not-stop-database'
+  $result = [TeruisiTest.Messages]::Send($s.Guard.Handle, 0x16, 1, 1, 60000)
+  Check ($result -eq 0 -and (Get-Calls $s).Count -eq 0) 'close-app-end-session-does-not-stop-database'
+  $ignored = @(Get-LogEvents $s | Where-Object { $_.event -eq 'close_app_request_ignored' })
+  Check ($ignored.Count -eq 2 -and $ignored[0].flags -eq '0x1') 'close-app-logged-with-flags'
+  Check (($s.Guard.GetEvents() -join ',') -ceq 'query_end_session,close_app_request_ignored,end_session,close_app_request_ignored') 'close-app-skips-block-reason-and-stop'
+  Stop-Scenario $s
+  # CRITICAL and LOGOFF still stop the database (query path), CRITICAL|CLOSEAPP is still a Restart Manager request.
+  foreach ($flag in @(@('critical', 0x40000000), @('logoff', 0x80000000))) {
+    $s = New-Scenario ('flag-' + $flag[0]) 0 0
+    $result = [TeruisiTest.Messages]::Send($s.Guard.Handle, 0x11, 0, $flag[1], 60000)
+    Check ($result -eq 1 -and (Get-Calls $s).Count -eq 2 -and (Get-Calls $s)[1] -like 'stop *') ('query-flag-' + $flag[0] + '-stops-database')
+    Stop-Scenario $s
+  }
+  $s = New-Scenario 'flag-critical-closeapp' 0 0
+  $null = [TeruisiTest.Messages]::Send($s.Guard.Handle, 0x11, 0, 0x40000001, 60000)
+  Check ((Get-Calls $s).Count -eq 0) 'critical-with-closeapp-is-still-a-restart-manager-request'
+  Stop-Scenario $s
+
   # 7. Fixed defaults, path validation and a missing pg_ctl.
   $ast = [Management.Automation.Language.Parser]::ParseFile($guardScript, [ref]$null, [ref]$null)
   $defaults = @{}

@@ -120,6 +120,8 @@ try {
 
   # Bounded retry of the receiver observer (transient classes only; idempotent controller).
   $script:drain = $null
+  # The outer test deadline is 30 s; the real observer has a 30 min outer deadline and a 180 s phase budget.
+  $WorkerOperationDeadline = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + 1800000
   function Get-DingTalkRetryDelayMilliseconds { return $script:retryDelayMs }
   $script:retryDelayMs = 5
   $script:lockCalls = 0; $script:lockFailures = 0
@@ -164,6 +166,10 @@ try {
   $script:retryDelayMs = 170000
   $r = Invoke-RetryObservation 1 { @{status='native_completed'} }
   Check ($r.status -eq 'failed' -and @($r.attempts).Count -eq 1 -and $r.failure.budgetLimited -eq $true -and $r.attempts[0].retried -eq $false) 'retry-respects-phase-budget'
+  # the next attempt needs its full 30 s lock wait plus margin: 145 s backoff cannot fit a 180 s phase
+  $script:retryDelayMs = 145000
+  $r = Invoke-RetryObservation 1 { @{status='native_completed'} }
+  Check ($r.status -eq 'failed' -and @($r.attempts).Count -eq 1 -and $r.failure.budgetLimited -eq $true) 'retry-reserves-full-lock-wait'
   $script:retryDelayMs = 5
   # 7. failure text carries no credentials, tokens, URLs or paths
   $r = Invoke-RetryObservation 0 { throw 'failed token=abc123XYZsecret for C:\private\dir\x.json at https://h.example/p?k=1 Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9abc password: hunter2' }

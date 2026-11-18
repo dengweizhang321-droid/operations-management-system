@@ -192,8 +192,16 @@ namespace Teruisi
 
         public void OnQueryEndSession(PostgresShutdownGuardWindow w, long lParam)
         {
+            long flags = lParam & 0xFFFFFFFFL;
             Trace("query_end_session");
-            Log("query_end_session", "flags", "0x" + lParam.ToString("X"));
+            Log("query_end_session", "flags", "0x" + flags.ToString("X"));
+            // ENDSESSION_CLOSEAPP: Restart Manager asks only this process to exit; the session is not ending.
+            if ((flags & 0x1L) != 0)
+            {
+                Trace("close_app_request_ignored");
+                Log("close_app_request_ignored", "flags", "0x" + flags.ToString("X"));
+                return;
+            }
             try
             {
                 bool created = w.CreateBlockReason(BlockReasonText);
@@ -214,9 +222,16 @@ namespace Teruisi
 
         public void OnEndSession(bool ending, long lParam)
         {
+            long flags = lParam & 0xFFFFFFFFL;
             Trace(ending ? "end_session" : "end_session_cancelled");
-            Log(ending ? "end_session" : "end_session_cancelled", "flags", "0x" + lParam.ToString("X"));
+            Log(ending ? "end_session" : "end_session_cancelled", "flags", "0x" + flags.ToString("X"));
             if (!ending) { lock (gate) { stopAttempted = false; } return; }
+            if ((flags & 0x1L) != 0)
+            {
+                Trace("close_app_request_ignored");
+                Log("close_app_request_ignored", "flags", "0x" + flags.ToString("X"));
+                return;
+            }
             bool attempted;
             lock (gate) { attempted = stopAttempted; }
             // Fallback only: forced shutdowns skip WM_QUERYENDSESSION. Best effort, no block reason.
