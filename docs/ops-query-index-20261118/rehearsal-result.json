@@ -1,0 +1,71 @@
+{
+  "version": "teruisi-ops-query-index-pg-rehearsal-v1",
+  "status": "passed",
+  "generations": [
+    159,
+    162
+  ],
+  "checks": [
+    "all-three-queries-plan-through-new-index",
+    "committed162-not-replayed",
+    "exact159-parent",
+    "exact162-catalog-with-real-predicates",
+    "missing-index-rejected-and-rolled-back",
+    "old-rows-and-ACL-preserved",
+    "three-steps-applied-by-real-gate"
+  ],
+  "productionTouched": false,
+  "fullBackupOrRestorePerformed": false,
+  "database": {
+    "name": "teruisi_ops_query_index_rehearsal",
+    "user": "ops162_fixture",
+    "port": 55532,
+    "serverVersionNumber": 170011
+  },
+  "applyStepsSeconds": 6.188,
+  "totalSeconds": 106.297,
+  "syntheticRowsPerTable": 30000,
+  "renderedIndexes": [
+    {
+      "index": "cs_conv_ai_analyzed_idx",
+      "predicate": "((analysis_source)::text = 'ai'::text)",
+      "normalized": "analysis_source='ai'",
+      "opclasses": [
+        "timestamptz_ops"
+      ],
+      "bytes": 16384
+    },
+    {
+      "index": "net_projection_page_idx",
+      "predicate": "((dataset)::text = ANY ((ARRAY['sku_daily'::character varying, 'spu_daily'::character varying])::text[]))",
+      "normalized": "dataset=anyarray['sku_daily','spu_daily']",
+      "opclasses": [
+        "text_ops",
+        "text_ops"
+      ],
+      "bytes": 671744
+    },
+    {
+      "index": "sales_cs_online_spec_idx",
+      "predicate": "(is_business_row AND (NOT (online_spec_code = ''::text)))",
+      "normalized": "is_business_rowandnotonline_spec_code=''",
+      "opclasses": [
+        "text_ops"
+      ],
+      "bytes": 40960
+    }
+  ],
+  "plans": {
+    "customer-service-products": "Limit  (cost=12.69..12.69 rows=1 width=69)\n  ->  Sort  (cost=12.69..12.69 rows=1 width=69)\n        Sort Key: (max(sales_time)) DESC, online_spec_code, product_code, (TRIM(BOTH FROM category))\n        ->  GroupAggregate  (cost=12.60..12.68 rows=1 width=69)\n              Group Key: online_spec_code, product_code, (TRIM(BOTH FROM category))\n              ->  Incremental Sort  (cost=12.60..12.64 rows=2 width=39)\n                    Sort Key: online_spec_code, product_code, (TRIM(BOTH FROM category))\n                    Presorted Key: online_spec_code\n                    ->  Index Scan using sales_cs_online_spec_idx on sales_order_lines  (cost=0.28..12.59 rows=1 width=39)\n                          Index Cond: (online_spec_code = ANY ('{SPEC-003,SPEC-011,SPEC-027}'::text[]))",
+    "netshop-projection-first-page": "Limit  (cost=0.29..460.29 rows=1000 width=1175)\n  ->  Index Scan using net_projection_page_idx on netshop_rows  (cost=0.29..4600.34 rows=10000 width=1175)\n        Index Cond: ((source)::text = 'jd_sku_daily'::text)",
+    "customer-service-ai-count": "Index Scan using cs_conv_ai_analyzed_idx on customer_service_conversations  (cost=0.15..8.17 rows=1 width=8)\n  Index Cond: (analyzed_at >= '2026-11-18 00:00:00+00'::timestamp with time zone)"
+  },
+  "migrationSha256": "b97df02139b903dbe74f21de830c3ad0f7be897c571f8989c8f7b13dbe654c53",
+  "cleanup": {
+    "started": true,
+    "stopped": true,
+    "privateDataRemoved": true,
+    "passwordFileRemoved": true,
+    "childExitZero": true
+  }
+}
