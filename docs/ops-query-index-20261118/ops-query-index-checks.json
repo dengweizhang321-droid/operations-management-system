@@ -1,7 +1,7 @@
 {
   "version": "ops-query-index-mandatory-code-checks-v1",
   "status": "code-checked",
-  "checkedAt": "2026-11-18T08:34:08.604543+00:00",
+  "checkedAt": "2026-11-18T12:45:52.391281+00:00",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "fullBackupOrRestorePerformed": false,
@@ -30,6 +30,6 @@
   ],
   "evidence": {
     "path": "docs/ops-query-index-20261118/ops-query-index-execution.json",
-    "sha256": "5dd2abab70b62984e16d2554c0a3d668043560daa06f89607bdd2e2e1d7f0c8d"
+    "sha256": "83fb166d7bcc5a6b5304bfd7b864a64eace85cc9193c7eb2b19befe8ada50c5a"
   }
 }

@@ -1,7 +1,7 @@
 {
   "version": "teruisi-schema-mandatory-code-execution-v1",
-  "checkedAt": "2026-11-18T08:34:08.604543+00:00",
-  "baseCommit": "def23613adc012e37d9e3bdc49414acd1df123b2",
+  "checkedAt": "2026-11-18T12:45:52.391281+00:00",
+  "baseCommit": "a240a77eff1f7e46a2d401c649c44f35a36d305b",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "fullBackupOrRestorePerformed": false,
@@ -141,8 +141,10 @@
     "tools/manual-maintenance-continuation.mjs": "984c1474ea7cc0b7e3203510a56bcc107cd43dc410fcc8bd8001042f83851173",
     "tests/test_postgres_no_key_generation_159.py": "63b01c7b7e4cdc7458cb0870c8e1a13539db1a4e7fad62d9d2091f25ba6991c5",
     "tests/schema-addition-enumeration-consistency.test.mjs": "51b8937853fcbf6fc167552304a1c4370cae6f5b482e33e7410a93d3bb629e85",
-    "tests/test_ops_query_index_addition.py": "1d19eb91ecbb41b3bbe76ad6680dea29bfd0e9832ac0f329caf4356498e4abfc",
-    "docs/ops-query-index-20261118/run-mandatory-checks.py": "08c0393081585858af019ac748a7a2dd59c27c523667f2368ee93595e8f7af44"
+    "tests/test_ops_query_index_addition.py": "06ed77791df1b77227e766bd436f9131feb19f4f5bbe38ef6b6a9430f73d9d42",
+    "tests/test_ops_query_index_rehearsal.py": "1fee41934a55eeb6aba31b04dd8e881a93a61bdf58213c900974130c550fede3",
+    "tools/ops_query_index_rehearsal.py": "f943471cff11d7dbe5c83c7b15df4151ddd44bae6cd94055c86de45d4bc45b11",
+    "docs/ops-query-index-20261118/run-mandatory-checks.py": "c954e4ddadf7957ed5fb4b676e446b02d2865f3e9a49eb9f1eb1e0bc5469f5cb"
   },
   "syntax": {
     "python": {
@@ -239,6 +241,8 @@
         "tools/check_catalog_baselines.py",
         "tests/test_postgres_no_key_generation_159.py",
         "tests/test_ops_query_index_addition.py",
+        "tests/test_ops_query_index_rehearsal.py",
+        "tools/ops_query_index_rehearsal.py",
         "docs/ops-query-index-20261118/run-mandatory-checks.py"
       ]
     },
@@ -277,8 +281,8 @@
         },
         {
           "host": "pwsh.exe",
-          "files": 11,
           "version": "7.7.0",
+          "files": 11,
           "status": "passed"
         }
       ]
@@ -288,7 +292,7 @@
     "status": "passed",
     "fromGeneration": 159,
     "toGeneration": 162,
-    "baselineCommit": "15cc1cae18865eeaf0cd527876d08ab65b74bfcb",
+    "baselineCommit": "15cc1cae",
     "migrationSha256": "b97df02139b903dbe74f21de830c3ad0f7be897c571f8989c8f7b13dbe654c53",
     "stepFiles": {
       "backend/sales/migrations/0013_customer_service_online_spec_index.py": "75fb4c4d24114dd5d35bc73ce2453d31993a551c148b1c1920c8fab8c4379d09",
@@ -338,5 +342,5 @@
       "tools/ai_unified_tasks_catalog.json"
     ]
   },
-  "executionScriptSha256": "08c0393081585858af019ac748a7a2dd59c27c523667f2368ee93595e8f7af44"
+  "executionScriptSha256": "c954e4ddadf7957ed5fb4b676e446b02d2865f3e9a49eb9f1eb1e0bc5469f5cb"
 }
