@@ -15,6 +15,13 @@ export type ZeroEffectEvidence = {
   notificationStage: string; downloads: "absent" | "directories_only";
 };
 export type ZeroEffectLock = { assertOwned: () => Promise<void> };
+/** Manual "failed before any import" closure evidence. Unlike zero-effect it tolerates export/download progress and keeps the download tree as it is. */
+export type PreImportEvidence = {
+  kind: "pre_import"; assessmentVersion: number; runId: string; executionId: string; planHash: string; activeSha256: string; manifestSha256: string;
+  failureCode: string; failureStage: string; failureAt: string; operations: Array<{ operationId: string; sourceKind: string; stage: string }>;
+  notificationStage: string; downloads: Array<{ path: string; bytes: number; sha256: string }>;
+};
+export type PreImportVerdict = { verdict: "closable" | "not_closable"; reasons: string[]; evidence?: PreImportEvidence };
 
 /** Failure codes thrown by createJdLogisticsSessionGuard before it returns a
  * business frame. The throw-site test pins that no other file raises them and
@@ -85,26 +92,33 @@ async function downloadState(downloads: string, operationIds: string[]): Promise
   return "directories_only";
 }
 
+/** Shared read-only load: active and manifest are bound to each other and to the argument, the manifest passes the
+ * strict identity check, and it is a failed, pending, run-stage plan. Judgement of the failure itself stays with the caller. */
+async function loadFailedRunPlan(root: string, active: ZeroEffectActive) {
+  if (!active || typeof active.runId !== "string" || typeof active.executionId !== "string" || typeof active.planHash !== "string") refuse("active_shape");
+  const files = pipelinePaths(root, active.runId);
+  const activeBytes = await readControlFile(files.active);
+  if (!activeBytes) refuse("active_missing");
+  if (!same(parseObject(activeBytes), { runId: active.runId, executionId: active.executionId, planHash: active.planHash })) refuse("active_differs_from_argument");
+  const manifestBytes = await readControlFile(files.manifest);
+  if (!manifestBytes) refuse("manifest_missing");
+  const plan = parseObject(manifestBytes) as unknown as JdLogisticsManifest;
+  try { assertLogisticsManifest(plan, active.executionId); } catch { refuse("manifest_identity_check_failed"); }
+  if (plan.runId !== active.runId || plan.executionId !== active.executionId || plan.planHash !== active.planHash) refuse("manifest_not_bound_to_active");
+  const unknownKeys = Object.keys(plan).filter(key => !manifestKeys.has(key));
+  if (unknownKeys.length) refuse(`manifest_unknown_field:${unknownKeys.join(",")}`);
+  if (plan.stage !== "failed") refuse(`manifest_stage_${String(plan.stage)}`);
+  if (plan.outcome !== "pending") refuse(`manifest_outcome_${String(plan.outcome)}`);
+  const failure = plan.failure;
+  if (!failure || failure.stage !== "run" || typeof failure.code !== "string" || typeof failure.at !== "string") refuse("failure_missing_or_not_run_stage");
+  return { files, activeBytes, manifestBytes, plan, failure };
+}
+
 /** Read-only. Never writes, creates, or moves anything. */
 export async function assessJdLogisticsZeroEffect(root: string, active: ZeroEffectActive): Promise<ZeroEffectVerdict> {
   const reasons: string[] = [];
   try {
-    if (!active || typeof active.runId !== "string" || typeof active.executionId !== "string" || typeof active.planHash !== "string") refuse("active_shape");
-    const files = pipelinePaths(root, active.runId);
-    const activeBytes = await readControlFile(files.active);
-    if (!activeBytes) refuse("active_missing");
-    if (!same(parseObject(activeBytes), { runId: active.runId, executionId: active.executionId, planHash: active.planHash })) refuse("active_differs_from_argument");
-    const manifestBytes = await readControlFile(files.manifest);
-    if (!manifestBytes) refuse("manifest_missing");
-    const plan = parseObject(manifestBytes) as unknown as JdLogisticsManifest;
-    try { assertLogisticsManifest(plan, active.executionId); } catch { refuse("manifest_identity_check_failed"); }
-    if (plan.runId !== active.runId || plan.executionId !== active.executionId || plan.planHash !== active.planHash) refuse("manifest_not_bound_to_active");
-    const unknownKeys = Object.keys(plan).filter(key => !manifestKeys.has(key));
-    if (unknownKeys.length) refuse(`manifest_unknown_field:${unknownKeys.join(",")}`);
-    if (plan.stage !== "failed") refuse(`manifest_stage_${String(plan.stage)}`);
-    if (plan.outcome !== "pending") refuse(`manifest_outcome_${String(plan.outcome)}`);
-    const failure = plan.failure;
-    if (!failure || failure.stage !== "run" || typeof failure.code !== "string" || typeof failure.at !== "string") refuse("failure_missing_or_not_run_stage");
+    const { files, activeBytes, manifestBytes, plan, failure } = await loadFailedRunPlan(root, active);
     if (!JD_LOGISTICS_PRE_BUSINESS_FAILURE_CODES.includes(failure.code)) refuse(`failure_code_not_whitelisted:${failure.code}`);
     if (!plan.operations.length) refuse("no_operations");
     plan.operations.forEach((operation, index) => {
@@ -135,9 +149,12 @@ async function absentOrRefuse(file: string) {
 }
 const safeName = (value: string) => value.replace(/[^A-Za-z0-9._-]/g, "_");
 export function zeroEffectClosureDirectoryName(executionId: string, activeSha256: string) { return `zero-effect-${safeName(executionId)}-${activeSha256.slice(0, 16)}`; }
-type Intent = { version: string; status: "intent"; at: string; closedBy: { executionId: string }; original: { runId: string; executionId: string; planHash: string; activeSha256: string; manifestSha256: string };
-  evidence: ZeroEffectEvidence; archiveFile: "active.archived.json"; originalFailureRetained: true; oldExecutionReplayAllowed: false };
+export function preImportClosureDirectoryName(executionId: string, activeSha256: string) { return `pre-import-${safeName(executionId)}-${activeSha256.slice(0, 16)}`; }
+type ClosureEvidence = ZeroEffectEvidence | PreImportEvidence;
+type Intent = { version: string; status: "intent"; kind?: "pre_import"; reason?: string; at: string; closedBy: Record<string, string>; original: { runId: string; executionId: string; planHash: string; activeSha256: string; manifestSha256: string };
+  evidence: ClosureEvidence; archiveFile: "active.archived.json"; originalFailureRetained: true; oldExecutionReplayAllowed: false };
 const intentVersion = "jd-logistics-zero-effect-closure-v1";
+const preImportIntentVersion = "jd-logistics-pre-import-closure-v1";
 const names = { original: "active.original.json", manifest: "manifest.original.json", intent: "intent.json", archive: "active.archived.json", committed: "committed.json" };
 
 async function ensureFile(file: string, expected: string | Uint8Array) {
@@ -145,19 +162,20 @@ async function ensureFile(file: string, expected: string | Uint8Array) {
   if (existing === null) { await createOnly(file, expected); return; }
   if (sha(existing) !== sha(expected)) refuse("existing_closure_file_differs");
 }
-async function readIntent(directory: string): Promise<Intent | null> {
+async function readIntent(directory: string, version = intentVersion): Promise<Intent | null> {
   const bytes = await readControlFile(path.join(directory, names.intent));
   if (!bytes) return null;
   const intent = parseObject(bytes) as unknown as Intent;
   const o = intent.original;
-  if (intent.version !== intentVersion || intent.status !== "intent" || !o || !intent.evidence || intent.archiveFile !== names.archive
+  if (intent.version !== version || (version === preImportIntentVersion) !== (intent.kind === "pre_import") || intent.status !== "intent" || !o || !intent.evidence || intent.archiveFile !== names.archive
     || o.activeSha256 !== intent.evidence.activeSha256 || o.manifestSha256 !== intent.evidence.manifestSha256 || o.runId !== intent.evidence.runId
     || o.executionId !== intent.evidence.executionId || o.planHash !== intent.evidence.planHash) refuse("intent_inconsistent");
   return intent;
 }
-async function writeCommitted(directory: string, intent: Intent, resumedBy: string) {
+async function writeCommitted(directory: string, intent: Intent, resumedBy: string | Record<string, string>) {
   const intentBytes = await readControlFile(path.join(directory, names.intent));
-  const committed = { ...intent, status: "committed", committedAt: new Date().toISOString(), intentSha256: sha(intentBytes!), committedBy: { executionId: resumedBy },
+  const committed = { ...intent, status: "committed", committedAt: new Date().toISOString(), intentSha256: sha(intentBytes!),
+    committedBy: typeof resumedBy === "string" ? { executionId: resumedBy } : resumedBy,
     nextAction: "Plan a new execution from A; the archived execution is permanently not replayable." };
   await ensureFile(path.join(directory, names.committed), jsonBytes(committed));
 }
@@ -177,6 +195,13 @@ export async function reconcileJdLogisticsZeroEffectClosures(root: string, execu
   const files = pipelinePaths(root);
   const entries = await readdir(files.directory).catch(error => { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; });
   const pending: string[] = [];
+  // Operator-driven pre-import closures are finished only by their CLI. Planning past an uncommitted one
+  // would silently turn a manual, reasoned closure into an unrecorded one, so A refuses instead.
+  for (const name of entries.filter(entry => entry.startsWith("pre-import-"))) {
+    const directory = path.join(files.directory, name), info = await lstat(directory);
+    if (!info.isDirectory() || info.isSymbolicLink()) refuse("closure_entry_not_directory");
+    if (await readControlFile(path.join(directory, names.committed)) === null) refuse("pre_import_closure_pending_use_cli");
+  }
   for (const name of entries.filter(entry => entry.startsWith("zero-effect-"))) {
     const directory = path.join(files.directory, name), info = await lstat(directory);
     if (!info.isDirectory() || info.isSymbolicLink()) refuse("closure_entry_not_directory");
@@ -205,13 +230,16 @@ export async function reconcileJdLogisticsZeroEffectClosures(root: string, execu
   refuse("pending_closure_state_inconsistent");
 }
 
-/** Close a zero-effect previous plan. Returns false when the previous plan is not closable. */
-export async function closeJdLogisticsZeroEffectPlan(root: string, active: ZeroEffectActive, executionId: string, lock: ZeroEffectLock, now = new Date(),
-  hooks: { afterIntent?: () => Promise<void> } = {}) {
-  const verdict = await assessJdLogisticsZeroEffect(root, active);
-  if (verdict.verdict !== "zero_effect" || !verdict.evidence) return false;
+type CloseSpec = {
+  directoryName: (executionId: string, activeSha256: string) => string; version: string; closedBy: Record<string, string>; intentExtra: Partial<Intent>;
+  committedBy: string | Record<string, string>; assess: () => Promise<{ ok: boolean; evidence?: ClosureEvidence }>;
+};
+/** Shared create-only closure protocol: intent, re-verification, no-replace archive of active.json, committed. */
+async function closePlan(spec: CloseSpec, root: string, active: ZeroEffectActive, lock: ZeroEffectLock, now: Date, hooks: { afterIntent?: () => Promise<void> }) {
+  const verdict = await spec.assess();
+  if (!verdict.ok || !verdict.evidence) return false;
   const evidence = verdict.evidence, files = pipelinePaths(root, active.runId);
-  const directory = path.join(files.directory, zeroEffectClosureDirectoryName(evidence.executionId, evidence.activeSha256));
+  const directory = path.join(files.directory, spec.directoryName(evidence.executionId, evidence.activeSha256));
   const activeBytes = (await readControlFile(files.active))!, manifestBytes = (await readControlFile(files.manifest))!;
   try {
     await mkdir(directory);
@@ -220,26 +248,34 @@ export async function closeJdLogisticsZeroEffectPlan(root: string, active: ZeroE
     const info = await lstat(directory);
     if (!info.isDirectory() || info.isSymbolicLink()) refuse("closure_directory_identity");
   }
-  const existingIntent = await readIntent(directory);
-  if (existingIntent && (!same(existingIntent.evidence, evidence) || existingIntent.original.activeSha256 !== evidence.activeSha256)) refuse("resume_evidence_differs");
+  const existingIntent = await readIntent(directory, spec.version);
+  if (existingIntent && (!same(existingIntent.evidence, evidence) || existingIntent.original.activeSha256 !== evidence.activeSha256
+    || spec.intentExtra.reason !== existingIntent.reason)) refuse("resume_evidence_differs");
   if (await readControlFile(path.join(directory, names.committed)) !== null) refuse("closure_already_committed_but_active_present");
   await ensureFile(path.join(directory, names.original), activeBytes);
   await ensureFile(path.join(directory, names.manifest), manifestBytes);
-  const intent: Intent = existingIntent ?? { version: intentVersion, status: "intent", at: now.toISOString(), closedBy: { executionId },
+  const intent: Intent = existingIntent ?? { version: spec.version, ...spec.intentExtra, status: "intent", at: now.toISOString(), closedBy: spec.closedBy,
     original: { runId: evidence.runId, executionId: evidence.executionId, planHash: evidence.planHash, activeSha256: evidence.activeSha256, manifestSha256: evidence.manifestSha256 },
     evidence, archiveFile: "active.archived.json", originalFailureRetained: true, oldExecutionReplayAllowed: false };
   if (!existingIntent) await createOnly(path.join(directory, names.intent), jsonBytes(intent));
   await hooks.afterIntent?.(); // test seam between the intent and the archive step
   // Re-verify nothing moved while the intent was being written.
   await lock.assertOwned();
-  const again = await assessJdLogisticsZeroEffect(root, active);
-  if (again.verdict !== "zero_effect" || !same(again.evidence, evidence)) refuse("evidence_changed_before_archive");
+  const again = await spec.assess();
+  if (!again.ok || !same(again.evidence, evidence)) refuse("evidence_changed_before_archive");
   await absentOrRefuse(path.join(directory, names.archive));
   await zeroEffectMoveNoReplace(files.active, path.join(directory, names.archive));
   await verifyArchived(files, directory, intent);
   await lock.assertOwned();
-  await writeCommitted(directory, intent, executionId);
+  await writeCommitted(directory, intent, spec.committedBy);
   return true;
+}
+
+/** Close a zero-effect previous plan. Returns false when the previous plan is not closable. */
+export async function closeJdLogisticsZeroEffectPlan(root: string, active: ZeroEffectActive, executionId: string, lock: ZeroEffectLock, now = new Date(),
+  hooks: { afterIntent?: () => Promise<void> } = {}) {
+  return closePlan({ directoryName: zeroEffectClosureDirectoryName, version: intentVersion, closedBy: { executionId }, intentExtra: {}, committedBy: executionId,
+    assess: async () => { const v = await assessJdLogisticsZeroEffect(root, active); return { ok: v.verdict === "zero_effect", evidence: v.evidence }; } }, root, active, lock, now, hooks);
 }
 
 /** Read-only operator view of the current active pointer. Writes nothing. */
@@ -254,4 +290,142 @@ export async function inspectJdLogisticsZeroEffect(root: string) {
     if (reason === null) throw error;
     return { active: null, verdict: "not_closable" as const, reasons: [reason] };
   }
+}
+
+// --- manual pre-import closure ---------------------------------------------
+// The operator-driven sibling of the zero-effect closure, for a failed plan that never reached the import API.
+// Proof of "never imported": the pipeline persists operation.stage = "importing" before it calls the import
+// endpoint, and a receipt is written only after it returns. A failed plan whose operations never reached
+// importing/imported and carry no receipt therefore cannot have sent an import request.
+const preImportAssessmentVersion = 1;
+const preImportOperationKeys = new Set([...operationKeys, "export", "contentHash", "rowCount", "parserVersion"]);
+const preImportStages = new Set(["planned", "exporting", "downloaded", "validated"]);
+const maxPreImportFileBytes = 64 * 1024 * 1024;
+
+/** Lists (never changes) the download tree: regular files only, no links, bounded depth and size; each file is hashed. */
+async function preImportDownloads(downloads: string, operationIds: string[]): Promise<PreImportEvidence["downloads"]> {
+  const info = await lstat(downloads).catch(error => { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; });
+  if (!info) return [];
+  if (!info.isDirectory() || info.isSymbolicLink()) refuse("download_root_is_link_or_file");
+  if (path.resolve(await realpath(downloads)).toLowerCase() !== path.resolve(downloads).toLowerCase()) refuse("download_root_is_link");
+  const out: PreImportEvidence["downloads"] = [];
+  let entries = 0;
+  const walk = async (directory: string, depth: number) => {
+    if (depth > 4) refuse("download_tree_too_deep");
+    for (const name of (await readdir(directory)).sort()) {
+      if (++entries > maxDownloadEntries) refuse("download_tree_too_large");
+      const child = path.join(directory, name), stat = await lstat(child);
+      if (stat.isSymbolicLink()) refuse("download_contains_link");
+      if (depth === 0 && (!stat.isDirectory() || !operationIds.includes(name))) refuse("download_unexpected_entry");
+      if (stat.isDirectory()) { await walk(child, depth + 1); continue; }
+      if (!stat.isFile() || stat.nlink !== 1 || stat.size > maxPreImportFileBytes) refuse("download_file_not_plain");
+      const bytes = await readControlFile(child, maxPreImportFileBytes);
+      out.push({ path: path.relative(downloads, child).split(path.sep).join("/"), bytes: bytes!.length, sha256: sha(bytes!) });
+    }
+  };
+  await walk(downloads, 0);
+  return out;
+}
+
+/** Read-only. closable only when the failed run plan provably never started an import. Downloads may exist and are never touched. */
+export async function assessJdLogisticsPreImport(root: string, active: ZeroEffectActive): Promise<PreImportVerdict> {
+  try {
+    const { files, activeBytes, manifestBytes, plan, failure } = await loadFailedRunPlan(root, active);
+    if ((JD_LOGISTICS_CREDENTIAL_RISK_SUFFIXES as readonly string[]).some(suffix => failure.code === `JD_LOGISTICS_${suffix}`)) refuse(`failure_code_credential_risk:${failure.code}`);
+    if (!plan.operations.length) refuse("no_operations");
+    plan.operations.forEach((operation, index) => {
+      const extra = Object.keys(operation).filter(key => !preImportOperationKeys.has(key));
+      if (extra.length) refuse(`operation_${index}_receipt_or_unknown_field:${extra.join(",")}`);
+      if (!preImportStages.has(String(operation.stage))) refuse(`operation_${index}_stage_${String(operation.stage)}`);
+    });
+    const notification = plan.notification as Record<string, unknown>;
+    if (notification.stage !== "pending" || Object.keys(notification).some(key => key !== "stage")) refuse("notification_not_pristine");
+    const downloads = await preImportDownloads(files.downloads, plan.operations.map(operation => operation.operationId));
+    const evidence: PreImportEvidence = { kind: "pre_import", assessmentVersion: preImportAssessmentVersion, runId: plan.runId, executionId: plan.executionId, planHash: plan.planHash,
+      activeSha256: sha(activeBytes), manifestSha256: sha(manifestBytes), failureCode: failure.code, failureStage: failure.stage, failureAt: failure.at,
+      operations: plan.operations.map(operation => ({ operationId: operation.operationId, sourceKind: operation.sourceKind, stage: operation.stage })),
+      notificationStage: "pending", downloads };
+    return { verdict: "closable", reasons: ["no_import_started"], evidence };
+  } catch (error) {
+    const reason = reasonOf(error);
+    if (reason === null) throw error;
+    return { verdict: "not_closable", reasons: [reason] };
+  }
+}
+
+async function pendingPreImportClosures(root: string) {
+  const files = pipelinePaths(root);
+  const entries = await readdir(files.directory).catch(error => { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; });
+  const pending: string[] = [];
+  for (const name of entries.filter(entry => entry.startsWith("pre-import-"))) {
+    const directory = path.join(files.directory, name), info = await lstat(directory);
+    if (!info.isDirectory() || info.isSymbolicLink()) refuse("closure_entry_not_directory");
+    if (await readControlFile(path.join(directory, names.committed)) === null) pending.push(name);
+  }
+  return { files, pending };
+}
+
+/** Read-only operator view: the current active pointer, its verdict and any unfinished pre-import closure. */
+export async function inspectJdLogisticsPreImport(root: string) {
+  try {
+    const { files, pending } = await pendingPreImportClosures(root);
+    const bytes = await readControlFile(files.active);
+    if (!bytes) return { active: null, verdict: "not_closable" as const, reasons: ["no_active_pointer"], pendingClosures: pending };
+    const active = parseObject(bytes) as ZeroEffectActive;
+    return { active, ...(await assessJdLogisticsPreImport(root, active)), pendingClosures: pending };
+  } catch (error) {
+    const reason = reasonOf(error);
+    if (reason === null) throw error;
+    return { active: null, verdict: "not_closable" as const, reasons: [reason], pendingClosures: [] as string[] };
+  }
+}
+
+export type PreImportCloseInput = { expectSha256: string; reason: string };
+const preImportClosedBy = { channel: "manual_cli" };
+/** Dry-run: validates the same preconditions as closing and reports what would be written. Writes nothing. */
+export async function planJdLogisticsPreImportClose(root: string, input: PreImportCloseInput) {
+  const { files, pending } = await pendingPreImportClosures(root);
+  if (pending.length) refuse("pre_import_closure_pending_use_close");
+  const bytes = await readControlFile(files.active);
+  if (!bytes) refuse("no_active_pointer");
+  if (sha(bytes) !== input.expectSha256) refuse("expect_sha256_mismatch");
+  const active = parseObject(bytes) as ZeroEffectActive, verdict = await assessJdLogisticsPreImport(root, active);
+  if (verdict.verdict !== "closable" || !verdict.evidence) refuse(`not_closable:${verdict.reasons.join(",")}`);
+  const directory = preImportClosureDirectoryName(verdict.evidence.executionId, verdict.evidence.activeSha256);
+  return { wouldCreate: { directory: `outputs/jd-logistics-pipeline/${directory}`, files: Object.values(names) }, wouldMove: "active.json -> active.archived.json",
+    untouched: ["failed manifest", "downloads"], reason: input.reason, evidence: verdict.evidence };
+}
+
+/** Close (or finish closing) a pre-import failed plan. The operator CLI is the only caller; A never resumes these. */
+export async function closeJdLogisticsPreImportPlan(root: string, input: PreImportCloseInput, lock: ZeroEffectLock, now = new Date(),
+  hooks: { afterIntent?: () => Promise<void> } = {}) {
+  const { files, pending } = await pendingPreImportClosures(root);
+  if (pending.length > 1) refuse("multiple_pending_closures");
+  const live = await readControlFile(files.active);
+  if (pending.length === 1) {
+    const directory = path.join(files.directory, pending[0]), intent = await readIntent(directory, preImportIntentVersion);
+    const hasArchive = await readControlFile(path.join(directory, names.archive)) !== null;
+    if (intent) {
+      if (pending[0] !== preImportClosureDirectoryName(intent.original.executionId, intent.original.activeSha256)) refuse("closure_directory_name_mismatch");
+      if (input.expectSha256 !== intent.original.activeSha256) refuse("expect_sha256_mismatch");
+      if (intent.reason !== input.reason) refuse("resume_reason_differs");
+      if (live === null && hasArchive) {
+        await verifyArchived(pipelinePaths(root, intent.original.runId), directory, intent);
+        await lock.assertOwned(); await writeCommitted(directory, intent, preImportClosedBy);
+        return { status: "resumed_committed" as const, directory: pending[0] };
+      }
+      if (!(live !== null && !hasArchive && sha(live) === intent.original.activeSha256)) refuse("pending_closure_state_inconsistent");
+    } else {
+      const parsed = live === null || hasArchive ? null : parseObject(live);
+      if (!parsed || typeof parsed.executionId !== "string" || pending[0] !== preImportClosureDirectoryName(parsed.executionId, sha(live!))) refuse("pending_closure_without_intent");
+    }
+  }
+  if (live === null) refuse("no_active_pointer");
+  if (sha(live) !== input.expectSha256) refuse("expect_sha256_mismatch");
+  const active = parseObject(live) as ZeroEffectActive;
+  const closed = await closePlan({ directoryName: preImportClosureDirectoryName, version: preImportIntentVersion, closedBy: preImportClosedBy,
+    intentExtra: { kind: "pre_import", reason: input.reason }, committedBy: preImportClosedBy,
+    assess: async () => { const v = await assessJdLogisticsPreImport(root, active); return { ok: v.verdict === "closable", evidence: v.evidence }; } }, root, active, lock, now, hooks);
+  if (!closed) refuse("not_closable");
+  return { status: "closed" as const, directory: preImportClosureDirectoryName(active.executionId, input.expectSha256) };
 }

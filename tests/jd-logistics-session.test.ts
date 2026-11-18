@@ -78,6 +78,64 @@ test("disabled/non-DPAPI accounts and multiple login frames cannot submit", asyn
   assert.equal(f.stats().reads, 0);
 });
 
+const mobilePassport = "https://passport.jd.com/common/mobile/loginPage";
+const hiddenFrame = (url: string, onVisibleCheck?: () => void) => ({ url: () => url, locator: () => ({ isVisible: async () => { onVisibleCheck?.(); return false; } }) }) as unknown as Frame;
+
+test("a hidden passport frame beside the visible login frame is not a second login control", async () => {
+  const f = fixture(); f.set("https://wl.jdl.com/login", [hiddenFrame(mobilePassport), f.login]);
+  let loginFrame: Frame | undefined;
+  const original = f.deps.login;
+  f.deps.login = (async (page, key, load, wait, authorize) => {
+    const wrapped = async (frame: Frame) => { loginFrame = frame; await authorize!(frame); };
+    return original(page, key, load, wait, wrapped);
+  }) as typeof autoLoginJdWithWindowsDpapiCredential;
+  assert.equal(await createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), f.business);
+  assert.equal(loginFrame, f.login); assert.equal(f.stats().calls, 1); assert.equal(f.stats().reads, 1);
+});
+
+test("two visible passport frames are still ambiguous and no credential is read", async () => {
+  const f = fixture(); const second = { url: () => "https://passport.jd.com/common/mobile/loginPage", locator: () => ({ isVisible: async () => true }) } as unknown as Frame;
+  f.set("https://wl.jdl.com/login", [f.login, second]);
+  await assert.rejects(createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), /LOGIN_CONTROL_AMBIGUOUS/);
+  assert.equal(f.stats().calls, 0); assert.equal(f.stats().reads, 0);
+});
+
+test("only hidden passport frames: no immediate failure, no credential use, waits and ends with the existing closing code", async () => {
+  const f = fixture(); let checks = 0;
+  f.set("https://wl.jdl.com/login", [hiddenFrame(passport, () => { checks++; }), hiddenFrame(mobilePassport, () => { checks++; })]);
+  await assert.rejects(createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), /^Error: JD_LOGISTICS_BUSINESS_FRAME_NOT_READY$/);
+  assert.equal(f.stats().calls, 0); assert.equal(f.stats().reads, 0); assert.equal(f.stats().samples, 100); assert.equal(checks, 200);
+});
+
+test("a hidden login frame that becomes visible later is used once", async () => {
+  const f = fixture(); let visible = false;
+  const late = { url: () => passport, locator: () => ({ isVisible: async () => visible }) } as unknown as Frame;
+  f.set("https://wl.jdl.com/login", [late]);
+  f.page.waitForTimeout = async () => { visible = true; };
+  f.deps.login = (async (_p, _k, load, _w, authorize) => {
+    await authorize!(late); await load!(store.storeKey);
+    f.set(jdLogisticsSourceUrls.flow, [f.business]);
+    return { attempted: true, submitted: true, reason: "submitted" as const };
+  }) as typeof autoLoginJdWithWindowsDpapiCredential;
+  assert.equal(await createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), f.business);
+});
+
+test("credentials are only authorized for the one frame the guard selected", async () => {
+  const f = fixture(); const hidden = hiddenFrame(mobilePassport);
+  f.set("https://wl.jdl.com/login", [hidden, f.login]); // both are in the page, only f.login was selected
+  let seen = 0;
+  f.deps.login = (async (_p, _k, load, _w, authorize) => {
+    seen++;
+    await assert.rejects(authorize!(hidden), /^Error: JD_LOGISTICS_LOGIN_ORIGIN_REJECTED$/); // in the page and a passport origin, but not selected
+    await authorize!(f.login);
+    await load!(store.storeKey);
+    f.set(jdLogisticsSourceUrls.flow, [f.business]);
+    return { attempted: true, submitted: true, reason: "submitted" as const };
+  }) as typeof autoLoginJdWithWindowsDpapiCredential;
+  assert.equal(await createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), f.business);
+  assert.equal(seen, 1); assert.equal(f.stats().reads, 1);
+});
+
 test("foreign outer origin and revoked owner cannot obtain credentials", async () => {
   const f = fixture(); f.set("https://evil.example/", [f.login]);
   await assert.rejects(createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), /ORIGIN_REJECTED/);

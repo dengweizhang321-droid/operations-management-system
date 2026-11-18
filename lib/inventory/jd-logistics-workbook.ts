@@ -12,6 +12,8 @@ export const JD_LOGISTICS_MAX_ROWS = 20000;
 export const JD_LOGISTICS_MAX_CSV_BYTES = 8 * 1024 * 1024;
 export const JD_SHOP_PRODUCTS_CSV_HEADERS = ["店铺", "店铺商品编码", "平台商品编码", "事业部商品编码", "商品名称", "商家商品标识", "商品条码", "京配打标", "商品状态", "备注", "清关模式", "发货模式", "是否品牌自营"] as const;
 export const JD_FLOW_CSV_HEADERS = ["序号", "业务发生时间", "事业部编码", "事业部名称", "仓库编码", "仓库名称", "商家商品编码", "事业部商品编号", "商家商品标识", "事业部商品名称", "商家单据编码", "京东单据编码", "关联单据编码", "业务类型", "库存状态", "商品等级编码", "商家商品等级名称", "商家商品等级编码", "库存类型", "实际原始库存", "实际库存加减数量", "实际库存结存", "可用原始库存", "可用库存加减数量", "可用库存结存", "款号", "颜色", "尺码", "计量单位", "库存渠道"] as const;
+/** The flow export later added a trailing platform-order column; both header contracts were inspected and are accepted exactly. */
+export const JD_FLOW_CSV_HEADERS_WITH_PLATFORM_ORDER = [...JD_FLOW_CSV_HEADERS, "销售平台单号"] as const;
 type Field = { key: string; headers: string[]; required?: boolean; number?: boolean; boolean?: boolean };
 const text = (key: string, headers: string[], required = false): Field => ({ key, headers: [key, ...headers], required });
 const numeric = (key: string, headers: string[], required = false): Field => ({ ...text(key, headers, required), number: true });
@@ -184,8 +186,8 @@ export function parseJdShopProductsCsv(bytes: Uint8Array, businessUnitCode: stri
 /** Only the two verified CSV datasets are admitted. Identifier literals stay text. */
 export function parseJdLogisticsCsv(bytes: Uint8Array, sourceKind: "flow" | "shop_products", businessUnitCode: string, context: JdLogisticsWorkbookContext = {}): JdLogisticsRow[] {
   if (!bytes.byteLength || bytes.byteLength > JD_LOGISTICS_MAX_CSV_BYTES) throw new Error("CSV须为1字节至8MiB");
-  const expectedHeaders: readonly string[] = sourceKind === "flow" ? JD_FLOW_CSV_HEADERS : JD_SHOP_PRODUCTS_CSV_HEADERS;
-  const columnCount = expectedHeaders.length;
+  const contracts: ReadonlyArray<readonly string[]> = sourceKind === "flow" ? [JD_FLOW_CSV_HEADERS, JD_FLOW_CSV_HEADERS_WITH_PLATFORM_ORDER] : [JD_SHOP_PRODUCTS_CSV_HEADERS];
+  const maxColumns = Math.max(...contracts.map(contract => contract.length));
   let source: string;
   try { source = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
   catch {
@@ -195,8 +197,8 @@ export function parseJdLogisticsCsv(bytes: Uint8Array, sourceKind: "flow" | "sho
   }
   source = source.replace(/^\uFEFF/, "");
   const grid: string[][] = []; let row: string[] = [], cell = "", quoted = false, closed = false;
-  const pushCell = () => { if (cell.length > 1000) throw new Error("CSV字段超过1000字"); row.push(cell); if (row.length > columnCount) throw new Error(`CSV超过${columnCount}列`); cell = ""; closed = false; };
-  const pushRow = () => { pushCell(); if (row.some(value => clean(value))) { if (row.length !== columnCount) throw new Error(`CSV每行必须为${columnCount}列`); grid.push(row); if (grid.length > JD_LOGISTICS_MAX_ROWS + 1) throw new Error("CSV超过20000行"); } row = []; };
+  const pushCell = () => { if (cell.length > 1000) throw new Error("CSV字段超过1000字"); row.push(cell); if (row.length > maxColumns) throw new Error(`CSV超过${maxColumns}列`); cell = ""; closed = false; };
+  const pushRow = () => { pushCell(); if (row.some(value => clean(value))) { grid.push(row); if (grid.length > JD_LOGISTICS_MAX_ROWS + 1) throw new Error("CSV超过20000行"); } row = []; };
   for (let index = 0; index < source.length; index += 1) {
     const char = source[index];
     if (quoted) {
@@ -214,7 +216,10 @@ export function parseJdLogisticsCsv(bytes: Uint8Array, sourceKind: "flow" | "sho
   if (quoted) throw new Error("CSV引号未闭合");
   if (cell || row.length || closed) pushRow();
   const headers = grid[0]?.map(clean) ?? [];
-  if (headers.length !== columnCount || new Set(headers).size !== columnCount || expectedHeaders.some(header => !headers.includes(header))) throw new Error(`CSV表头必须匹配当前来源已核验的${columnCount}列中文合同`);
+  const expectedHeaders = contracts.find(contract => headers.length === contract.length && new Set(headers).size === contract.length && contract.every(header => headers.includes(header)));
+  if (!expectedHeaders) throw new Error(`CSV表头必须匹配当前来源已核验的${contracts.map(contract => `${contract.length}列`).join("或")}中文合同`);
+  const columnCount = expectedHeaders.length;
+  grid.forEach((record, index) => { if (record.length !== columnCount) throw new Error(`CSV每行必须为${columnCount}列（第${index + 1}行为${record.length}列）`); });
   const signedQuantityColumns = new Set(jdLogisticsWorkbookFields[sourceKind].filter(field => field.number).flatMap(field => headers.flatMap((header, index) => field.headers.includes(header) ? [index] : [])));
   for (const record of grid.slice(1)) record.forEach((value, index) => {
     const literal = clean(value);
