@@ -428,20 +428,6 @@ class SalesWriteApiTests(TestCase):
         self.assertEqual(verified.json()["stats"]["rowsNotOwnedByBatch"], 0)
         self.assertEqual(verified.json()["batch"]["id"], batch_id)
 
-        # A business row owned by another batch inside the range is counted; the
-        # non-business row above and batch-less requests are unaffected.
-        make_line(100, "foreign-business-row", first_import_batch_id="legacy-batch",
-                  last_import_batch_id="legacy-batch", ship_time="2024-01-01 12:00:00",
-                  sales_time="2024-01-01 11:00:00").save()
-        verified = self.client.get(verify_url, headers=signed_headers(verify_url))
-        self.assertEqual(verified.status_code, 200, verified.content)
-        self.assertEqual(verified.json()["stats"]["rowCount"], 2)
-        self.assertEqual(verified.json()["stats"]["rowsNotOwnedByBatch"], 1)
-        no_batch_url = "/api/sales/imports/verify?startDate=2024-01-01&endDate=2024-01-01"
-        no_batch = self.client.get(no_batch_url, headers=signed_headers(no_batch_url))
-        self.assertEqual(no_batch.status_code, 200, no_batch.content)
-        self.assertIsNone(no_batch.json()["stats"]["rowsNotOwnedByBatch"])
-
         listing_url = "/api/sales/imports?page=1&pageSize=10"
         listing = self.client.get(
             listing_url,

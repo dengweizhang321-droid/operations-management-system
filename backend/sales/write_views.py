@@ -479,12 +479,8 @@ def verify_import(request: HttpRequest) -> JsonResponse:
             .values_list("channel", flat=True)
             .distinct()[:501]
         )
-        # Count owned rows (index-friendly) instead of exclude(...).count(), which can
-        # degrade to a full-table scan; last_import_batch_id is NOT NULL so the two are equivalent.
         rows_not_owned = (
-            int(stats["row_count"] or 0) - queryset.filter(last_import_batch_id=batch_id).count()
-            if batch_id
-            else None
+            queryset.exclude(last_import_batch_id=batch_id).count() if batch_id else None
         )
         batch = (
             SalesImportBatch.objects.filter(Q(id=batch_id) | Q(file_hash=batch_id)).first()
