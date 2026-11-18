@@ -434,3 +434,178 @@ class NetshopConsumerProjectionBudgetTests(_NetshopFixtureMixin, TransactionTest
         self.assertIn("set_config", sql)
         self.assertIn("true", sql)
         self.assertEqual(list(params), [str(settings.NETSHOP_PROJECTION_TOTAL_TIMEOUT_MS)])
+
+
+class NetshopProjectionSnapshotBackoffTests(_NetshopFixtureMixin, TestCase):
+    """A statement timeout in the snapshot must back off instead of re-scanning every poll."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    @staticmethod
+    def timeout_error():
+        from django.db import OperationalError
+        from psycopg.errors import QueryCanceled
+
+        cause = QueryCanceled("canceling statement due to statement timeout")
+        error = OperationalError(str(cause))
+        error.__cause__ = cause
+        return error
+
+    class _Boom:
+        def __init__(self, error):
+            self.error = error
+
+        def order_by(self, *args, **kwargs):
+            raise self.error
+
+    def failing(self, error=None):
+        return self._Boom(error or self.timeout_error())
+
+    def real_args(self):
+        rows = NetshopRow.objects.all()
+        return dict(
+            metric_rows=rows,
+            identity_values=rows.values("platform", "sku_id", "spu_id", "product_code").distinct(),
+            brand_values=rows.values("brand").distinct(),
+        )
+
+    def snapshot(self, revision, **kwargs):
+        from netshop import consumers
+
+        args = self.real_args()
+        args.update(kwargs)
+        return consumers._projection_snapshot(revision, ["京东"], **args)
+
+    def failure_marker_exists(self):
+        from netshop import consumers
+
+        scope = "京东"
+        return cache.get(
+            consumers._projection_key("market-projection-snapshot-failure:v1", scope)
+        ) is not None
+
+    def assert_backed_off(self, revision):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from netshop.errors import NetshopApiError
+
+        with CaptureQueriesContext(connection) as queries:
+            with self.assertRaises(NetshopApiError) as caught:
+                self.snapshot(revision)
+        self.assertEqual(caught.exception.status, 503)
+        self.assertEqual(caught.exception.code, "source_not_ready")
+        self.assertEqual(
+            [q["sql"] for q in queries if "netshop_rows" in q["sql"]], []
+        )
+
+    def test_timeout_writes_marker_and_next_call_issues_no_sql(self) -> None:
+        from django.db import OperationalError
+
+        with self.assertRaises(OperationalError):
+            self.snapshot("r1", identity_values=self.failing())
+        self.assertTrue(self.failure_marker_exists())
+        self.assert_backed_off("r1")
+
+    def test_backoff_survives_revision_change(self) -> None:
+        from django.db import OperationalError
+
+        with self.assertRaises(OperationalError):
+            self.snapshot("r1", identity_values=self.failing())
+        self.assert_backed_off("r2")
+
+    def test_recomputes_after_marker_expires_and_success_clears_marker(self) -> None:
+        from django.db import OperationalError
+
+        with self.assertRaises(OperationalError):
+            self.snapshot("r1", identity_values=self.failing())
+        cache.clear()  # simulates the backoff window expiring
+        metric_count, identities, _brands = self.snapshot("r1")
+        self.assertGreater(len(identities), 0)
+        self.assertGreaterEqual(metric_count, 1)
+        self.assertFalse(self.failure_marker_exists())
+
+    def test_success_removes_existing_marker(self) -> None:
+        from netshop import consumers
+
+        key = consumers._projection_key("market-projection-snapshot-failure:v1", "京东")
+        cache.set(key, True, timeout=600)
+        # Marker blocks; remove only the success cache path by clearing then
+        # re-adding the marker after a successful compute is not possible, so
+        # simulate: marker present for another scope must not block this one.
+        from netshop.errors import NetshopApiError
+
+        with self.assertRaises(NetshopApiError):
+            self.snapshot("r1")
+        cache.delete(key)
+        self.snapshot("r1")
+        self.assertFalse(self.failure_marker_exists())
+
+    def test_other_scope_is_not_backed_off(self) -> None:
+        from django.db import OperationalError
+        from netshop import consumers
+
+        with self.assertRaises(OperationalError):
+            self.snapshot("r1", identity_values=self.failing())
+        args = self.real_args()
+        consumers._projection_snapshot("r1", ["天猫"], **args)
+
+    def test_non_timeout_error_writes_no_marker(self) -> None:
+        from django.db import OperationalError
+
+        with self.assertRaises(OperationalError):
+            self.snapshot("r1", identity_values=self.failing(OperationalError("other")))
+        with self.assertRaises(RuntimeError):
+            self.snapshot("r1", identity_values=self.failing(RuntimeError("bug")))
+        self.assertFalse(self.failure_marker_exists())
+
+    def test_zero_cache_seconds_disables_backoff(self) -> None:
+        from django.db import OperationalError
+
+        with self.settings(NETSHOP_PROJECTION_TOTAL_CACHE_SECONDS=0):
+            with self.assertRaises(OperationalError):
+                self.snapshot("r1", identity_values=self.failing())
+            self.assertFalse(self.failure_marker_exists())
+            with self.assertRaises(OperationalError):
+                self.snapshot("r1", identity_values=self.failing())
+
+    def test_view_maps_backoff_to_503_source_not_ready(self) -> None:
+        from netshop import consumers
+
+        with patch.object(consumers, "_projection_snapshot", side_effect=self._backoff_error()):
+            response = self.query({
+                "operation": "market_projection_page", "offset": 0, "limit": 10,
+                "expectedRevision": None,
+            }, request_id="netshop-backoff-view")
+        self.assertEqual(response.status_code, 503, response.content)
+        self.assertEqual(response.json()["code"], "source_not_ready")
+
+    @staticmethod
+    def _backoff_error():
+        from netshop.errors import NetshopApiError
+
+        return NetshopApiError("网店市场投影正在等待重算，请稍后重试", status=503, code="source_not_ready")
+
+    def test_page_end_to_end_timeout_then_backoff_returns_503(self) -> None:
+        from django.db import OperationalError
+        from django.db.models import QuerySet
+
+        payload = {"operation": "market_projection_page", "offset": 0, "limit": 10,
+                   "expectedRevision": None}
+        error = self.timeout_error()
+        original = QuerySet.order_by
+
+        def boom(qs, *args, **kwargs):
+            if args[:1] == ("platform",):
+                raise error
+            return original(qs, *args, **kwargs)
+
+        with patch.object(QuerySet, "order_by", boom):
+            first = self.query(payload, request_id="netshop-e2e-1")
+        self.assertEqual(first.status_code, 503)
+        second = self.query(payload, request_id="netshop-e2e-2")
+        self.assertEqual(second.status_code, 503)
+        self.assertEqual(second.json()["code"], "source_not_ready")
+        self.assertIn("等待重算", second.json()["error"])

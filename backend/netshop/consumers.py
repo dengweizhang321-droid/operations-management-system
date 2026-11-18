@@ -219,6 +219,20 @@ def _projection_key(kind: str, *values: object) -> str:
     return f"{kind}:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
 
 
+PROJECTION_SNAPSHOT_FAILURE_BACKOFF_SECONDS = 600
+
+
+def _is_statement_timeout(error: BaseException) -> bool:
+    from django.db import OperationalError
+
+    cause = error.__cause__
+    return (
+        isinstance(error, OperationalError)
+        and getattr(cause, "sqlstate", None) == "57014"
+        and "statement timeout" in str(cause)
+    )
+
+
 def _projection_snapshot(
     revision: str,
     platforms: list[str] | None,
@@ -244,11 +258,20 @@ def _projection_snapshot(
 
     scope = "*" if platforms is None else "\x1f".join(platforms)
     cache_key = _projection_key("market-projection-snapshot:v1", revision, scope)
+    failure_key = _projection_key("market-projection-snapshot-failure:v1", scope)
     seconds = settings.NETSHOP_PROJECTION_TOTAL_CACHE_SECONDS
     if seconds > 0:
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
+        # The failure marker is keyed by scope only: imports change the
+        # revision often, and a per-revision key would bypass the backoff.
+        if cache.get(failure_key) is not None:
+            raise NetshopApiError(
+                "网店市场投影正在等待重算，请稍后重试",
+                status=503,
+                code="source_not_ready",
+            )
 
     def compute() -> tuple[int, list[tuple[str, str, str, str]], int]:
         identities = [
@@ -262,16 +285,23 @@ def _projection_snapshot(
     # SET LOCAL needs a transaction, and only PostgreSQL has statement_timeout.
     # Inside an existing atomic block the caller already owns the budget, so
     # leave its setting alone rather than widening someone else's transaction.
-    if connection.vendor != "postgresql" or connection.in_atomic_block:
-        value = compute()
-    else:
-        with transaction.atomic():
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT set_config('statement_timeout', %s, true)",
-                    [str(settings.NETSHOP_PROJECTION_TOTAL_TIMEOUT_MS)],
-                )
+    try:
+        if connection.vendor != "postgresql" or connection.in_atomic_block:
             value = compute()
+        else:
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT set_config('statement_timeout', %s, true)",
+                        [str(settings.NETSHOP_PROJECTION_TOTAL_TIMEOUT_MS)],
+                    )
+                value = compute()
+    except Exception as error:
+        if seconds > 0 and _is_statement_timeout(error):
+            cache.set(failure_key, True, timeout=PROJECTION_SNAPSHOT_FAILURE_BACKOFF_SECONDS)
+        raise
+    if seconds > 0:
+        cache.delete(failure_key)
     if seconds > 0:
         cache.set(cache_key, value, timeout=seconds)
     return value
