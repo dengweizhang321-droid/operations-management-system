@@ -2,6 +2,7 @@ import { nativePort } from "./native-isolation.mjs";
 import { spawn } from "node:child_process";
 import { access, link, mkdir, stat } from "node:fs/promises";
 import { createConnection } from "node:net";
+import { uptime as systemUptimeSeconds } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,6 +17,10 @@ const localScheduledTriggerUrl = `http://127.0.0.1:${localWorkerPort}/_teruisi/l
 const localScheduledInitialDelayMs = 5_000;
 const localScheduledIntervalMs = 60_000;
 const localScheduledRetryDelayMs = 5_000;
+// 开机预热：系统开机不足该时长时，定时请求带标记头，Worker 暂缓三类重任务。
+const bootWarmupHeader = "x-teruisi-boot-warmup";
+const bootWarmupDefaultMinutes = 20;
+const bootWarmupMaxMinutes = 24 * 60;
 const localLivenessUrl = `http://127.0.0.1:${localWorkerPort}/_teruisi/local/health/live`;
 const localLivenessInitialDelayMs = 10_000;
 const localLivenessIntervalMs = 10_000;
@@ -361,14 +366,43 @@ export function createTmallWorkflowHelperSupervisor({
   };
 }
 
+/**
+ * 预热窗口（毫秒）。TERUISI_BOOT_WARMUP_MINUTES 为 0 表示关闭；缺失、非整数、负数或超过一天的取值一律回落默认 20 分钟。
+ */
+/** @param {Record<string, string | undefined>} [env] */
+export function getBootWarmupWindowMs(env = process.env) {
+  const raw = env?.TERUISI_BOOT_WARMUP_MINUTES;
+  const minutes = typeof raw === "string" && /^\d{1,4}$/.test(raw.trim()) ? Number(raw.trim()) : Number.NaN;
+  const effective = Number.isSafeInteger(minutes) && minutes <= bootWarmupMaxMinutes ? minutes : bootWarmupDefaultMinutes;
+  return effective * 60_000;
+}
+
+/** 系统开机时长严格小于窗口才算预热；读不到开机时长或窗口为 0 时按非预热处理。 */
+/** @param {{ uptimeSeconds?: number | (() => number), env?: Record<string, string | undefined> }} [options] */
+export function isBootWarmupActive({ uptimeSeconds = systemUptimeSeconds, env = process.env } = {}) {
+  const windowMs = getBootWarmupWindowMs(env);
+  if (windowMs <= 0) return false;
+  let seconds;
+  try {
+    seconds = typeof uptimeSeconds === "function" ? uptimeSeconds() : uptimeSeconds;
+  } catch {
+    return false;
+  }
+  return Number.isFinite(seconds) && seconds >= 0 && seconds * 1000 < windowMs;
+}
+
 export async function triggerLocalScheduledEvent({
   fetchImpl = fetch,
   url = localScheduledTriggerUrl,
   signal,
+  uptimeSeconds,
+  env,
 } = {}) {
+  const headers = { "x-teruisi-local-scheduled": "1" };
+  if (isBootWarmupActive({ uptimeSeconds, env })) headers[bootWarmupHeader] = "1";
   const response = await fetchImpl(url, {
     method: "POST",
-    headers: { "x-teruisi-local-scheduled": "1" },
+    headers,
     signal,
   });
   if (!response.ok) throw new Error(`本地定时事件触发失败：HTTP ${response.status}`);

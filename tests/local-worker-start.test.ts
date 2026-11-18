@@ -508,6 +508,7 @@ test("Tmall helper supervisor restarts a completed one-shot process and stops it
 test("local Worker triggers the loopback Cloudflare scheduled handler without credentials", async () => {
   let request: { url: string; init: RequestInit } | null = null;
   const status = await triggerLocalScheduledEvent({
+    ...{ uptimeSeconds: () => 1_000_000 },
     fetchImpl: async (url, init) => {
       request = { url: String(url), init: init ?? {} };
       return Response.json({ ok: true, result: { annotations: { ok: true, result: { continueImmediately: true } } } });
