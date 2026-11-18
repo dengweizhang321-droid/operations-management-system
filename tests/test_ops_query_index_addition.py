@@ -187,6 +187,78 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(gate.source_delta(root, baseline), gate.common.digest(gate.common.migrations(root)))
 
 
+class RehearsalEvidenceTests(unittest.TestCase):
+    """verify_rehearsal_evidence on a temporary root; each tamper is rehashed so only its own rule can refuse it."""
+
+    def setUp(self):
+        import json
+        self.json = json
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        for path in (ROOT / "backend").glob("*/migrations/*.py"):
+            target = self.root / path.relative_to(ROOT)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, target)
+        self.file = self.root / gate.REHEARSAL_PATH
+        self.file.parent.mkdir(parents=True, exist_ok=True)
+        self.original = json.loads((ROOT / gate.REHEARSAL_PATH).read_text(encoding="utf8"))
+
+    def put(self, value):
+        self.file.write_text(self.json.dumps(value, indent=2) + "\n", encoding="utf8", newline="\n")
+        return {"rehearsalEvidence": {"path": gate.REHEARSAL_PATH, "sha256": gate.common.sha(self.file)}}
+
+    def tampered(self, edit):
+        value = self.json.loads(self.json.dumps(self.original))
+        edit(value)
+        return self.put(value)
+
+    def test_committed_result_passes_and_is_bound_to_the_real_migrations(self):
+        self.assertEqual(self.original["migrationSha256"], gate.common.digest(gate.common.migrations(ROOT)))
+        gate.verify_rehearsal_evidence(self.root, self.put(self.original))
+
+    def test_each_tamper_is_refused(self):
+        cases = {
+            "migrationSha256": lambda v: v.__setitem__("migrationSha256", "0" * 64),
+            "dropped check": lambda v: v["checks"].pop(),
+            "productionTouched": lambda v: v.__setitem__("productionTouched", True),
+            "predicate rendering": lambda v: v["renderedIndexes"][2].update(predicate="(is_business_row)", normalized="is_business_row"),
+            "normalized lies": lambda v: v["renderedIndexes"][0].__setitem__("normalized", "x"),
+            "opclass": lambda v: v["renderedIndexes"][1].__setitem__("opclasses", ["varchar_pattern_ops", "text_ops"]),
+            "status": lambda v: v.__setitem__("status", "failed"),
+            "cleanup": lambda v: v["cleanup"].__setitem__("stopped", False),
+            "plan without index": lambda v: v["plans"].__setitem__("customer-service-ai-count", "Seq Scan on customer_service_conversations"),
+            "extra check": lambda v: v["checks"].append("something-else"),
+            "renamed check": lambda v: v["checks"].__setitem__(0, "something-else"),
+        }
+        for label, edit in cases.items():
+            with self.assertRaises(ValueError, msg=label):
+                gate.verify_rehearsal_evidence(self.root, self.tampered(edit))
+
+    def test_binding_and_migration_drift_are_refused(self):
+        ref = self.put(self.original)
+        with self.assertRaises(ValueError):
+            gate.verify_rehearsal_evidence(self.root, {})
+        with self.assertRaises(ValueError):
+            gate.verify_rehearsal_evidence(self.root, {"rehearsalEvidence": {**ref["rehearsalEvidence"], "sha256": "1" * 64}})
+        changed = self.root / sorted(gate.FILES)[0]
+        changed.write_bytes(changed.read_bytes() + b"\n# drift\n")
+        with self.assertRaises(ValueError):
+            gate.verify_rehearsal_evidence(self.root, ref)
+
+    def test_only_the_merge_time_digest_gate_calls_it(self):
+        hits = sorted(str(p.relative_to(ROOT)).replace("\\", "/") for folder in ("tools", "backend", "docs")
+                      for p in (ROOT / folder).rglob("*.py") if "verify_rehearsal_evidence" in p.read_text(encoding="utf8", errors="ignore"))
+        self.assertEqual(hits, ["docs/ops-query-index-20261118/run-mandatory-checks.py", "tools/check_schema_code_digest.py",
+                                "tools/ops_query_index_addition.py"])
+        import ast
+        tree = ast.parse((ROOT / "tools/ops_query_index_addition.py").read_text(encoding="utf8"))
+        admission = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "admission")
+        self.assertNotIn("verify_rehearsal_evidence", ast.unparse(admission))
+        for ps in ("tools/django-local-service.ps1", "tools/bi-app-adopt.ps1", "tools/publish-prepared-main.mjs", "tools/integration_release_gate.py"):
+            self.assertNotIn("verify_rehearsal_evidence", (ROOT / ps).read_text(encoding="utf-8-sig"))
+
+
 class MigrationStateTests(unittest.TestCase):
     def test_models_match_migrations_and_state_definitions_are_exact(self):
         sys.path.insert(0, str(ROOT / "backend"))

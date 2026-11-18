@@ -77,6 +77,69 @@ def code_digest(root):
     return common.digest({name: common.sha(Path(root) / name) for name in CODE_FILES})
 
 
+REHEARSAL_PATH = "docs/ops-query-index-20261118/rehearsal-result.json"
+REHEARSAL_VERSION = "teruisi-ops-query-index-pg-rehearsal-v1"
+REHEARSAL_CHECKS = {
+    "exact159-parent", "three-steps-applied-by-real-gate", "exact162-catalog-with-real-predicates",
+    "old-rows-and-ACL-preserved", "all-three-queries-plan-through-new-index",
+    "missing-index-rejected-and-rolled-back", "committed162-not-replayed",
+}
+REHEARSAL_QUERY_INDEX = {
+    "customer-service-products": "sales_cs_online_spec_idx",
+    "netshop-projection-first-page": "net_projection_page_idx",
+    "customer-service-ai-count": "cs_conv_ai_analyzed_idx",
+}
+
+
+def verify_rehearsal_evidence(root, validation):
+    """Merge-time binding only: a committed real PG17 rehearsal must still describe these exact sources.
+
+    Called by check_schema_code_digest, never by admission or any release path, so a release does not
+    depend on the repository's rehearsal file. Editing a migration or an index definition (or this catalogue's
+    predicate set) invalidates it and forces a new rehearsal.
+    """
+    import ops_query_index_catalog as catalog
+    root = Path(root)
+    ref = validation.get("rehearsalEvidence")
+    if (type(ref) is not dict or set(ref) != {"path", "sha256"} or ref["path"] != REHEARSAL_PATH
+            or not isinstance(ref["sha256"], str) or not common.HEX.fullmatch(ref["sha256"])):
+        raise ValueError("OpsQueryIndex requires its SHA-bound real PostgreSQL rehearsal result")
+    result = common.read(root / REHEARSAL_PATH, ref["sha256"])
+    cleanup, database = result.get("cleanup") if type(result) is dict else None, result.get("database") if type(result) is dict else None
+    if (type(result) is not dict or result.get("version") != REHEARSAL_VERSION or result.get("status") != "passed"
+            or result.get("generations") != [159, 162] or result.get("productionTouched") is not False
+            or result.get("fullBackupOrRestorePerformed") is not False
+            or type(result.get("checks")) is not list or len(result["checks"]) != len(REHEARSAL_CHECKS)
+            or set(result["checks"]) != REHEARSAL_CHECKS
+            or type(cleanup) is not dict
+            or set(cleanup) != {"started", "stopped", "privateDataRemoved", "passwordFileRemoved", "childExitZero"}
+            or any(value is not True for value in cleanup.values())
+            or type(database) is not dict or set(database) != {"name", "user", "port", "serverVersionNumber"}
+            or database["name"] != "teruisi_ops_query_index_rehearsal" or database["user"] != "ops162_fixture"
+            or type(database["port"]) is not int or not 55532 <= database["port"] < 55542
+            or type(database["serverVersionNumber"]) is not int or not 170000 <= database["serverVersionNumber"] < 180000):
+        raise ValueError("OpsQueryIndex PostgreSQL rehearsal result, checks or cleanup is incomplete")
+    if result.get("migrationSha256") != common.digest(common.migrations(root)):
+        raise ValueError("OpsQueryIndex migrations changed since the PostgreSQL rehearsal; rehearse again")
+    rendered = result.get("renderedIndexes")
+    if type(rendered) is not list or [item.get("index") if type(item) is dict else None for item in rendered] != sorted(catalog.INDEXES):
+        raise ValueError("OpsQueryIndex rehearsal does not cover exactly the three reviewed indexes")
+    for item in rendered:
+        _, _, _, _, classes, predicates = catalog.INDEXES[item["index"]]
+        if (set(item) != {"index", "predicate", "normalized", "opclasses", "bytes"}
+                or not isinstance(item["predicate"], str)
+                or catalog.normalize_predicate(item["predicate"]) not in predicates
+                or item["normalized"] != catalog.normalize_predicate(item["predicate"])
+                or type(item["opclasses"]) is not list or len(item["opclasses"]) != len(classes)
+                or any(actual not in allowed for actual, allowed in zip(item["opclasses"], classes))):
+            raise ValueError("OpsQueryIndex rehearsal rendering differs from the catalogue: " + str(item.get("index")))
+    plans = result.get("plans")
+    if (type(plans) is not dict or set(plans) != set(REHEARSAL_QUERY_INDEX)
+            or any(not isinstance(plans[name], str) or index not in plans[name] for name, index in REHEARSAL_QUERY_INDEX.items())):
+        raise ValueError("OpsQueryIndex rehearsal plans do not use the new indexes")
+    return result
+
+
 def source_inventory(root):
     """Exact shipped backend bytes, excluding the same caches/tests as CopyApp."""
     root = Path(root)

@@ -152,6 +152,9 @@ def check_recipe(root, recipe_name):
         if kind in EXECUTION_MATERIAL_KINDS:
             if kind == "AiUnifiedTasks":
                 gate.verify_structure_evidence(root, proof)
+            elif kind == "OpsQueryIndex":
+                # Merge-time only: never reached from admission or any release path.
+                gate.verify_rehearsal_evidence(root, proof)
             # These records also bind the new execution material, preventing a
             # proof-only digest edit from retaining an old CHECKS source map.
             # The "Sales ..." message prefixes are kept verbatim: they are the

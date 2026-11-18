@@ -30,6 +30,10 @@ assert not str(DELIVERY).lower().startswith("d:\\teruisi-runtime"), "Private del
 sys.path.insert(0, str(ROOT / "tools"))
 import ops_query_index_addition as gate
 
+rehearsal_name = gate.REHEARSAL_PATH
+rehearsal_ref = {"path": rehearsal_name, "sha256": gate.common.sha(ROOT / rehearsal_name)}
+gate.verify_rehearsal_evidence(ROOT, {"rehearsalEvidence": rehearsal_ref})
+
 ENV = {k: v for k, v in os.environ.items() if k.upper() in {
     "PATH", "SYSTEMROOT", "WINDIR", "COMSPEC", "TEMP", "TMP", "APPDATA", "LOCALAPPDATA", "USERPROFILE"}}
 ENV.update(PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1", GIT_TERMINAL_PROMPT="0")
@@ -161,7 +165,8 @@ proof = {"version": "ops-query-index-mandatory-code-checks-v1", "status": "code-
          "checkedAt": execution["checkedAt"], "productionTouched": False, "functionalValidationPerformed": False,
          "fullBackupOrRestorePerformed": False, "generations": [159, 162], "parentVariants": [[159, 162]],
          "steps": list(gate.STEPS), "codeSha256": code_sha, "migrationSha256": migration_sha,
-         "checks": sorted(gate.CHECKS), "evidence": {"path": execution_path, "sha256": execution_sha}}
+         "checks": sorted(gate.CHECKS), "evidence": {"path": execution_path, "sha256": execution_sha},
+         "rehearsalEvidence": rehearsal_ref}
 proof_path, proof_sha = write("ops-query-index-checks.json", proof)
 recipe = {"version": "teruisi-main-schema-recipe-v1", "additionKind": "OpsQueryIndex",
           "fromGeneration": 159, "toGeneration": 162, "steps": list(gate.STEPS), "stepFiles": gate.FILES,
