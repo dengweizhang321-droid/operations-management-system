@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { classifyHourlyRetryFailure } from "../tools/n8n-hourly-retry-policy.mjs";
 import type { TmallStore } from "../lib/netshop/tmall-store-registry";
 import {
   assertTmallBrowserProcessOwnership,
@@ -11,6 +12,8 @@ import {
   buildSycmExportUrl,
   classifySycmInspectionErrors,
   classifyTmallImportFailure,
+  tmallImportFailureMessage,
+  tmallImportTerminalMessage,
   closeOneShotServer,
   closeTmallWorkflowBrowser,
   createHelperInactivityReaper,
@@ -556,21 +559,61 @@ test("helper 空闲回收不会关闭仍在执行的活跃请求", () => {
 });
 
 // 2026-11-18：执行 11752/11755 的唯一失败条目是覆盖回查 503，却被汇总成终局句子。
-test("classifyTmallImportFailure 只把纯后端瞬态失败判为可重试", () => {
+test("classifyTmallImportFailure 只把整句匹配已知产生方的 502/503/504 与网络层错误判为可重试", () => {
   const coverage503 = "无法读取 天猫-志高丽力专卖店 的 SPU 日期覆盖 (HTTP 503)";
   const failed = (error: string, businessDate = "2026-11-17") => ({ status: "failed", error, businessDate });
   assert.deepEqual(classifyTmallImportFailure([failed(coverage503)], []), { statuses: ["503"] });
   assert.deepEqual(classifyTmallImportFailure([failed(coverage503)], ["2026-11-17"]), { statuses: ["503"] });
   assert.deepEqual(classifyTmallImportFailure([failed("fetch failed")], []), { statuses: [] });
-  assert.deepEqual(classifyTmallImportFailure([failed("The operation was aborted due to timeout"), failed("x HTTP 502", "2026-11-18")], []), { statuses: ["502"] });
+  assert.deepEqual(classifyTmallImportFailure([failed("The operation was aborted due to timeout"), failed("天猫 SPU 导入回查不一致 (HTTP 502)", "2026-11-18")], []), { statuses: ["502"] });
+  assert.deepEqual(classifyTmallImportFailure([failed("Django 网店服务暂时不可用，请稍后重试。")], []), { statuses: [] });
+  assert.deepEqual(classifyTmallImportFailure([failed("无法读取 店 的 SPU 日期覆盖 (HTTP 504)")], []), { statuses: ["504"] });
   // 非 failed 状态、没有失败条目、覆盖缺失但无对应失败条目：都不是瞬态。
   assert.equal(classifyTmallImportFailure([{ status: "waiting_download", error: coverage503, businessDate: "2026-11-17" }], []), null);
   assert.equal(classifyTmallImportFailure([], ["2026-11-17"]), null);
   assert.equal(classifyTmallImportFailure([failed(coverage503)], ["2026-11-16"]), null);
-  // 内容校验、422、混合文案保持终局。
+  // 内容校验、422、500/408/429、混合文案、仅含子串的文案保持终局。
   assert.equal(classifyTmallImportFailure([failed("内容校验失败：SPU 行数不一致")], []), null);
   assert.equal(classifyTmallImportFailure([failed("天猫 SPU 导入回查不一致 (HTTP 422)")], []), null);
+  assert.equal(classifyTmallImportFailure([failed("天猫 SPU 导入回查不一致 (HTTP 500)")], []), null);
+  assert.equal(classifyTmallImportFailure([failed("天猫 SPU 导入回查不一致 (HTTP 429)")], []), null);
+  assert.equal(classifyTmallImportFailure([failed("无法读取 店 的 SPU 日期覆盖 (HTTP 408)")], []), null);
   assert.equal(classifyTmallImportFailure([failed("内容校验失败 (HTTP 503)")], []), null);
+  assert.equal(classifyTmallImportFailure([failed("文件解析失败：表头缺失 (HTTP 503)")], []), null);
+  assert.equal(classifyTmallImportFailure([failed("解析失败 ECONNREFUSED")], []), null);
+  assert.equal(classifyTmallImportFailure([failed("日期 2026-11-17 存在多个内容不同的已验证文件，禁止猜测导入 HTTP 503")], []), null);
+  assert.equal(classifyTmallImportFailure([failed("前缀 fetch failed")], []), null);
   assert.equal(classifyTmallImportFailure([failed(coverage503), failed("天猫商品报表缺少有效商品 ID", "2026-11-18")], []), null);
   assert.equal(classifyTmallImportFailure([failed("导入接口返回成功，但同店铺同日期覆盖回查未命中")], []), null);
+});
+
+// 11752 的真实失败条目（审计清单 items 的内联副本，去掉本机路径）。
+const run11752Items = [{
+  storeKey: "tmall-lili", shopName: "天猫-志高丽力专卖店", businessDate: "2026-11-13", status: "failed",
+  error: "无法读取 天猫-志高丽力专卖店 的 SPU 日期覆盖 (HTTP 503)",
+}];
+
+function importFailureRetryDecision(message: string) {
+  return classifyHourlyRetryFailure({ workflow: { id: "TmallLiliDaily2026", name: "丽力" }, execution: { id: "11752", mode: "trigger",
+    lastNodeExecuted: "C·签收、导入并覆盖回查", error: { message } } });
+}
+
+test("tmallImportFailureMessage 是抛错点的唯一文案来源：11752 得到可重试新文案，非瞬态保持原终局句", () => {
+  assert.equal(tmallImportFailureMessage([], []), null);
+  const transient = tmallImportFailureMessage(run11752Items, ["2026-11-13"]);
+  assert.equal(transient, "天猫导入因后端暂时不可用未完成（HTTP 503），可安全重试，详见结果清单");
+  assert.equal(importFailureRetryDecision(transient!).retry, true);
+  const network = tmallImportFailureMessage([{ ...run11752Items[0]!, error: "fetch failed" }], []);
+  assert.equal(network, "天猫导入因后端暂时不可用未完成，可安全重试，详见结果清单");
+  assert.equal(importFailureRetryDecision(network!).retry, true);
+  for (const items of [
+    [{ ...run11752Items[0]!, error: "文件解析失败：表头缺失 (HTTP 503)" }],
+    [{ ...run11752Items[0]!, status: "waiting_download" }],
+  ]) {
+    const message = tmallImportFailureMessage(items, []);
+    assert.equal(message, tmallImportTerminalMessage);
+    assert.equal(importFailureRetryDecision(message!).retry, false);
+  }
+  // 导入成功但覆盖回查缺日期（无失败条目）仍是原终局句。
+  assert.equal(tmallImportFailureMessage([], ["2026-11-13"]), tmallImportTerminalMessage);
 });

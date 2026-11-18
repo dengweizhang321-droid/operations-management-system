@@ -870,18 +870,27 @@ async function importCommand(argv: string[], expectedStoreKey?: string) {
     batches: imported.audit.items.map(item => ({ businessDate: item.businessDate, batchId: item.batchId,
       rowCount: item.rowCount, status: item.status, storeKey: item.storeKey })),
   };
-  const transient = ok ? null : classifyTmallImportFailure(failedItems, missingAfterImport);
-  await writeJsonAtomic(resultPath, transient ? { ...summary, transientOnly: true } : summary);
-  if (transient) {
-    // Deliberately not the terminal sentence in n8n-hourly-retry-policy: the
-    // backend was only temporarily unavailable and the same file re-imports as duplicate.
-    throw new Error(`天猫导入因后端暂时不可用未完成${transient.statuses.length ? `（HTTP ${transient.statuses.join("/")}）` : ""}，可安全重试，详见结果清单`);
-  }
-  if (!ok) throw new Error("导入未全部完成或覆盖回查未命中，详见结果清单");
+  const failure = ok ? null : tmallImportFailureMessage(failedItems, missingAfterImport);
+  await writeJsonAtomic(resultPath, failure && failure !== tmallImportTerminalMessage ? { ...summary, transientOnly: true } : summary);
+  if (failure) throw new Error(failure);
   return summary;
 }
 
-const tmallTransientImportErrorPattern = /\bHTTP (?:408|429|500|502|503|504)\b|暂时不可用|fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|UND_ERR_[A-Z_]+|TimeoutError|The operation was aborted due to timeout/u;
+export const tmallImportTerminalMessage = "导入未全部完成或覆盖回查未命中，详见结果清单";
+
+// Every error must be a whole sentence produced by a known source; substring
+// matching would let content errors that merely mention "HTTP 503" through.
+const tmallTransientImportErrorPatterns: readonly RegExp[] = [
+  // tools/tmall-multi-store-import-runner.ts getActualDates
+  /^无法读取 .+ 的 SPU 日期覆盖 \(HTTP (?:502|503|504)\)$/u,
+  // tools/tmall-multi-store-import-runner.ts validateImportPayload without payload.message
+  /^天猫 SPU 导入回查不一致 \(HTTP (?:502|503|504)\)$/u,
+  // Node fetch / AbortSignal.timeout in postTmallImportWithNetworkRetry
+  /^fetch failed$/u,
+  /^The operation was aborted due to timeout$/u,
+  // lib/django/netshop-service.ts default unavailable() message, relayed by /api/netshop/import
+  /^Django 网店服务暂时不可用，请稍后重试。$/u,
+];
 
 // Decides whether an import-stage failure is purely backend unavailability.
 // Anything else (content errors, waiting_download, coverage missing after a
@@ -896,13 +905,25 @@ export function classifyTmallImportFailure(
   const statuses = new Set<string>();
   for (const item of failedItems) {
     const error = item.error ?? "";
-    if (item.status !== "failed" || !tmallTransientImportErrorPattern.test(error)) return null;
-    // Mixed wording such as "内容校验失败 … (HTTP 503)" must stay terminal.
+    if (item.status !== "failed" || !tmallTransientImportErrorPatterns.some(pattern => pattern.test(error))) return null;
     if (!classifyHourlyRetryFailure({ workflow: { id: "TmallLiliDaily2026" }, execution: { mode: "trigger", error: { message: error } } }).retry) return null;
     const status = /\bHTTP (\d{3})\b/u.exec(error)?.[1];
     if (status) statuses.add(status);
   }
   return { statuses: [...statuses].sort() };
+}
+
+// The message thrown at the import stage; null when nothing failed.
+export function tmallImportFailureMessage(
+  failedItems: ReadonlyArray<{ status: string; error?: string; businessDate: string }>,
+  missingAfterImport: readonly string[],
+): string | null {
+  if (failedItems.length === 0 && missingAfterImport.length === 0) return null;
+  const transient = classifyTmallImportFailure(failedItems, missingAfterImport);
+  if (!transient) return tmallImportTerminalMessage;
+  // Deliberately not the terminal sentence in n8n-hourly-retry-policy: the
+  // backend was only temporarily unavailable and the same file re-imports as duplicate.
+  return `天猫导入因后端暂时不可用未完成${transient.statuses.length ? `（HTTP ${transient.statuses.join("/")}）` : ""}，可安全重试，详见结果清单`;
 }
 
 function integerPort(value: string | undefined) {

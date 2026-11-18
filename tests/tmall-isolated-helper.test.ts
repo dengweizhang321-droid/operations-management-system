@@ -43,7 +43,7 @@ test("one failed/finished store releases only itself, and late callbacks cannot 
   const other = pool.claim(identity("tmall-yijiu", "200"));
   await Promise.all([first.slot!.ready, other.slot!.ready]);
   const finish = finishes.get("tmall-lili")!;
-  first.slot!.businessForwarded = true;
+  assert.equal(pool.admitBusiness(identity("tmall-lili", "100")), first.slot);
   finish(true);
   assert.equal(pool.lookup(identity("tmall-yijiu", "200")), other.slot);
   assert.equal(pool.claim(identity("tmall-lili", "100")).reason, "execution_already_finished");
@@ -81,11 +81,28 @@ test("clean release after a business route was forwarded still retires the execu
   }, () => false, diagnostic => { diagnostics.push(diagnostic); });
   const first = pool.claim(identity("tmall-masitu", "301"));
   await first.slot!.ready;
-  first.slot!.businessForwarded = true;
+  assert.equal(pool.admitBusiness(identity("tmall-masitu", "301")), first.slot);
   finishes.get("tmall-masitu")!(true);
   const again = pool.claim(identity("tmall-masitu", "301"));
   assert.equal(again.reason, "execution_already_finished");
   assert.deepEqual(diagnostics, [{ event: "helper_claim_rejected", workflow: "tmall", storeKey: "tmall-masitu", executionId: "301", reason: "execution_already_finished" }]);
+});
+
+test("admitBusiness marks only a matching running slot; a mismatched identity leaves a claim-only slot re-claimable", async () => {
+  const { pool, finishes } = fixture();
+  const claimed = pool.claim(identity("tmall-lili", "400"));
+  await claimed.slot!.ready;
+  assert.equal(pool.admitBusiness(identity("tmall-lili", "999")), null);
+  assert.equal(claimed.slot!.businessForwarded, false);
+  finishes.get("tmall-lili")!(true);
+  const again = pool.claim(identity("tmall-lili", "400"));
+  assert.equal(again.status, "granted");
+  assert.notEqual(again.slot, claimed.slot);
+  await again.slot!.ready;
+  assert.equal(pool.admitBusiness(identity("tmall-lili", "400")), again.slot);
+  assert.equal(again.slot!.businessForwarded, true);
+  finishes.get("tmall-lili")!(true);
+  assert.equal(pool.claim(identity("tmall-lili", "400")).reason, "execution_already_finished");
 });
 
 test("unclean exit of a claim-only slot is still quarantined and retired",async () => {

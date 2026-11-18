@@ -31,6 +31,7 @@ test("drain preserves admitted execution, rejects a changed anchor, and never sp
   draining = true;
   assert.equal(pool.claim(id).slot, first.slot);
   assert.equal(pool.claim({ ...id, scheduledAt: "2026-09-30T00:01:00.000Z" }).status, "rejected");
+  assert.equal(pool.admitBusiness(id), first.slot);
   finish(true);
   assert.equal(pool.claim(id).reason, "execution_already_finished");
   const next = { ...id, executionId: "2" };
@@ -42,6 +43,25 @@ test("drain preserves admitted execution, rejects a changed anchor, and never sp
   assert.equal(starts, 2);
   finish(false);
   assert.match(pool.claim({ ...next, executionId: "3" }).reason!, /manual_action/);
+});
+
+test("drain: a claim-only slot that exits cleanly is not retired, so the same id waits during drain and is granted afterwards", async () => {
+  let draining = false, starts = 0;
+  let finish!: (clean: boolean) => void;
+  const pool = new IsolatedHelperSlots(new Set(["tmall-lili"]), async (_, done) => {
+    starts++; finish = done; return { port: 1, token: "test", stop: async () => {} };
+  }, () => draining);
+  const id: SlotIdentity = { key: "tmall-lili", storeKey: "tmall-lili", workflow: "tmall", executionId: "7", scheduledAt: "2026-09-29T15:59:00.000Z" };
+  await pool.claim(id).slot!.ready;
+  draining = true;
+  finish(true);
+  assert.equal(pool.claim(id).reason, "maintenance_wait");
+  assert.equal(starts, 1);
+  draining = false;
+  const again = pool.claim(id);
+  assert.equal(again.status, "granted");
+  await again.slot!.ready;
+  assert.equal(starts, 2);
 });
 
 test("drain file absence, binding, corruption and exact protocol", () => {

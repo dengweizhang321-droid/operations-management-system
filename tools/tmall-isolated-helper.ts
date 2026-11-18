@@ -176,6 +176,13 @@ export class IsolatedHelperSlots {
     const slot = this.slots.get(identity.key);
     return slot && slot.executionId === identity.executionId && slot.workflow === identity.workflow && slot.status === "running" ? slot : null;
   }
+  // Business-route admission: lookup plus the synchronous mark that makes a later
+  // clean exit retire the execution. Must run before any await in the caller.
+  admitBusiness(identity: SlotIdentity) {
+    const slot = this.lookup(identity);
+    if (slot) slot.businessForwarded = true;
+    return slot;
+  }
   summary() {
     return [...this.slots.values()].map(({ storeKey, workflow, executionId, status, stage }) => ({ storeKey, workflow, executionId, status, stage }));
   }
@@ -466,9 +473,8 @@ export async function serveIsolatedHelper(options: {
         // Plan anchor is owned by the admitted slot, never by later route input.
         const owner = pool.slots.get(identity.key);
         if (identity.scheduledAt && identity.scheduledAt !== owner?.scheduledAt) { reply(response, 409, { ok: false, error: "execution_plan_anchor_changed_manual_action" }); return; }
-        const slot = pool.lookup(identity);
+        const slot = pool.admitBusiness(identity);
         if (!slot) { reply(response, 409, { ok: false, error: "execution_not_claimed_or_store_mismatch" }); return; }
-        slot.businessForwarded = true;
         await forward(request, response, slot);
       }
     } catch { reply(response, 503, { ok: false, error: "helper_slot_unavailable", message: "独立执行单元异常，需要人工核对原任务，禁止自动重建或跨店接管" }); }
