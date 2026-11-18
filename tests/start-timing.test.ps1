@@ -118,6 +118,66 @@ try {
   $drained=Invoke-IndependentDingTalkObservation $identity
   Check ($drained.status -eq 'deferred_drain') 'observer-rechecks-drain-after-lock'
 
+  # Bounded retry of the receiver observer (transient classes only; idempotent controller).
+  $script:drain = $null
+  # The outer test deadline is 30 s; the real observer has a 30 min outer deadline and a 180 s phase budget.
+  $WorkerOperationDeadline = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + 1800000
+  function Get-DingTalkRetryDelayMilliseconds { return $script:retryDelayMs }
+  $script:retryDelayMs = 5
+  $script:lockCalls = 0; $script:lockFailures = 0
+  function Enter-WorkerServiceMutex {
+    $script:lockCalls++
+    if ($script:lockCalls -le $script:lockFailures) { throw 'Another Worker/system lifecycle operation is in progress; request rejected' }
+    return @{Mutex=[Threading.Mutex]::new($true)}
+  }
+  $script:receiverCalls = 0; $script:receiverScript = { @{status='native_completed'} }
+  function Start-SystemDingTalkReceiver { $script:receiverCalls++; return (& $script:receiverScript) }
+  function Invoke-RetryObservation([int]$LockFailures, [scriptblock]$Receiver) {
+    $script:lockCalls = 0; $script:lockFailures = $LockFailures; $script:receiverCalls = 0; $script:receiverScript = $Receiver; $script:statusCalls = 1
+    $script:retryId = [guid]::NewGuid().ToString('N'); $script:StartupObservationId = $script:retryId
+    $null = Invoke-IndependentDingTalkObservation $identity
+    return ([IO.File]::ReadAllText((Join-Path $root "logs\dingtalk-startup-$($script:retryId).json")) | ConvertFrom-Json)
+  }
+  # 1. first attempt hits the lifecycle-lock timeout, second succeeds, receiver started once
+  $r = Invoke-RetryObservation 1 { @{status='native_completed'} }
+  Check ($r.status -eq 'ready' -and @($r.attempts).Count -eq 2 -and $script:receiverCalls -eq 1 -and $null -eq $r.failure) 'retry-lock-timeout-then-success'
+  Check ($r.attempts[0].category -eq 'lifecycle_lock_timeout' -and $r.attempts[0].retried -eq $true -and $r.attempts[1].outcome -eq 'completed') 'retry-attempt-evidence'
+  # 2. transient Worker HTTP failure, then success
+  $script:httpFirst = $true
+  $r = Invoke-RetryObservation 0 { if ($script:httpFirst) { $script:httpFirst = $false; throw 'Worker HTTP is not ready for DingTalk automatic startup' }; @{status='native_completed'} }
+  Check ($r.status -eq 'ready' -and @($r.attempts).Count -eq 2 -and $script:receiverCalls -eq 2) 'retry-worker-http-then-success'
+  # 3. deterministic outcomes are not retried
+  $r = Invoke-RetryObservation 0 { throw 'dingtalk_observation_identity_or_configuration_failed' }
+  Check ($r.status -eq 'failed' -and @($r.attempts).Count -eq 1 -and $script:receiverCalls -eq 1 -and $r.failure.category -eq 'identity_or_configuration') 'deterministic-config-not-retried'
+  $r = Invoke-RetryObservation 0 { throw 'some unknown configuration error' }
+  Check (@($r.attempts).Count -eq 1 -and $script:receiverCalls -eq 1 -and $r.failure.category -eq 'unclassified' -and $r.failure.retryable -eq $false) 'deterministic-unclassified-not-retried'
+  $r = Invoke-RetryObservation 0 { @{status='disabled'} }
+  Check ($r.status -eq 'disabled' -and $script:receiverCalls -eq 1 -and @($r.attempts).Count -eq 1 -and $null -eq $r.failure) 'disabled-not-retried'
+  $r = Invoke-RetryObservation 0 { @{status='not_configured'} }
+  Check ($r.status -eq 'not_configured' -and $script:receiverCalls -eq 1) 'not-configured-not-retried'
+  # 4. repeated transient failure exhausts the attempt cap and fails honestly
+  $r = Invoke-RetryObservation 99 { @{status='native_completed'} }
+  Check ($r.status -eq 'failed' -and @($r.attempts).Count -eq 4 -and $script:lockCalls -eq 4 -and $script:receiverCalls -eq 0) 'retry-exhausted-fails'
+  Check ($r.failure.category -eq 'lifecycle_lock_timeout' -and $r.failure.attempts -eq 4 -and $r.failure.retryable -eq $true -and $r.failure.summary -like 'Another Worker/system lifecycle operation*') 'retry-exhausted-reports-reason'
+  # 5. native non-zero exit gets exactly one extra attempt
+  $r = Invoke-RetryObservation 0 { $e = [Exception]::new('Worker original process failed: exit=37; code=nonzero_exit'); $e.Data['ProcessEvidence'] = @{code='nonzero_exit';exitCode=37}; throw $e }
+  Check (@($r.attempts).Count -eq 2 -and $script:receiverCalls -eq 2 -and $r.failure.category -eq 'native_nonzero_exit' -and $r.failure.summary -eq 'AutoStartDingTalk exited with code 37') 'native-nonzero-single-extra-attempt'
+  # 6. backoff that cannot fit the remaining phase budget is not started
+  $script:retryDelayMs = 170000
+  $r = Invoke-RetryObservation 1 { @{status='native_completed'} }
+  Check ($r.status -eq 'failed' -and @($r.attempts).Count -eq 1 -and $r.failure.budgetLimited -eq $true -and $r.attempts[0].retried -eq $false) 'retry-respects-phase-budget'
+  # the next attempt needs its full 30 s lock wait plus margin: 145 s backoff cannot fit a 180 s phase
+  $script:retryDelayMs = 145000
+  $r = Invoke-RetryObservation 1 { @{status='native_completed'} }
+  Check ($r.status -eq 'failed' -and @($r.attempts).Count -eq 1 -and $r.failure.budgetLimited -eq $true) 'retry-reserves-full-lock-wait'
+  $script:retryDelayMs = 5
+  # 7. failure text carries no credentials, tokens, URLs or paths
+  $r = Invoke-RetryObservation 0 { throw 'failed token=abc123XYZsecret for C:\private\dir\x.json at https://h.example/p?k=1 Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9abc password: hunter2' }
+  $summary = [string]$r.failure.summary
+  Check ($summary -notmatch 'abc123XYZsecret|private|https://|eyJ|hunter2' -and $summary -match '<redacted>') 'failure-summary-redacted'
+  $recordText = [IO.File]::ReadAllText((Join-Path $root "logs\dingtalk-startup-$($script:retryId).json"))
+  Check ($recordText -notmatch 'abc123XYZsecret|hunter2' -and $r.observationId -eq $script:retryId -and $r.requiredForStart -eq $false -and $r.diagnosticOnly -eq $true) 'record-keeps-existing-fields-and-leaks-nothing'
+
   # Exercise real native output classification at the lowest transport seam.
   Remove-Item Function:Start-SystemDingTalkReceiver
   $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $workspace 'tools/worker-local-service.ps1'),[ref]$null,[ref]$null)
