@@ -34,6 +34,7 @@ import {
   loadTmallStores,
   type TmallStore,
 } from "../lib/netshop/tmall-store-registry";
+import { classifyHourlyRetryFailure } from "./n8n-hourly-retry-policy.mjs";
 import { createTmallDownloadReceipt } from "./tmall-download-receipt";
 import {
   buildTmallSpuCoverageUrl,
@@ -869,9 +870,39 @@ async function importCommand(argv: string[], expectedStoreKey?: string) {
     batches: imported.audit.items.map(item => ({ businessDate: item.businessDate, batchId: item.batchId,
       rowCount: item.rowCount, status: item.status, storeKey: item.storeKey })),
   };
-  await writeJsonAtomic(resultPath, summary);
+  const transient = ok ? null : classifyTmallImportFailure(failedItems, missingAfterImport);
+  await writeJsonAtomic(resultPath, transient ? { ...summary, transientOnly: true } : summary);
+  if (transient) {
+    // Deliberately not the terminal sentence in n8n-hourly-retry-policy: the
+    // backend was only temporarily unavailable and the same file re-imports as duplicate.
+    throw new Error(`天猫导入因后端暂时不可用未完成${transient.statuses.length ? `（HTTP ${transient.statuses.join("/")}）` : ""}，可安全重试，详见结果清单`);
+  }
   if (!ok) throw new Error("导入未全部完成或覆盖回查未命中，详见结果清单");
   return summary;
+}
+
+const tmallTransientImportErrorPattern = /\bHTTP (?:408|429|500|502|503|504)\b|暂时不可用|fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|UND_ERR_[A-Z_]+|TimeoutError|The operation was aborted due to timeout/u;
+
+// Decides whether an import-stage failure is purely backend unavailability.
+// Anything else (content errors, waiting_download, coverage missing after a
+// successful import) keeps the original terminal sentence.
+export function classifyTmallImportFailure(
+  failedItems: ReadonlyArray<{ status: string; error?: string; businessDate: string }>,
+  missingAfterImport: readonly string[],
+): { statuses: string[] } | null {
+  if (failedItems.length === 0) return null;
+  const failedDates = new Set(failedItems.map(item => item.businessDate));
+  if (missingAfterImport.some(date => !failedDates.has(date))) return null;
+  const statuses = new Set<string>();
+  for (const item of failedItems) {
+    const error = item.error ?? "";
+    if (item.status !== "failed" || !tmallTransientImportErrorPattern.test(error)) return null;
+    // Mixed wording such as "内容校验失败 … (HTTP 503)" must stay terminal.
+    if (!classifyHourlyRetryFailure({ workflow: { id: "TmallLiliDaily2026" }, execution: { mode: "trigger", error: { message: error } } }).retry) return null;
+    const status = /\bHTTP (\d{3})\b/u.exec(error)?.[1];
+    if (status) statuses.add(status);
+  }
+  return { statuses: [...statuses].sort() };
 }
 
 function integerPort(value: string | undefined) {

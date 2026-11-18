@@ -10,6 +10,7 @@ import {
   assertCookieMatchesStore,
   buildSycmExportUrl,
   classifySycmInspectionErrors,
+  classifyTmallImportFailure,
   closeOneShotServer,
   closeTmallWorkflowBrowser,
   createHelperInactivityReaper,
@@ -552,4 +553,24 @@ test("helper 空闲回收不会关闭仍在执行的活跃请求", () => {
   scheduled[1]!.callback();
   assert.equal(closed, 1);
   assert.equal(reaper.isArmed(), false);
+});
+
+// 2026-11-18：执行 11752/11755 的唯一失败条目是覆盖回查 503，却被汇总成终局句子。
+test("classifyTmallImportFailure 只把纯后端瞬态失败判为可重试", () => {
+  const coverage503 = "无法读取 天猫-志高丽力专卖店 的 SPU 日期覆盖 (HTTP 503)";
+  const failed = (error: string, businessDate = "2026-11-17") => ({ status: "failed", error, businessDate });
+  assert.deepEqual(classifyTmallImportFailure([failed(coverage503)], []), { statuses: ["503"] });
+  assert.deepEqual(classifyTmallImportFailure([failed(coverage503)], ["2026-11-17"]), { statuses: ["503"] });
+  assert.deepEqual(classifyTmallImportFailure([failed("fetch failed")], []), { statuses: [] });
+  assert.deepEqual(classifyTmallImportFailure([failed("The operation was aborted due to timeout"), failed("x HTTP 502", "2026-11-18")], []), { statuses: ["502"] });
+  // 非 failed 状态、没有失败条目、覆盖缺失但无对应失败条目：都不是瞬态。
+  assert.equal(classifyTmallImportFailure([{ status: "waiting_download", error: coverage503, businessDate: "2026-11-17" }], []), null);
+  assert.equal(classifyTmallImportFailure([], ["2026-11-17"]), null);
+  assert.equal(classifyTmallImportFailure([failed(coverage503)], ["2026-11-16"]), null);
+  // 内容校验、422、混合文案保持终局。
+  assert.equal(classifyTmallImportFailure([failed("内容校验失败：SPU 行数不一致")], []), null);
+  assert.equal(classifyTmallImportFailure([failed("天猫 SPU 导入回查不一致 (HTTP 422)")], []), null);
+  assert.equal(classifyTmallImportFailure([failed("内容校验失败 (HTTP 503)")], []), null);
+  assert.equal(classifyTmallImportFailure([failed(coverage503), failed("天猫商品报表缺少有效商品 ID", "2026-11-18")], []), null);
+  assert.equal(classifyTmallImportFailure([failed("导入接口返回成功，但同店铺同日期覆盖回查未命中")], []), null);
 });

@@ -599,3 +599,19 @@ test("every throw site matching the deterministic content terminal fragments is 
   assert.deepEqual(found.sort(), expected,
     "throw site set changed: decide by hand whether the new/removed error is deterministic on a retry before editing this list");
 });
+
+// 2026-11-18：执行 11752 形态。新文案必须可重试，原汇总文案仍终局。
+test("天猫导入瞬态新文案可重试，原汇总文案仍终局", async () => {
+  const classifiers = await c1Classifiers();
+  const transient = "天猫导入因后端暂时不可用未完成（HTTP 503），可安全重试，详见结果清单";
+  const terminal = "导入未全部完成或覆盖回查未命中，详见结果清单";
+  const build = (message: string) => ({ workflow: { id: "TmallLiliDaily2026", name: "丽力" }, execution: { id: "11752", mode: "trigger",
+    lastNodeExecuted: "C·签收、导入并覆盖回查", error: { message,
+      description: `500 - "{\\"ok\\":false,\\"stage\\":\\"import\\",\\"error\\":\\"${message}\\",\\"dailyBackfill\\":{\\"status\\":\\"active\\"}}"` } } });
+  assert.equal(classifyHourlyRetryFailure(build(transient)).retry, true);
+  assert.equal(classifyHourlyRetryFailure(build(terminal)).retry, false);
+  for (const execute of classifiers) {
+    assert.equal(execute({ all: () => [{ json: build(transient) }] })[0].json.retryPolicy.workflowId, "TmallLiliDaily2026");
+    assert.equal(execute({ all: () => [{ json: build(terminal) }] })[0].json.noRetryTarget, true);
+  }
+});
