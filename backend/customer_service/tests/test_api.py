@@ -320,6 +320,19 @@ class CustomerServiceAutoAnalysisTests(TestCase):
         self.assertEqual(data["ids"], [row.id for row in reversed(rows)])
         self.assertEqual(data["pendingCount"], 3)
 
+    def test_pending_count_is_exact_below_cap_and_saturates_at_cap(self) -> None:
+        for index in range(5):
+            self.conversation(f"cap{index}", "fresh")
+        self.conversation("cap-empty", "fresh", messages=[], match_status="session_only")
+        with patch("customer_service.query.AUTO_ANALYSIS_PENDING_COUNT_CAP", 10):
+            self.assertEqual(auto_analysis_candidates(limit=8)["pendingCount"], 5)
+        with patch("customer_service.query.AUTO_ANALYSIS_PENDING_COUNT_CAP", 5):
+            self.assertEqual(auto_analysis_candidates(limit=8)["pendingCount"], 5)
+        with patch("customer_service.query.AUTO_ANALYSIS_PENDING_COUNT_CAP", 3):
+            data = auto_analysis_candidates(limit=8)
+            self.assertEqual(data["pendingCount"], 3)
+            self.assertEqual(len(data["ids"]), 5)
+
     def get(self, query: str = "", **kwargs):
         url = self.URL + query
         return self.client.get(url, headers=signed_headers(url, **kwargs))

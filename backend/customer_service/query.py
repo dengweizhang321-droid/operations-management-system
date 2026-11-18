@@ -198,6 +198,7 @@ def get_conversation(conversation_id: int) -> dict[str, object]:
 
 AUTO_ANALYSIS_WINDOW_HOURS = 72
 AUTO_ANALYSIS_NEWEST_POOL = 64
+AUTO_ANALYSIS_PENDING_COUNT_CAP = 1000
 
 
 def auto_analysis_candidates(limit: int) -> dict[str, object]:
@@ -206,6 +207,11 @@ def auto_analysis_candidates(limit: int) -> dict[str, object]:
     Selection uses analysis_source == "" (not analyzed_at IS NULL) because manual edits set
     analysis_source="manual" without analyzed_at and must never be overwritten by the model.
     Conversations without chat messages (messages == []) are skipped: there is nothing to analyze.
+
+    pendingCount is a capped count: it is exact below AUTO_ANALYSIS_PENDING_COUNT_CAP and saturates at
+    the cap otherwise. An exact count has to decompress messages for every pending row (tens of
+    thousands), which timed out under load and failed the whole round; the capped count stops at the
+    cap through a LIMIT subquery.
     """
     now = timezone.now()
     since = now - timedelta(hours=AUTO_ANALYSIS_WINDOW_HOURS)
@@ -223,7 +229,7 @@ def auto_analysis_candidates(limit: int) -> dict[str, object]:
     ids = [item for item in pool if item in picked]
     day_start = now.astimezone(ZoneInfo("Asia/Shanghai")).replace(hour=0, minute=0, second=0, microsecond=0)
     analyzed_today = CustomerServiceConversation.objects.filter(analysis_source="ai", analyzed_at__gte=day_start).count()
-    return {"ids": ids, "pendingCount": pending.count(), "analyzedToday": analyzed_today, "windowHours": AUTO_ANALYSIS_WINDOW_HOURS}
+    return {"ids": ids, "pendingCount": pending.order_by().values("id")[:AUTO_ANALYSIS_PENDING_COUNT_CAP].count(), "analyzedToday": analyzed_today, "windowHours": AUTO_ANALYSIS_WINDOW_HOURS}
 
 
 def get_conversations_by_ids(ids: list[int], *, message_limit: int = AI_MESSAGE_LIMIT) -> list[dict[str, object]]:
