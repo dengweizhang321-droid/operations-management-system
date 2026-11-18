@@ -219,51 +219,89 @@ def _projection_key(kind: str, *values: object) -> str:
     return f"{kind}:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
 
 
-def _projection_counts(
+PROJECTION_SNAPSHOT_FAILURE_BACKOFF_SECONDS = 600
+
+
+def _is_statement_timeout(error: BaseException) -> bool:
+    from django.db import OperationalError
+
+    cause = error.__cause__
+    return (
+        isinstance(error, OperationalError)
+        and getattr(cause, "sqlstate", None) == "57014"
+        and "statement timeout" in str(cause)
+    )
+
+
+def _projection_snapshot(
     revision: str,
     platforms: list[str] | None,
     *,
     metric_rows,
     identity_values,
     brand_values,
-) -> tuple[int, int, int]:
-    """Return the three projection section sizes for one netshop revision.
+) -> tuple[int, list[tuple[str, str, str, str]], int]:
+    """Return (metric_count, sorted identity list, brand_count) for one revision.
 
     The identity term is a DISTINCT over four columns of the whole
     netshop_rows table. It costs far more than the reader's statement_timeout
     allows, yet the projection sync pages through the whole projection and
-    needs the same total on every page. The three counts are constants for a
-    given revision and platform scope, so compute them once under a wider
-    per-statement budget and serve later pages from the memo.
+    needs the same total on every page. The identity list is a constant for a
+    given revision and platform scope, so compute it once (sorted in SQL, so
+    the order matches PostgreSQL collation) under a wider per-statement budget
+    and serve later pages by slicing the memo. The identity count is the
+    length of that list, so the total can never disagree with the pages.
     """
     from django.conf import settings
     from django.core.cache import cache
     from django.db import connection, transaction
 
     scope = "*" if platforms is None else "\x1f".join(platforms)
-    cache_key = _projection_key("market-projection-total:v1", revision, scope)
+    cache_key = _projection_key("market-projection-snapshot:v1", revision, scope)
+    failure_key = _projection_key("market-projection-snapshot-failure:v1", scope)
     seconds = settings.NETSHOP_PROJECTION_TOTAL_CACHE_SECONDS
     if seconds > 0:
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
+        # The failure marker is keyed by scope only: imports change the
+        # revision often, and a per-revision key would bypass the backoff.
+        if cache.get(failure_key) is not None:
+            raise NetshopApiError(
+                "网店市场投影正在等待重算，请稍后重试",
+                status=503,
+                code="source_not_ready",
+            )
 
-    def counts() -> tuple[int, int, int]:
-        return (metric_rows.count(), identity_values.count(), brand_values.count())
+    def compute() -> tuple[int, list[tuple[str, str, str, str]], int]:
+        identities = [
+            tuple(item)
+            for item in identity_values.order_by(
+                "platform", "sku_id", "spu_id", "product_code"
+            ).values_list("platform", "sku_id", "spu_id", "product_code")
+        ]
+        return (metric_rows.count(), identities, brand_values.count())
 
     # SET LOCAL needs a transaction, and only PostgreSQL has statement_timeout.
     # Inside an existing atomic block the caller already owns the budget, so
     # leave its setting alone rather than widening someone else's transaction.
-    if connection.vendor != "postgresql" or connection.in_atomic_block:
-        value = counts()
-    else:
-        with transaction.atomic():
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT set_config('statement_timeout', %s, true)",
-                    [str(settings.NETSHOP_PROJECTION_TOTAL_TIMEOUT_MS)],
-                )
-            value = counts()
+    try:
+        if connection.vendor != "postgresql" or connection.in_atomic_block:
+            value = compute()
+        else:
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT set_config('statement_timeout', %s, true)",
+                        [str(settings.NETSHOP_PROJECTION_TOTAL_TIMEOUT_MS)],
+                    )
+                value = compute()
+    except Exception as error:
+        if seconds > 0 and _is_statement_timeout(error):
+            cache.set(failure_key, True, timeout=PROJECTION_SNAPSHOT_FAILURE_BACKOFF_SECONDS)
+        raise
+    if seconds > 0:
+        cache.delete(failure_key)
     if seconds > 0:
         cache.set(cache_key, value, timeout=seconds)
     return value
@@ -298,13 +336,14 @@ def _market_projection_page(
         "platform", "sku_id", "spu_id", "product_code"
     ).order_by().distinct()
     brand_values = brand_rows.values("brand").order_by().distinct()
-    metric_count, identity_count, brand_count = _projection_counts(
+    metric_count, identity_list, brand_count = _projection_snapshot(
         current_revision,
         platforms,
         metric_rows=metric_rows,
         identity_values=identity_values,
         brand_values=brand_values,
     )
+    identity_count = len(identity_list)
     total = metric_count + identity_count + brand_count
     offset = int(request["offset"])
     limit = int(request["limit"])
@@ -312,52 +351,64 @@ def _market_projection_page(
     rows: list[dict[str, object]] = []
 
     if offset < metric_count and remaining:
-        start = offset
-        page = metric_rows.order_by("source_row_key")[start : start + remaining]
+        # OFFSET over wide rows is too slow at the tail. Find the start key
+        # with a key-only query (index-only scan on the partial index), then
+        # read just the needed columns from that key onward. source_row_key
+        # is unique, so ">=" boundary paging is exact.
+        ordered = metric_rows.order_by("source_row_key")
+        if offset:
+            boundary = list(
+                ordered.values_list("source_row_key", flat=True)[offset : offset + 1]
+            )
+        else:
+            boundary = [None]
+        page = []
+        if boundary:
+            if boundary[0] is not None:
+                ordered = ordered.filter(source_row_key__gte=boundary[0])
+            page = list(
+                ordered.values(
+                    "source_row_key", "source", "dataset", "platform", "shop_name",
+                    "business_date", "sku_id", "spu_id", "product_code",
+                    "transaction_amount_cents",
+                )[:remaining]
+            )
         for row in page:
             rows.append(
                 {
-                    "projectionKey": f"metric:{row.source_row_key}",
+                    "projectionKey": f"metric:{row['source_row_key']}",
                     "kind": "metric",
-                    "source": row.source,
-                    "dataset": row.dataset,
-                    "platform": row.platform,
-                    "shopName": row.shop_name,
-                    "businessDate": row.business_date or "",
-                    "skuId": row.sku_id,
-                    "spuId": row.spu_id,
-                    "productCode": row.product_code,
-                    "transactionAmountCents": row.transaction_amount_cents,
+                    "source": row["source"],
+                    "dataset": row["dataset"],
+                    "platform": row["platform"],
+                    "shopName": row["shop_name"],
+                    "businessDate": row["business_date"] or "",
+                    "skuId": row["sku_id"],
+                    "spuId": row["spu_id"],
+                    "productCode": row["product_code"],
+                    "transactionAmountCents": row["transaction_amount_cents"],
                     "brand": "",
                 }
             )
         remaining -= len(rows)
     identity_offset = max(0, offset - metric_count)
     if identity_offset < identity_count and remaining:
-        page = list(
-            identity_values.order_by("platform", "sku_id", "spu_id", "product_code")[
-                identity_offset : identity_offset + remaining
-            ]
-        )
-        for row in page:
+        page = identity_list[identity_offset : identity_offset + remaining]
+        for platform, sku_id, spu_id, product_code in page:
             rows.append(
                 {
                     "projectionKey": _projection_key(
-                        "identity",
-                        row["platform"],
-                        row["sku_id"],
-                        row["spu_id"],
-                        row["product_code"],
+                        "identity", platform, sku_id, spu_id, product_code
                     ),
                     "kind": "identity",
                     "source": "",
                     "dataset": "",
-                    "platform": row["platform"],
+                    "platform": platform,
                     "shopName": "",
                     "businessDate": "",
-                    "skuId": row["sku_id"],
-                    "spuId": row["spu_id"],
-                    "productCode": row["product_code"],
+                    "skuId": sku_id,
+                    "spuId": spu_id,
+                    "productCode": product_code,
                     "transactionAmountCents": 0,
                     "brand": "",
                 }
