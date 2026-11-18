@@ -913,7 +913,10 @@ def _review(params: dict[str, object]) -> dict[str, object]:
     eligibility, contexts = _review_eligibility(scope_query)
     selectable = query.filter(eligibility)
     total = query.count()
-    page_rows = list(_recognition_items(query).annotate(snapshot_valid=Exists(_matching_snapshot())).order_by("-created_at", "id")[(item_page - 1) * item_page_size : item_page * item_page_size])
+    # Two steps: slice plain ids first, then compute the audit-log/snapshot columns only for the page.
+    page_ids = list(query.order_by("-created_at", "id").values_list("id", flat=True)[(item_page - 1) * item_page_size : item_page * item_page_size])
+    rows_by_id = {row.id: row for row in _recognition_items(MarketAnnotationItem.objects.filter(id__in=page_ids)).annotate(snapshot_valid=Exists(_matching_snapshot()))}
+    page_rows = [rows_by_id[item_id] for item_id in page_ids if item_id in rows_by_id]
     items = []
     for row in page_rows:
         context = contexts.get(row.job_id, {"segments": [], "ready": False})
