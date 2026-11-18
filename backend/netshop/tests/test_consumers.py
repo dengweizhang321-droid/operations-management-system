@@ -117,16 +117,17 @@ class NetshopConsumerContractTests(_NetshopFixtureMixin, TestCase):
     def test_market_projection_total_is_computed_once_per_revision(self) -> None:
         from django.db import connection
 
-        # _projection_counts itself runs on every request (it owns the cache
+        # _projection_snapshot itself runs on every request (it owns the cache
         # lookup); what must NOT repeat is the expensive work behind a cache
-        # hit. Count executions of the COUNT(*)-over-DISTINCT identity/brand
-        # queries, since those only run from inside counts() on an actual
-        # cache miss (the per-page row fetches run on every request and are
-        # not counts, so they must not be mistaken for a recomputation).
+        # hit: the full identity DISTINCT list and the brand DISTINCT count.
+        # Page row fetches run on every request and must not be mistaken for
+        # a recomputation.
         executed: list[str] = []
 
         def count_identity_sql(execute, sql, params, many, context):
-            if sql.startswith("SELECT COUNT(*)") and "DISTINCT" in sql and "netshop_rows" in sql:
+            if "DISTINCT" in sql and "netshop_rows" in sql and (
+                sql.startswith("SELECT COUNT(*)") or '"sku_id"' in sql
+            ):
                 executed.append(sql)
             return execute(sql, params, many, context)
 
@@ -136,9 +137,9 @@ class NetshopConsumerContractTests(_NetshopFixtureMixin, TestCase):
             first = self.query(page, request_id="netshop-total-first")
             self.assertEqual(first.status_code, 200, first.content)
             after_first = len(executed)
-            # One COUNT(*) for the identity DISTINCT and one for the brand
-            # DISTINCT; metric_rows.count() has no DISTINCT and is cheap, so
-            # it is not part of what this memo needs to protect.
+            # One identity DISTINCT list and one brand DISTINCT COUNT(*);
+            # metric_rows.count() has no DISTINCT and is cheap, so it is not
+            # part of what this memo needs to protect.
             self.assertEqual(after_first, 2, executed)
             self.assertEqual(first.json()["data"]["total"], 4)
 
@@ -226,6 +227,170 @@ class NetshopConsumerContractTests(_NetshopFixtureMixin, TestCase):
         self.assertEqual(scoped["items"][0]["id"], "tmall:京东一店")
 
 
+class NetshopProjectionKeysetPagingTests(_NetshopFixtureMixin, TestCase):
+    """Keyset and memoized paging must equal the former OFFSET semantics row by row."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        if connection.vendor != "postgresql":
+            # _latest_rows uses DISTINCT ON, which only PostgreSQL has. The
+            # brand section is untouched by this change, so on SQLite swap in
+            # an equivalent "all published rows in scope" stand-in; on
+            # PostgreSQL the real implementation runs.
+            from netshop import consumers
+
+            def sqlite_latest_rows(principal):
+                rows = NetshopRow.objects.exclude(source__in=["jd_promotion", "tmall_promotion"])
+                platforms = consumers._platform_scope(principal)
+                return rows.filter(platform__in=platforms) if platforms is not None else rows
+
+            patcher = patch.object(consumers, "_latest_rows", sqlite_latest_rows)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        with transaction.atomic():
+            for index in range(7):
+                platform = "天猫" if index % 3 == 0 else "京东"
+                NetshopRow.objects.create(
+                    source_row_key=f"m-{index:02d}", source_row_hash=f"{index:064d}",
+                    first_import_batch_id="daily-1", last_import_batch_id="daily-1",
+                    source_row_number=10 + index,
+                    source="jd_sku_daily", dataset="spu_daily" if index % 2 else "sku_daily",
+                    platform=platform, shop_name="京东一店", business_date="2026-08-30",
+                    product_code=f"P-{index % 4}", product_name="x",
+                    sku_id=f"SKU-{index % 5}", spu_id=f"SPU-{index % 3}",
+                    metrics_json={}, raw_json={}, transaction_amount_cents=index * 100,
+                    created_at="2026-08-30T00:00:00Z", updated_at="2026-08-30T00:00:00Z",
+                )
+            for index in range(3):
+                NetshopRow.objects.create(
+                    source_row_key=f"brand-{index}", source_row_hash=f"{100 + index:064d}",
+                    first_import_batch_id="master-1", last_import_batch_id="master-1",
+                    source_row_number=20 + index, source="jd_product_master",
+                    dataset="product_master", platform="京东", shop_name="京东一店",
+                    snapshot_date="2026-08-30", product_code=f"B-{index}", product_name="x",
+                    sku_id=f"BSKU-{index}", spu_id="", metrics_json={}, raw_json={},
+                    brand=f"品牌{index}", created_at="2026-08-30T00:00:00Z",
+                    updated_at="2026-08-30T00:00:00Z",
+                )
+            NetshopDataRevision.objects.filter(domain="netshop").update(
+                revision=5, source_digest="c" * 64)
+        cache.clear()
+
+    _ids = __import__("itertools").count()
+
+    def reference(self, platforms):
+        """The pre-change OFFSET implementation, flattened to the full ordered list."""
+        from django.db.models import Q
+        from netshop import consumers
+        from sales.auth import Principal
+
+        scope = None if platforms is None else {"warehouses": [], "channels": [], "platforms": platforms}
+        principal = Principal(email="a@example.test", display_name="A", role="admin", scope=scope)
+        metric = NetshopRow.objects.filter(source="jd_sku_daily", dataset__in=["sku_daily", "spu_daily"])
+        identity = NetshopRow.objects.exclude(Q(sku_id="") & Q(spu_id="") & Q(product_code=""))
+        if platforms is not None:
+            metric = metric.filter(platform__in=platforms)
+            identity = identity.filter(platform__in=platforms)
+        brand = consumers._latest_rows(principal).filter(
+            dataset="product_master").exclude(brand="").values("brand").order_by().distinct()
+        out = []
+        for row in metric.order_by("source_row_key"):
+            out.append({
+                "projectionKey": f"metric:{row.source_row_key}", "kind": "metric",
+                "source": row.source, "dataset": row.dataset, "platform": row.platform,
+                "shopName": row.shop_name, "businessDate": row.business_date or "",
+                "skuId": row.sku_id, "spuId": row.spu_id, "productCode": row.product_code,
+                "transactionAmountCents": row.transaction_amount_cents, "brand": "",
+            })
+        identity_rows = identity.values("platform", "sku_id", "spu_id", "product_code").order_by().distinct()
+        for row in identity_rows.order_by("platform", "sku_id", "spu_id", "product_code"):
+            out.append({
+                "projectionKey": consumers._projection_key(
+                    "identity", row["platform"], row["sku_id"], row["spu_id"], row["product_code"]),
+                "kind": "identity", "source": "", "dataset": "", "platform": row["platform"],
+                "shopName": "", "businessDate": "", "skuId": row["sku_id"], "spuId": row["spu_id"],
+                "productCode": row["product_code"], "transactionAmountCents": 0, "brand": "",
+            })
+        for row in brand.order_by("brand"):
+            out.append({
+                "projectionKey": consumers._projection_key("brand", row["brand"]),
+                "kind": "brand", "source": "", "dataset": "product_master", "platform": "",
+                "shopName": "", "businessDate": "", "skuId": "", "spuId": "", "productCode": "",
+                "transactionAmountCents": 0, "brand": row["brand"],
+            })
+        return out
+
+    def page(self, offset, limit, scope, tag):
+        response = self.query({
+            "operation": "market_projection_page", "offset": offset, "limit": limit,
+            "expectedRevision": None,
+        }, scope=scope, request_id=f"keyset-{next(self._ids)}")
+        self.assertEqual(response.status_code, 200, response.content)
+        return response.json()["data"]
+
+    def assert_paging_matches(self, platforms):
+        scope = None if platforms is None else {"warehouses": [], "channels": [], "platforms": platforms}
+        expected = self.reference(platforms)
+        kinds = [row["kind"] for row in expected]
+        self.assertEqual(kinds, sorted(kinds, key=["metric", "identity", "brand"].index))
+        # brand rows live on 京东 only, so the 天猫 scope has no brand section
+        self.assertEqual(set(kinds), {"metric", "identity"} if platforms == ["天猫"] else {"metric", "identity", "brand"})
+        for limit in (1, 2, 3, 4, 7, 100):
+            collected, offset, totals = [], 0, set()
+            while True:
+                data = self.page(offset, limit, scope, f"{platforms}-{limit}")
+                totals.add(data["total"])
+                collected.extend(data["rows"])
+                self.assertEqual(data["truncated"], offset + len(data["rows"]) < len(expected))
+                if not data["truncated"]:
+                    break
+                self.assertTrue(data["rows"], "truncated page must make progress")
+                offset += len(data["rows"])
+            self.assertEqual(totals, {len(expected)})
+            self.assertEqual(collected, expected, f"limit={limit}")
+        beyond = self.page(len(expected) + 5, 10, scope, "beyond")
+        self.assertEqual(beyond, {"rows": [], "total": len(expected), "truncated": False})
+        exact_end = self.page(len(expected), 10, scope, "end")
+        self.assertEqual(exact_end["rows"], [])
+        # a window starting at every offset covers each section boundary
+        for offset in range(len(expected) + 1):
+            data = self.page(offset, 3, scope, "win")
+            self.assertEqual(data["rows"], expected[offset:offset + 3])
+
+    def test_unscoped_paging_matches_offset_reference(self) -> None:
+        self.assert_paging_matches(None)
+
+    def test_platform_scoped_paging_matches_offset_reference(self) -> None:
+        self.assert_paging_matches(["天猫"])
+        self.assert_paging_matches(["京东"])
+
+    def test_identity_list_is_queried_once_per_revision_across_pages(self) -> None:
+        executed: list[str] = []
+
+        def wrap(execute, sql, params, many, context):
+            if sql.startswith("SELECT DISTINCT") and '"sku_id"' in sql:
+                executed.append(sql)
+            return execute(sql, params, many, context)
+
+        with connection.execute_wrapper(wrap):
+            for offset in range(0, 20, 3):
+                self.page(offset, 3, None, "once")
+        self.assertEqual(len(executed), 1, executed)
+
+    def test_metric_pages_do_not_read_wide_columns(self) -> None:
+        seen: list[str] = []
+
+        def wrap(execute, sql, params, many, context):
+            if '"netshop_rows"' in sql and sql.startswith("SELECT") and "source_row_key" in sql:
+                seen.append(sql)
+            return execute(sql, params, many, context)
+
+        with connection.execute_wrapper(wrap):
+            self.page(3, 2, None, "narrow")
+        self.assertTrue(seen)
+        self.assertFalse(any("raw_json" in sql or "metrics_json" in sql for sql in seen), seen)
+
+
 class NetshopConsumerProjectionBudgetTests(_NetshopFixtureMixin, TransactionTestCase):
     # The implementation only widens statement_timeout when it is not already
     # inside someone else's atomic block. Django's TestCase wraps every test
@@ -243,7 +408,7 @@ class NetshopConsumerProjectionBudgetTests(_NetshopFixtureMixin, TransactionTest
         from netshop import consumers
 
         executed: list[tuple[str, object]] = []
-        original = consumers._projection_counts
+        original = consumers._projection_snapshot
 
         def record(*args, **kwargs):
             with connection.execute_wrapper(
@@ -253,7 +418,7 @@ class NetshopConsumerProjectionBudgetTests(_NetshopFixtureMixin, TransactionTest
             ):
                 return original(*args, **kwargs)
 
-        with patch.object(consumers, "_projection_counts", side_effect=record):
+        with patch.object(consumers, "_projection_snapshot", side_effect=record):
             response = self.query({
                 "operation": "market_projection_page", "offset": 0, "limit": 100,
                 "expectedRevision": None,
