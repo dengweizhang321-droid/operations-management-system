@@ -320,9 +320,16 @@ export const djangoSupervisorRelaunchDjangoScriptSha256='ff63a968e6df23ce96034f4
 // (0e5459dd...), which is appended-to, never replaced, in the lists below. The hash
 // is over the git-stored bytes (UTF-8 BOM + CRLF, -text in .gitattributes).
 export const workerStopExitingProcessWorkerScriptSha256='ae99c2464820f23dcf6b9c73fd476e12ed5acad4aeb7daeb61fd276f97b496f4';
+// DingTalk receiver observer bounded retry (codex/boot-resilience-20261118): Invoke-IndependentDingTalkObservation
+// retries only transient failures (lifecycle-lock wait, Worker not ready, Worker HTTP, one native re-run) inside
+// the existing 180 s phase budget and writes a redacted failure category/summary plus per-attempt evidence to
+// the dingtalk-startup-*.json observation. Candidate-only entry: the bytes now installed stay
+// workerStopExitingProcessWorkerScriptSha256 (ae99c246...), which is appended-to, never replaced. The hash is
+// over the git-stored bytes (UTF-8 BOM + CRLF, -text in .gitattributes).
+export const dingTalkObserverRetryWorkerScriptSha256='301a56772070550d99985a1a0758a21767d501192693ba9f2f2f6c6bba581635';
 export const piNativeCandidateControllerSha256=Object.freeze({
  'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256,djangoSupervisorRelaunchDjangoScriptSha256]),
- 'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256]),
+ 'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256,dingTalkObserverRetryWorkerScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });
 // Readiness helper packaging only: exact old/new controller bytes, no new stop route.

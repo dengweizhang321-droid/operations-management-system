@@ -282,29 +282,118 @@ function Start-IndependentDingTalkObservation([object]$Identity) {
   } finally { $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = $savedDeadline }
 }
 
+# Bounded retry for the independent receiver observer. Only transient classes are retried;
+# configuration, identity, maintenance, drain, budget and unknown failures stop at once. The
+# AI controller's AutoStartDingTalk is idempotent (it resolves the exact owned process under
+# its own service mutex before starting anything), so re-entering it cannot create a second
+# receiver or scheduler.
+function Get-DingTalkRetryDelayMilliseconds([int]$FailedAttempt) {
+  $delays = @(5000, 15000, 30000)
+  return [int]$delays[[Math]::Max(1, [Math]::Min($FailedAttempt, $delays.Count)) - 1]
+}
+
+function ConvertTo-SafeDingTalkFailureText([string]$Text) {
+  if ([string]::IsNullOrEmpty($Text)) { return '' }
+  $safe = [regex]::Replace($Text, '\s+', ' ')
+  $safe = [regex]::Replace($safe, '(?i)https?://\S+', '<url>')
+  $safe = [regex]::Replace($safe, '(?i)\b(token|secret|password|passwd|pwd|api[-_]?key|access[-_]?key|authorization|cookie|signature|credentials?)\s*[=:]\s*\S+', '$1=<redacted>')
+  $safe = [regex]::Replace($safe, '(?i)\bbearer\s+\S+', 'Bearer <redacted>')
+  $safe = [regex]::Replace($safe, '(?i)[a-z]:\\[^\s''"<>|]*', '<path>')
+  $safe = [regex]::Replace($safe, '\\\\[^\s''"<>|]+', '<path>')
+  $safe = [regex]::Replace($safe, '[A-Za-z0-9+/_\-]{32,}={0,2}', '<redacted>')
+  if ($safe.Length -gt 200) { $safe = $safe.Substring(0, 200) }
+  return $safe
+}
+
+function Get-DingTalkFailureClassification([object]$ErrorRecord) {
+  $exception = $ErrorRecord.Exception
+  $message = [string]$exception.Message
+  $evidence = $exception.Data['ProcessEvidence']
+  $evidenceCode = $null; $evidenceExit = $null
+  if ($evidence) { $evidenceCode = $evidence.code; $evidenceExit = $evidence.exitCode }
+  $typeName = $exception.GetType().Name
+  $category = 'unclassified'; $retryable = $false; $maxAttempts = 1
+  if ($message -ceq 'process_deadline_exhausted' -or $evidenceCode -ceq 'process_deadline_exhausted') {
+    $category = 'budget_exhausted'
+  } elseif ($message -clike 'Another Worker/system lifecycle operation is in progress*') {
+    $category = 'lifecycle_lock_timeout'; $retryable = $true; $maxAttempts = 4
+  } elseif ($message -ceq 'receiver_requires_exact_ready_worker') {
+    $category = 'worker_not_ready'; $retryable = $true; $maxAttempts = 4
+  } elseif ($message -clike 'Worker HTTP is not ready*' -or $exception -is [System.Net.WebException] -or $typeName -cin @('HttpRequestException', 'TaskCanceledException', 'TimeoutException')) {
+    $category = 'worker_http_not_ready'; $retryable = $true; $maxAttempts = 4
+  } elseif ($message -clike 'System maintenance is active*') {
+    $category = 'maintenance_active'
+  } elseif ($message -ceq 'dingtalk_observation_identity_or_configuration_failed') {
+    $category = 'identity_or_configuration'
+  } elseif ($null -ne $evidenceExit -and [int]$evidenceExit -ne 0) {
+    # The native controller's own diagnostics stay in its log; configuration and credential
+    # errors are indistinguishable here, so allow exactly one extra attempt.
+    $category = 'native_nonzero_exit'; $retryable = $true; $maxAttempts = 2
+  }
+  $summary = if ($category -ceq 'native_nonzero_exit') { 'AutoStartDingTalk exited with code ' + [int]$evidenceExit } else { ConvertTo-SafeDingTalkFailureText $message }
+  return [pscustomobject]@{ Category = $category; Retryable = $retryable; MaxAttempts = $maxAttempts; Summary = $summary }
+}
+
+function Invoke-DingTalkReceiverAttempt([object]$Identity) {
+  $observerLease = Enter-WorkerServiceMutex -StartWaitSeconds 30
+  try {
+    Assert-WorkerMaintenanceInactive
+    if (Read-WorkerAutomationDrain) { return @{status='deferred_drain'} }
+    if ((Get-WorkerStatusInternal $Identity).State -cne 'exact_release') { throw 'receiver_requires_exact_ready_worker' }
+    return (Start-SystemDingTalkReceiver)
+  } finally { $observerLease.Mutex.ReleaseMutex(); $observerLease.Mutex.Dispose() }
+}
+
+function Invoke-DingTalkReceiverWithRetry([object]$Identity) {
+  $attempt = 0
+  while ($true) {
+    $attempt++
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    try {
+      $native = Invoke-DingTalkReceiverAttempt $Identity
+      $script:DingTalkReceiverAttempts.Add([ordered]@{ attempt=$attempt; outcome='completed'; category=$null; elapsedMilliseconds=[int]$clock.ElapsedMilliseconds })
+      return $native
+    } catch {
+      $failure = Get-DingTalkFailureClassification $_
+      $delay = Get-DingTalkRetryDelayMilliseconds $attempt
+      # A further attempt must leave room for its lock wait after the backoff.
+      $canRetry = $failure.Retryable -and $attempt -lt $failure.MaxAttempts -and ((Get-ProcessRemaining $WorkerOperationDeadline) -gt ($delay + 20000))
+      $script:DingTalkReceiverAttempts.Add([ordered]@{ attempt=$attempt; outcome='failed'; category=$failure.Category; retried=[bool]$canRetry; elapsedMilliseconds=[int]$clock.ElapsedMilliseconds })
+      $script:DingTalkReceiverFailure = [ordered]@{ category=$failure.Category; summary=$failure.Summary; attempts=$attempt; retryable=[bool]$failure.Retryable; budgetLimited=[bool]($failure.Retryable -and $attempt -lt $failure.MaxAttempts -and -not $canRetry) }
+      if (-not $canRetry) { throw }
+      Start-Sleep -Milliseconds $delay
+      [void](Get-ProcessRemaining $WorkerOperationDeadline)
+    }
+  }
+}
+
 function Invoke-IndependentDingTalkObservation([object]$Identity) {
   if (-not $StartupObservationId) { throw 'missing_startup_observation_id' }
   $script:WorkerDingTalkReadiness = $null
-  $record = [ordered]@{ diagnosticOnly=$true; observationId=$StartupObservationId; releaseId=$Identity.ReleaseId; manifestSha256=$Identity.Sha256; requiredForStart=$false; status='failed'; phase=$null; readiness=$null }
+  $script:DingTalkReceiverAttempts = [Collections.Generic.List[object]]::new()
+  $script:DingTalkReceiverFailure = $null
+  $record = [ordered]@{ diagnosticOnly=$true; observationId=$StartupObservationId; releaseId=$Identity.ReleaseId; manifestSha256=$Identity.Sha256; requiredForStart=$false; status='failed'; phase=$null; readiness=$null; attempts=@(); failure=$null }
   try {
     $receiverResult = Invoke-WorkerStartPhase 'DingTalkReceiver' {
-      $observerLease = Enter-WorkerServiceMutex -StartWaitSeconds 30
-      try {
-        Assert-WorkerMaintenanceInactive
-        if (Read-WorkerAutomationDrain) { return @{status='deferred_drain'} }
-        if ((Get-WorkerStatusInternal $Identity).State -cne 'exact_release') { throw 'receiver_requires_exact_ready_worker' }
-        $native = Start-SystemDingTalkReceiver
-      } finally { $observerLease.Mutex.ReleaseMutex(); $observerLease.Mutex.Dispose() }
-      if ($native.status -in @('disabled','not_configured','skipped_isolated')) { return $native }
+      $native = Invoke-DingTalkReceiverWithRetry $Identity
+      if ($native.status -in @('disabled','not_configured','skipped_isolated','deferred_drain')) { return $native }
       return (Wait-IndependentDingTalkReady)
     }
     $record.status = [string]$receiverResult.status
+    $script:DingTalkReceiverFailure = $null
   } catch {
     $record.status = 'failed'
     if ($_.Exception.Data['StartPhase'].outcome -eq 'timed_out') { $record.status = 'timed_out' }
+    # Later-stage failures (readiness wait) were not classified inside the retry loop.
+    if (-not $script:DingTalkReceiverFailure -or $script:DingTalkReceiverAttempts.Count -eq 0 -or $script:DingTalkReceiverAttempts[$script:DingTalkReceiverAttempts.Count - 1].outcome -ceq 'completed') {
+      $late = Get-DingTalkFailureClassification $_
+      $script:DingTalkReceiverFailure = [ordered]@{ category=$late.Category; summary=$late.Summary; attempts=$script:DingTalkReceiverAttempts.Count; retryable=$false; budgetLimited=$false }
+    }
   } finally {
     $record.phase = $script:WorkerStartPhases['DingTalkReceiver']
     $record.readiness = $script:WorkerDingTalkReadiness
+    $record.attempts = @($script:DingTalkReceiverAttempts.ToArray())
+    $record.failure = $script:DingTalkReceiverFailure
     Write-IndependentDingTalkObservation $record
   }
   return $record
@@ -2225,7 +2314,8 @@ try {
     # Preflight/head changes can fail before the observation function is entered.
     # Preserve those failures independently too; never convert them into Start success.
     try {
-      Write-IndependentDingTalkObservation ([ordered]@{ diagnosticOnly=$true; observationId=$StartupObservationId; requiredForStart=$false; status='failed'; code='DingTalkReceiver_observer_failed'; phase=$_.Exception.Data['StartPhase']; processEvidence=$_.Exception.Data['ProcessEvidence'] })
+      $observerFailure = Get-DingTalkFailureClassification $_
+      Write-IndependentDingTalkObservation ([ordered]@{ diagnosticOnly=$true; observationId=$StartupObservationId; requiredForStart=$false; status='failed'; code='DingTalkReceiver_observer_failed'; phase=$_.Exception.Data['StartPhase']; processEvidence=$_.Exception.Data['ProcessEvidence']; failure=[ordered]@{ category=$observerFailure.Category; summary=$observerFailure.Summary; attempts=0; retryable=$false; budgetLimited=$false } })
     } catch { }
   }
   if ($Json) {

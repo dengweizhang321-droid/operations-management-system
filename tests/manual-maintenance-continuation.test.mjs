@@ -10,7 +10,7 @@ import {firstMaintenancePredecessor as k,assertFirstMaintenanceContinuation,cont
 import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
 import {aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256} from '../tools/manual-maintenance-continuation.mjs';
 import {readinessCopyControllerPair,pandasRotationControllerPair} from '../tools/manual-maintenance-continuation.mjs';
-import {releaseChainTripleFixDjangoScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256,nativePiResumeAfterMaintenancePhase1Predecessor,djangoSupervisorRelaunchDjangoScriptSha256} from '../tools/manual-maintenance-continuation.mjs';
+import {releaseChainTripleFixDjangoScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256,dingTalkObserverRetryWorkerScriptSha256,nativePiResumeAfterMaintenancePhase1Predecessor,djangoSupervisorRelaunchDjangoScriptSha256} from '../tools/manual-maintenance-continuation.mjs';
 // Execute the actual pure adapter declaration without importing release-impact's
 // TypeScript-dependent deployment analysis into this dependency-free fixture.
 async function loadProductionCommandArguments(){
@@ -169,7 +169,7 @@ test('S05a: B1 worker controller is qualified per controller; other names still 
  // entry. The B1 hash must stay first so an installed B1-era worker controller
  // remains admissible; the set is asserted exactly, so any further worker
  // controller edit still fails closed until it is re-qualified.
- assert.deepEqual([...piNativeCandidateControllerSha256['worker-local-service.ps1']],[candidate,bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['worker-local-service.ps1']],[candidate,bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256,dingTalkObserverRetryWorkerScriptSha256]);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}));
  assert.throws(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:'c'.repeat(64)}),/实际原生控制器代际与候选不一致：worker-local-service\.ps1/);
  // Each name only owns its own hashes: the django generation is not a worker one, nor the reverse.
@@ -213,11 +213,9 @@ test('django supervisor relaunch: repository bytes equal exactly one registered 
   assert.ok(!(piNativeCandidateControllerSha256[name]??[]).includes(candidate));
  }
 });
-test('worker stop exiting-process fix: repository bytes are the registered candidate; adoption is per controller and fail-closed',async()=>{
- // Static byte tripwire: the right-hand side is the registered constant, never
- // recomputed from the file, so any further edit fails until re-qualified.
- const source=await fs.readFile(new URL('../tools/worker-local-service.ps1',import.meta.url));
- assert.equal(createHash('sha256').update(source).digest('hex'),workerStopExitingProcessWorkerScriptSha256);
+test('worker stop exiting-process fix: the earlier generation stays registered; adoption is per controller and fail-closed',async()=>{
+ // The repository bytes moved on to dingTalkObserverRetryWorkerScriptSha256 (tripwire below);
+ // this generation must remain admissible for rollback and for the installed predecessor.
  const installed=releaseChainTripleFixWorkerScriptSha256;
  const candidate=workerStopExitingProcessWorkerScriptSha256;
  assert.match(candidate,/^[a-f0-9]{64}$/);
@@ -235,6 +233,36 @@ test('worker stop exiting-process fix: repository bytes are the registered candi
  // The hash does not leak to other controller names.
  for(const name of ['django-local-service.ps1','process-deadline.ps1','unknown.ps1'])
   assert.throws(()=>assertMaintenanceControllerGeneration({name,installedSha:installed,expected:candidate,candidateSha:candidate}),/实际原生控制器代际与候选不一致：/);
+});
+test('dingtalk observer retry: repository bytes equal exactly one registered candidate; adoption is per controller and fail-closed',async()=>{
+ // Static byte tripwire: the right-hand side is the registered constant, never
+ // recomputed from the file, so any further edit fails until re-qualified.
+ const source=await fs.readFile(new URL('../tools/worker-local-service.ps1',import.meta.url));
+ const actual=createHash('sha256').update(source).digest('hex');
+ assert.equal(actual,dingTalkObserverRetryWorkerScriptSha256);
+ const installed=workerStopExitingProcessWorkerScriptSha256;
+ const candidate=dingTalkObserverRetryWorkerScriptSha256;
+ assert.match(candidate,/^[a-f0-9]{64}$/);
+ assert.notEqual(candidate,installed);
+ const pins=piNativeCandidateControllerSha256['worker-local-service.ps1'];
+ assert.equal(pins.filter(value=>value===actual).length,1);
+ // Appended to: every earlier generation, including the bytes installed in production, stays.
+ assert.ok(pins.includes(installed)&&pins.includes(releaseChainTripleFixWorkerScriptSha256));
+ assert.equal(pins[pins.length-1],candidate);
+ assert.equal(new Set(pins).size,pins.length);
+ // Predecessor records describe the actual installed bytes and are not rewritten.
+ assert.equal(nativePiResumeAfterMaintenancePhase1Predecessor.workerScriptSha256,releaseChainTripleFixWorkerScriptSha256);
+ // Forward adoption and rollback both pass.
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}));
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:candidate,expected:installed,candidateSha:installed}));
+ // Unqualified bytes still fail closed (installed and expected differ, so the first-line shortcut is not taken).
+ const changed=candidate.slice(0,-1)+(candidate.endsWith('0')?'1':'0');
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:changed,candidateSha:changed}),/实际原生控制器代际与候选不一致：worker-local-service\.ps1/);
+ // The hash does not leak to other controller names.
+ for(const name of ['django-local-service.ps1','process-deadline.ps1','unknown.ps1']){
+  assert.throws(()=>assertMaintenanceControllerGeneration({name,installedSha:installed,expected:candidate,candidateSha:candidate}),/实际原生控制器代际与候选不一致：/);
+  assert.ok(!(piNativeCandidateControllerSha256[name]??[]).includes(candidate));
+ }
 });
 const failures={
  'wrong maintenance ID':s=>s.maintenance.id='c'.repeat(32),
