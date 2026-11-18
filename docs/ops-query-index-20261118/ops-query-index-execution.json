@@ -1,7 +1,7 @@
 {
   "version": "teruisi-schema-mandatory-code-execution-v1",
-  "checkedAt": "2026-11-18T12:52:05.262496+00:00",
-  "baseCommit": "5e405b5fe17c2fd59c742e25ad52a357e3f84778",
+  "checkedAt": "2026-11-18T12:57:25.457385+00:00",
+  "baseCommit": "34245fe062ee5d1a8b95326d623f37e8c77e891a",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "fullBackupOrRestorePerformed": false,
@@ -11,7 +11,7 @@
     "powershell-syntax",
     "python-syntax"
   ],
-  "codeSha256": "0612d4fb685a29a65f35fbefeddb511f6f040a98b73ec1b4749c3daa48ed1372",
+  "codeSha256": "bab00e3952c80045bb874e9e3c9bb3afb2f3bf4a2b3c295058b5e274e891a6b7",
   "migrationSha256": "b97df02139b903dbe74f21de830c3ad0f7be897c571f8989c8f7b13dbe654c53",
   "sourceFiles": {
     "tools/jd_monitor_preferences_addition.py": "94e93413b02bde911c11cc251c437f9480d8b9b4d1922369c5b29991d9470267",
@@ -125,7 +125,7 @@
     "tools/ai_unified_tasks_candidate.py": "15e764829f61930852176a517b1b0c61d1cdcccb757ae5d58b77d3734cd105af",
     "backend/ai_assistant/migrations/0090_unified_tasks.py": "f955d5ffbca0a3eea761597b79e7445e76e37ccf329e39aafa022f91d301e39a",
     "backend/ai_assistant/task_models.py": "3c34ad724d0ead9433e1f5d57c289b61c1aef730dc25bf31c650b27cc033ec43",
-    "tools/ops_query_index_addition.py": "e5003f29dc8e55d36c8862793abda692c3f743790125602031bbff31b86e2fb5",
+    "tools/ops_query_index_addition.py": "125c8f8dbe51b03b94267c550dd3bf0f54ee7208b9625b1ddd7e4c34d0d95b78",
     "tools/ops_query_index_catalog.py": "1e0da3bacc4cf76e15227f832f8d72882f68b63fc8486a29b38bd7cada7a3fc0",
     "tools/ops_query_index_candidate.py": "9a1b9c1ed2f3087086cc80965c14e64eb3489db287c243405bd3dc1ffb3480ab",
     "backend/sales/migrations/0013_customer_service_online_spec_index.py": "75fb4c4d24114dd5d35bc73ce2453d31993a551c148b1c1920c8fab8c4379d09",
@@ -136,15 +136,15 @@
   },
   "supplementalSourceFiles": {
     "backend/teruisi_backend/settings.py": "8784913431c34426d6d474253e6b487544302a83a57ea0ade282d133bf5b5480",
-    "tools/check_schema_code_digest.py": "5070eca0d93e15b357ff8159d456d42a58fa111e91c4c1fcb33c6a4401a8e7b8",
+    "tools/check_schema_code_digest.py": "26f3c7eb12d202ee75b1fcb66f73b35e0fd0994a87e68273af21017f62ad7921",
     "tools/check_catalog_baselines.py": "59aa5c75e02232d0cdf6df51b48dc2c93f7f6550af6bb0350e5f7cd642ca2a90",
     "tools/manual-maintenance-continuation.mjs": "984c1474ea7cc0b7e3203510a56bcc107cd43dc410fcc8bd8001042f83851173",
     "tests/test_postgres_no_key_generation_159.py": "63b01c7b7e4cdc7458cb0870c8e1a13539db1a4e7fad62d9d2091f25ba6991c5",
     "tests/schema-addition-enumeration-consistency.test.mjs": "51b8937853fcbf6fc167552304a1c4370cae6f5b482e33e7410a93d3bb629e85",
-    "tests/test_ops_query_index_addition.py": "06ed77791df1b77227e766bd436f9131feb19f4f5bbe38ef6b6a9430f73d9d42",
+    "tests/test_ops_query_index_addition.py": "c38284dd1096f73b547dd7ee3c06b1d284b46fe7befda5bd5809faeb65a20b0f",
     "tests/test_ops_query_index_rehearsal.py": "28ca56842155f01da3fa140ae0c7c03d7470f5d98a77478d6f8c028df2cd520f",
     "tools/ops_query_index_rehearsal.py": "943e3c1a737e0009d3204e87963174929f5c4f34ae259baed7fff28dcc7c7149",
-    "docs/ops-query-index-20261118/run-mandatory-checks.py": "c954e4ddadf7957ed5fb4b676e446b02d2865f3e9a49eb9f1eb1e0bc5469f5cb"
+    "docs/ops-query-index-20261118/run-mandatory-checks.py": "fc6c9f95dfd30479406f7cd1f6a23ed45a6b92acfed4cab784a5d5ccde1b8a88"
   },
   "syntax": {
     "python": {
@@ -281,9 +281,9 @@
         },
         {
           "host": "pwsh.exe",
+          "files": 11,
           "status": "passed",
-          "version": "7.7.0",
-          "files": 11
+          "version": "7.7.0"
         }
       ]
     }
@@ -342,5 +342,5 @@
       "tools/ai_unified_tasks_catalog.json"
     ]
   },
-  "executionScriptSha256": "c954e4ddadf7957ed5fb4b676e446b02d2865f3e9a49eb9f1eb1e0bc5469f5cb"
+  "executionScriptSha256": "fc6c9f95dfd30479406f7cd1f6a23ed45a6b92acfed4cab784a5d5ccde1b8a88"
 }

@@ -1,7 +1,7 @@
 {
   "version": "ops-query-index-mandatory-code-checks-v1",
   "status": "code-checked",
-  "checkedAt": "2026-11-18T12:52:05.262496+00:00",
+  "checkedAt": "2026-11-18T12:57:25.457385+00:00",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "fullBackupOrRestorePerformed": false,
@@ -20,7 +20,7 @@
     "netshop.0005_market_projection_page_index",
     "customer_service.0003_ai_analyzed_at_index"
   ],
-  "codeSha256": "0612d4fb685a29a65f35fbefeddb511f6f040a98b73ec1b4749c3daa48ed1372",
+  "codeSha256": "bab00e3952c80045bb874e9e3c9bb3afb2f3bf4a2b3c295058b5e274e891a6b7",
   "migrationSha256": "b97df02139b903dbe74f21de830c3ad0f7be897c571f8989c8f7b13dbe654c53",
   "checks": [
     "migration-closure",
@@ -30,6 +30,10 @@
   ],
   "evidence": {
     "path": "docs/ops-query-index-20261118/ops-query-index-execution.json",
-    "sha256": "d9068f500d910a2f2d3a4706429e6c05f5c9a02f4b641aa5aac33ad22123597e"
+    "sha256": "21ecc582d9fea0cd7f08da248ac8d3b4e821d9b082120d6662f8a7834bc0f6bf"
+  },
+  "rehearsalEvidence": {
+    "path": "docs/ops-query-index-20261118/rehearsal-result.json",
+    "sha256": "d4cc438b2158c833ec76c62da3410d63d34301bc0e8f4036756fef0b4af320e9"
   }
 }
