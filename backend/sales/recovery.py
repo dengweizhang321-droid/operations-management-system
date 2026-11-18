@@ -1,4 +1,5 @@
 import json
+from django.db.models import Count, Q
 from common.import_recovery import recovery_query, reconcile, recovery_rules_digest
 from .models import SalesImportAttempt, SalesImportBatch, SalesImportScopeHead, SalesRawUploadSession, SalesOrderLine
 from .write_service import _scope_key, _scope_material, batch_payload, validate_import_date_range, validate_import_channels, SalesImportServiceError
@@ -25,7 +26,6 @@ def read_recovery(params, actor_email):
         audits = audits.filter(raw_upload_id=query["uploadId"])
         sessions = sessions.filter(id=query["uploadId"])
     else:
-        from django.db.models import Q
         audits = audits.filter(Q(upload_fingerprint=query["fingerprint"]) | Q(upload_fingerprint=""))
     def batch_reader(batch_id):
         batch = SalesImportBatch.objects.filter(id=batch_id, scope_json=scope).first()
@@ -34,7 +34,10 @@ def read_recovery(params, actor_email):
         rows = SalesOrderLine.objects.filter(business_date__gte=start, business_date__lte=end, is_business_row=True)
         if channels:
             rows = rows.filter(channel__in=channels)
-        owned = rows.filter(last_import_batch_id=batch_id).count()
+        # One aggregate over the date range: avoids a separate NOT-matching EXISTS probe that the
+        # planner can turn into a full-table scan when no foreign rows exist.
+        counts = rows.aggregate(total=Count("id"), owned=Count("id", filter=Q(last_import_batch_id=batch_id)))
+        owned = counts["owned"]
         return {**batch_payload(batch), "ownedRowCount": owned,
-            "currentEffective": owned == batch.row_count and not rows.exclude(last_import_batch_id=batch_id).exists()}
+            "currentEffective": owned == batch.row_count and counts["total"] == owned}
     return {**result, **reconcile(attempts=audits, sessions=sessions, batch_reader=batch_reader)}

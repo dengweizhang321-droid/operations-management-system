@@ -8,6 +8,7 @@ from django.utils import timezone
 from sales.models import SalesImportAttempt, SalesImportBatch, SalesImportScopeHead, SalesOrderLine, SalesRawUploadSession, SalesStagedImportSession
 from sales.recovery import read_recovery
 from sales.tests import test_write_service as fixtures
+from sales.tests.factories import make_line
 from sales.tests.test_write_service import AUTHORITY_EPOCH, CUTOVER_ID, normalized_row
 from sales.write_service import SalesImportServiceError, complete_staged_import
 
@@ -80,3 +81,38 @@ class SalesRecoveryTests(TestCase):
         with self.assertRaisesMessage(SalesImportServiceError, "其他 owner 接管"):
             complete_staged_import(str(stage.id), "admin@example.test")
         self.assertEqual(SalesImportBatch.objects.count(), 1)
+
+    def _published(self):
+        stage, raw = self.guarded("initial")
+        published = complete_staged_import(str(stage.id), "admin@example.test")
+        return self.query(stage, raw), published
+
+    def _foreign(self, identifier, **overrides):
+        values = {"first_import_batch_id": "legacy-batch", "last_import_batch_id": "legacy-batch",
+                  "ship_time": "2024-01-01 11:00:00", "sales_time": "2024-01-01 10:00:00"}
+        values.update(overrides)
+        make_line(identifier, f"foreign-{identifier}", **values).save()
+
+    def test_current_effective_true_when_range_rows_all_owned_by_batch(self):
+        query, published = self._published()
+        result = read_recovery(query, "admin@example.test")
+        self.assertEqual(result["status"], "committed_current")
+        self.assertEqual(result["batch"]["id"], published["batch"]["id"])
+        self.assertEqual(result["batch"]["ownedRowCount"], 1)
+        self.assertTrue(result["currentEffective"])
+
+    def test_foreign_batch_row_in_range_makes_result_superseded(self):
+        query, _ = self._published()
+        self._foreign(9001)
+        result = read_recovery(query, "admin@example.test")
+        self.assertEqual(result["status"], "committed_superseded")
+        self.assertEqual(result["batch"]["ownedRowCount"], 1)
+        self.assertFalse(result["currentEffective"])
+
+    def test_foreign_rows_out_of_range_or_non_business_do_not_affect_result(self):
+        query, _ = self._published()
+        self._foreign(9002, ship_time="2024-01-05 11:00:00", sales_time="2024-01-05 10:00:00")
+        self._foreign(9003, warehouse=" 刷刷仓 ")
+        result = read_recovery(query, "admin@example.test")
+        self.assertEqual(result["status"], "committed_current")
+        self.assertTrue(result["currentEffective"])
