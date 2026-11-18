@@ -14,6 +14,6 @@
     "backend/customer_service/migrations/0003_ai_analyzed_at_index.py": "1daac3fb522af39e2d2a2a1b54d2bd73a33cfbc302dd98721df42a9960e395e3"
   },
   "validation": "docs/ops-query-index-20261118/ops-query-index-checks.json",
-  "validationSha256": "6a5f1b37529ddc201aabbb832ff697778973ca611e8c2a461f7daa775ba847d2",
-  "codeSha256": "bab00e3952c80045bb874e9e3c9bb3afb2f3bf4a2b3c295058b5e274e891a6b7"
+  "validationSha256": "c25f936c7752deec642c374172415a0eda336593d4a944619e97372a0b6c0614",
+  "codeSha256": "8c4ec0d65df0a405ebea62d4a80bda898cfa0f316ed36f1b46666bbdda93957d"
 }

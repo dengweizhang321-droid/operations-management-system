@@ -1,7 +1,7 @@
 {
   "version": "teruisi-schema-mandatory-code-execution-v1",
-  "checkedAt": "2026-11-18T12:57:25.457385+00:00",
-  "baseCommit": "34245fe062ee5d1a8b95326d623f37e8c77e891a",
+  "checkedAt": "2026-11-18T13:09:23.063989+00:00",
+  "baseCommit": "2b2cb77c6c6c268e5779dc17634d941ea4f0ad31",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "fullBackupOrRestorePerformed": false,
@@ -11,7 +11,7 @@
     "powershell-syntax",
     "python-syntax"
   ],
-  "codeSha256": "bab00e3952c80045bb874e9e3c9bb3afb2f3bf4a2b3c295058b5e274e891a6b7",
+  "codeSha256": "8c4ec0d65df0a405ebea62d4a80bda898cfa0f316ed36f1b46666bbdda93957d",
   "migrationSha256": "b97df02139b903dbe74f21de830c3ad0f7be897c571f8989c8f7b13dbe654c53",
   "sourceFiles": {
     "tools/jd_monitor_preferences_addition.py": "94e93413b02bde911c11cc251c437f9480d8b9b4d1922369c5b29991d9470267",
@@ -56,7 +56,7 @@
     "tools/publish-main-command.mjs": "b711a41c401e7619e175347e6ba3490e5d5655d5dca5c9dc840ac345b8a7bfc7",
     "tools/manual-maintenance-start.ps1": "a7ab01a0136cb43aa66d0ce5d289f51bae694a8e62568d5582f3b351fd42bfc9",
     "tools/manual-maintenance-lock.psm1": "70041d738f8e076cc13b8391aaf3a31bcf15399ccfef81fdeb4f7d88f9411476",
-    "tools/manual-maintenance-continuation.mjs": "984c1474ea7cc0b7e3203510a56bcc107cd43dc410fcc8bd8001042f83851173",
+    "tools/manual-maintenance-continuation.mjs": "dcb8b7c8fe1c292fcae32d78837823d7a7e7867e2bd0213aa957ecdac647f83b",
     "tools/manual-maintenance-continuation.ps1": "359890e622739c501bf9cd6ab525a66aa280077f54d847847e2417f9c69c63a5",
     "backend/ai_assistant/pi_health.py": "2c830812f5715366d5be56a432928cd51d39167cd295b54c85eb5cfb1a22c047",
     "backend/ai_assistant/pi_models.py": "0fcbcf59983c80ec102612938893486d64e8d0948f3659082d25e01356741343",
@@ -138,7 +138,7 @@
     "backend/teruisi_backend/settings.py": "8784913431c34426d6d474253e6b487544302a83a57ea0ade282d133bf5b5480",
     "tools/check_schema_code_digest.py": "26f3c7eb12d202ee75b1fcb66f73b35e0fd0994a87e68273af21017f62ad7921",
     "tools/check_catalog_baselines.py": "59aa5c75e02232d0cdf6df51b48dc2c93f7f6550af6bb0350e5f7cd642ca2a90",
-    "tools/manual-maintenance-continuation.mjs": "984c1474ea7cc0b7e3203510a56bcc107cd43dc410fcc8bd8001042f83851173",
+    "tools/manual-maintenance-continuation.mjs": "dcb8b7c8fe1c292fcae32d78837823d7a7e7867e2bd0213aa957ecdac647f83b",
     "tests/test_postgres_no_key_generation_159.py": "63b01c7b7e4cdc7458cb0870c8e1a13539db1a4e7fad62d9d2091f25ba6991c5",
     "tests/schema-addition-enumeration-consistency.test.mjs": "51b8937853fcbf6fc167552304a1c4370cae6f5b482e33e7410a93d3bb629e85",
     "tests/test_ops_query_index_addition.py": "c38284dd1096f73b547dd7ee3c06b1d284b46fe7befda5bd5809faeb65a20b0f",
