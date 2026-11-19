@@ -17,7 +17,7 @@ const {
   CUSTOMER_SERVICE_ANALYSIS_PROMPT_LIMIT,
   packCustomerServiceAnalysisBatches,
 } = await import("../lib/customer-service/analysis");
-const { customerServiceAutoAnalysisSettings, runScheduledCustomerServiceAnalysis } = await import("../lib/customer-service/auto-analysis-scheduled");
+const { backgroundParallelism, customerServiceAutoAnalysisSettings, runScheduledCustomerServiceAnalysis } = await import("../lib/customer-service/auto-analysis-scheduled");
 const { PublicApiError } = await import("../lib/http/api-error");
 
 const admin: AppPrincipal = { email: "local-admin@teruisi.local", displayName: "本地管理员", role: "admin", scope: null };
@@ -35,6 +35,7 @@ function harness(overrides: CustomerServiceAutoAnalysisDependencies = {}) {
   const calls = { candidates: 0, model: 0, analyze: [] as number[][], lanes: [] as string[], limits: [] as number[], options: [] as unknown[] };
   const dependencies: CustomerServiceAutoAnalysisDependencies = {
     settings: async () => settings,
+    now: () => new Date("2026-11-19T02:00:00+08:00"),
     resolvePrincipal: async () => ({ ok: true, principal: admin }),
     loadCandidates: async (_who, _limit, _signal, which) => lane({ lane: which, ids: which === "new" ? [3, 1, 2] : [] }),
     hasChatModel: async () => { calls.model += 1; return true; },
@@ -119,6 +120,35 @@ test("a short new lane leaves the remaining batch slots to the backlog lane", as
   assert.deepEqual(calls.analyze, [[3, 1, 2], range(100, 8), range(108, 8)]);
   assert.deepEqual(calls.options, [{ background: true }, { background: true }, { background: true }]);
   assert.deepEqual(result, { analyzed: 19, requested: 19, conflicts: 0, failed: 0, pendingCount: 3, lane: "new", batches: 3, rejectedBatches: 0 });
+});
+
+test("parallelism is 3 from 00:00 to 07:59 Shanghai time and 2 otherwise", () => {
+  const at = (iso: string) => backgroundParallelism(new Date(iso));
+  assert.equal(at("2026-11-19T00:00:00+08:00"), 3);
+  assert.equal(at("2026-11-19T07:59:59+08:00"), 3);
+  assert.equal(at("2026-11-19T08:00:00+08:00"), 2);
+  assert.equal(at("2026-11-19T12:30:00+08:00"), 2);
+  assert.equal(at("2026-11-19T23:59:59+08:00"), 2);
+  assert.equal(at("2026-11-20T00:00:00+08:00"), 3);
+  // Same instants expressed in UTC (the Worker clock) map to the same Shanghai hours.
+  assert.equal(at("2026-11-18T16:00:00Z"), 3);
+  assert.equal(at("2026-11-18T23:59:59Z"), 3);
+  assert.equal(at("2026-11-19T00:00:00Z"), 2);
+  assert.equal(at("2026-11-19T15:59:59Z"), 2);
+});
+
+test("daytime ticks dispatch at most two batches and ask the backlog only for what is left", async () => {
+  const { calls, dependencies } = harness({
+    now: () => new Date("2026-11-19T14:00:00+08:00"),
+    loadCandidates: pools([3, 1, 2], range(100, 30)),
+  });
+  await runScheduledCustomerServiceAnalysis(dependencies);
+  assert.deepEqual(calls.limits, [16, 8]);
+  assert.deepEqual(calls.analyze, [[3, 1, 2], range(100, 8)]);
+  const full = harness({ now: () => new Date("2026-11-19T14:00:00+08:00"), loadCandidates: pools(range(1, 24), range(100, 24)) });
+  await runScheduledCustomerServiceAnalysis(full.dependencies);
+  assert.deepEqual(full.calls.analyze, [range(1, 8), range(9, 8)]);
+  assert.deepEqual(full.calls.lanes, ["new"]);
 });
 
 test("a full new lane takes all three batch slots and never reads the backlog", async () => {

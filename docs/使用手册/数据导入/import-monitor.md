@@ -81,4 +81,4 @@ Django 读取由运维显式配置的 `TERUISI_N8N_STATUS_DATABASE_PATH`。进�
 - 模型派发上限放宽（Django 环境变量，每次派发时读取；非法值回落默认并记 warning）：全局每日 4000 次、单账号 2500 次、单模型 4000 次，分别由 `TERUISI_AI_DISPATCH_DAILY_LIMIT_GLOBAL`、`TERUISI_AI_DISPATCH_DAILY_LIMIT_PER_OWNER`、`TERUISI_AI_DISPATCH_DAILY_LIMIT_PER_MODEL` 调整；上文“单账号每日 120 次、全局 1000 次”的数字已作废。
 - 客服分析页提示同时显示新增与积压两个每日上限。
 详见 [两通道与额度放宽](../../cs-auto-ai-analysis-20261116/2026-11-19-两通道与额度放宽.md)。
-- 并行与名额：每个定时 tick 最多并行 3 批（每批 ≤8 条），先分给新增通道、余下给积压通道；自动分析使用独立的 3 个后台名额，不占用手动分析和 AI 助理的 2 个名额。模型调用改为流式，单次 `analysis-reply` 请求预算 240 秒，失败会写入失败审计。
+- 并行与名额：每个定时 tick 并行批数按上海时间决定（00:00–08:00 最多 3 批，其余时段最多 2 批，每批 ≤8 条），先分给新增通道、余下给积压通道；自动分析使用独立的 3 个后台名额，不占用手动分析和 AI 助理的 2 个名额。模型调用改为流式，单次 `analysis-reply` 请求预算 240 秒，失败会写入失败审计。

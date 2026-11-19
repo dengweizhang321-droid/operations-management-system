@@ -8,6 +8,17 @@ export const CUSTOMER_SERVICE_BACKLOG_ANALYSIS_DEFAULT_DAILY_LIMIT = 6000;
 export const CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE = 8;
 /** Parallel model batches per tick; matches BACKGROUND_ANALYSIS_SLOTS in backend/ai_assistant/views.py. */
 export const CUSTOMER_SERVICE_AUTO_ANALYSIS_MAX_PARALLEL_BATCHES = 3;
+/** Parallel batches while people are likely at work (08:00-24:00 Asia/Shanghai): leaves writer threads for interactive requests. */
+export const CUSTOMER_SERVICE_AUTO_ANALYSIS_DAYTIME_PARALLEL_BATCHES = 2;
+
+/**
+ * Parallel batches for a tick at `now`: all MAX_PARALLEL_BATCHES between 00:00 and 08:00 Shanghai time,
+ * DAYTIME_PARALLEL_BATCHES otherwise. Shanghai has no daylight saving, so the offset is a fixed +8 h.
+ */
+export function backgroundParallelism(now: Date) {
+  const shanghaiHour = (now.getUTCHours() + 8) % 24;
+  return shanghaiHour < 8 ? CUSTOMER_SERVICE_AUTO_ANALYSIS_MAX_PARALLEL_BATCHES : CUSTOMER_SERVICE_AUTO_ANALYSIS_DAYTIME_PARALLEL_BATCHES;
+}
 const CANDIDATE_TIMEOUT_MS = 5_000;
 
 type RuntimeEnvironment = Record<string, unknown>;
@@ -59,6 +70,7 @@ export type CustomerServiceAutoAnalysisDependencies = {
   resolvePrincipal?: (owner: string) => Promise<BackgroundPrincipalResult>;
   loadCandidates?: (principal: AppPrincipal, limit: number, signal: AbortSignal, lane: CustomerServiceAutoAnalysisLane) => Promise<CustomerServiceAutoAnalysisCandidates>;
   hasChatModel?: (principal: AppPrincipal) => Promise<boolean>;
+  now?: () => Date;
   analyze?: (ids: number[], principal: AppPrincipal, options: { background: true }) => Promise<{ analyzed: number; requested: number; conflicts: number; failed: number }>;
 };
 
@@ -81,13 +93,13 @@ function chunk<T>(items: T[], size: number) {
 }
 
 /**
- * One scheduler tick dispatches up to MAX_PARALLEL_BATCHES batches of at most BATCH_SIZE conversations,
+ * One scheduler tick dispatches up to backgroundParallelism(now) batches of at most BATCH_SIZE conversations,
  * in parallel. The "new" lane (first stored within 72 hours) is filled first; the remaining batch slots go
  * to the "backlog" lane. Each lane has its own daily cap, counted from the lane-split analyzedToday* fields,
  * and the ids of all batches are disjoint. A failing batch never affects the others.
  *
  * Ticks cannot overlap: the local trigger supervisor starts the next tick only after the previous one
- * (which awaits this function) has finished, so at most MAX_PARALLEL_BATCHES model calls are in flight.
+ * (which awaits this function) has finished, so at most that many model calls are in flight.
  */
 export async function runScheduledCustomerServiceAnalysis(
   dependencies: CustomerServiceAutoAnalysisDependencies = {},
@@ -109,6 +121,7 @@ export async function runScheduledCustomerServiceAnalysis(
   const load = dependencies.loadCandidates ?? ((who, limit, signal, lane) =>
     requestDjangoCustomerServiceAutoAnalysisCandidates(who, limit, { signal }, lane));
 
+  const parallelism = backgroundParallelism((dependencies.now ?? (() => new Date()))());
   const lanes: Array<{ lane: CustomerServiceAutoAnalysisLane; limit: number }> = [{ lane: "new", limit: settings.dailyLimit }];
   if (settings.backlogEnabled) lanes.push({ lane: "backlog", limit: settings.backlogDailyLimit });
 
@@ -116,7 +129,7 @@ export async function runScheduledCustomerServiceAnalysis(
   const taken = new Set<number>();
   let skipped: CustomerServiceAutoAnalysisResult = { skipped: "no_candidates" };
   for (const { lane, limit } of lanes) {
-    const slots = CUSTOMER_SERVICE_AUTO_ANALYSIS_MAX_PARALLEL_BATCHES - planned.length;
+    const slots = parallelism - planned.length;
     if (slots <= 0) break;
     const wanted = slots * CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE;
     const candidates = await load(principal, wanted, AbortSignal.timeout(CANDIDATE_TIMEOUT_MS), lane);
