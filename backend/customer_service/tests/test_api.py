@@ -267,15 +267,20 @@ class CustomerServiceAutoAnalysisTests(TestCase):
 
     def conversation(
         self, key: str, batch_id: str, *, source: str = "", analyzed_at=None, messages=None,
-        consulted_at: str = "2026-11-16 10:00:00", match_status: str = "matched",
+        consulted_at: str = "2026-11-16 10:00:00", match_status: str = "matched", age_hours: float = 0,
     ) -> CustomerServiceConversation:
         if messages is None:
             messages = [{"sender": "顾客", "sentAt": "2026-11-16 10:00:00", "content": "在吗"}]
-        return CustomerServiceConversation.objects.create(
+        row = CustomerServiceConversation.objects.create(
             conversation_key=key, first_import_batch_id=batch_id, last_import_batch_id=batch_id, shop_name="店",
             consulted_at=consulted_at, match_status=match_status, match_confidence="exact",
             analysis_source=source, analyzed_at=analyzed_at, messages=messages,
         )
+        if age_hours:
+            # created_at is auto_now_add; age the row to place it inside or outside the 72h new-lane window.
+            CustomerServiceConversation.objects.filter(id=row.id).update(created_at=timezone.now() - timedelta(hours=age_hours))
+            row.refresh_from_db()
+        return row
 
     def test_candidates_exclude_conversations_without_chat_messages(self) -> None:
         wanted = self.conversation("with-chat", "fresh").id
@@ -337,20 +342,65 @@ class CustomerServiceAutoAnalysisTests(TestCase):
         url = self.URL + query
         return self.client.get(url, headers=signed_headers(url, **kwargs))
 
-    def test_candidates_exclude_manual_ai_old_and_unfinished_batches(self) -> None:
+    def test_new_lane_excludes_manual_ai_and_conversations_first_stored_outside_window(self) -> None:
         wanted = [self.conversation(f"k{index}", "fresh").id for index in range(3)]
         self.conversation("manual", "fresh", source="manual")
         self.conversation("ai", "fresh", source="ai", analyzed_at=timezone.now())
-        self.conversation("old", "old")
-        self.conversation("processing", "processing")
-        self.conversation("nobatch", "missing")
+        self.conversation("empty", "fresh", messages=[], match_status="session_only")
+        # Re-imported old conversation: batch pointer is fresh but it was first stored 5 days ago.
+        old = self.conversation("reimported-old", "fresh", age_hours=120)
         response = self.get()
         self.assertEqual(response.status_code, 200, response.content)
         data = response.json()
         self.assertEqual(sorted(data["ids"]), sorted(wanted))
+        self.assertNotIn(old.id, data["ids"])
+        self.assertEqual(data["lane"], "new")
         self.assertEqual(data["pendingCount"], 3)
+        self.assertEqual(data["pendingCountNew"], 3)
+        self.assertEqual(data["pendingCountBacklog"], 1)
         self.assertEqual(data["windowHours"], 72)
         self.assertTrue(response["X-Customer-Service-Data-Revision"])
+
+    def test_new_lane_ignores_batch_status(self) -> None:
+        # Unlike the former batch-based rule, only first-insertion time decides the lane.
+        wanted = self.conversation("in-processing-batch", "processing").id
+        self.assertEqual(self.get().json()["ids"], [wanted])
+
+    def test_backlog_lane_selects_everything_else_newest_consulted_first(self) -> None:
+        self.conversation("fresh-one", "fresh")
+        rows = [self.conversation(f"b{index}", "old", consulted_at=f"2026-10-0{index + 1} 10:00:00", age_hours=100) for index in range(4)]
+        self.conversation("old-manual", "old", source="manual", age_hours=100)
+        self.conversation("old-ai", "old", source="ai", analyzed_at=timezone.now() - timedelta(days=9), age_hours=100)
+        self.conversation("old-empty", "old", messages=[], match_status="session_only", age_hours=100)
+        with patch("customer_service.query.random.sample", side_effect=lambda pool, k: list(pool)[:k]):
+            data = self.get("?lane=backlog").json()
+        self.assertEqual(data["lane"], "backlog")
+        self.assertEqual(data["ids"], [row.id for row in reversed(rows)])
+        self.assertEqual(data["pendingCountBacklog"], 4)
+        self.assertEqual(data["pendingCountNew"], 1)
+        # Legacy fields keep describing the new lane whichever lane is requested.
+        self.assertEqual(data["pendingCount"], 1)
+
+    def test_backlog_lane_samples_inside_bounded_newest_pool(self) -> None:
+        base = datetime(2026, 9, 1, 0, 0, 0)
+        rows = [self.conversation(f"p{index}", "old", consulted_at=(base + timedelta(minutes=index)).strftime("%Y-%m-%d %H:%M:%S"), age_hours=100) for index in range(72)]
+        newest_pool = {row.id for row in rows[-64:]}
+        for _ in range(10):
+            ids = auto_analysis_candidates(limit=8, lane="backlog")["ids"]
+            self.assertEqual(len(ids), 8)
+            self.assertTrue(set(ids) <= newest_pool)
+
+    def test_backlog_pending_count_is_capped(self) -> None:
+        for index in range(5):
+            self.conversation(f"c{index}", "old", age_hours=100)
+        with patch("customer_service.query.AUTO_ANALYSIS_PENDING_COUNT_CAP", 3):
+            self.assertEqual(auto_analysis_candidates(limit=8, lane="backlog")["pendingCountBacklog"], 3)
+
+    def test_invalid_lane_is_rejected(self) -> None:
+        self.assertEqual(self.get("?lane=other").status_code, 400)
+        self.assertEqual(self.get("?lane=new&lane=backlog").status_code, 400)
+        with self.assertRaises(ValueError):
+            auto_analysis_candidates(limit=8, lane="other")
 
     def test_limit_bounds_and_unknown_parameters(self) -> None:
         for index in range(10):
@@ -367,7 +417,21 @@ class CustomerServiceAutoAnalysisTests(TestCase):
         self.conversation("today", "fresh", source="ai", analyzed_at=now)
         self.conversation("manual", "fresh", source="manual", analyzed_at=now)
         self.conversation("yesterday", "fresh", source="ai", analyzed_at=now - timedelta(days=2))
-        self.assertEqual(self.get().json()["analyzedToday"], 1)
+        data = self.get().json()
+        self.assertEqual(data["analyzedToday"], 1)
+        self.assertEqual(data["analyzedTodayNew"], 1)
+        self.assertEqual(data["analyzedTodayBacklog"], 0)
+
+    def test_analyzed_today_is_split_by_created_at_window(self) -> None:
+        now = timezone.now()
+        for index in range(2):
+            self.conversation(f"new-ai{index}", "fresh", source="ai", analyzed_at=now)
+        for index in range(3):
+            self.conversation(f"old-ai{index}", "old", source="ai", analyzed_at=now, age_hours=200)
+        self.conversation("old-manual", "old", source="manual", analyzed_at=now, age_hours=200)
+        data = self.get().json()
+        self.assertEqual((data["analyzedTodayNew"], data["analyzedTodayBacklog"]), (2, 3))
+        self.assertEqual(data["analyzedToday"], 2)
 
     def test_roles_and_scope(self) -> None:
         self.assertEqual(self.get(role="operator").status_code, 200)

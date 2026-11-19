@@ -86,7 +86,7 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
   const [analysisProgress, setAnalysisProgress] = useState("");
   const [analysisNotice, setAnalysisNotice] = useState("");
   const [analysisReady, setAnalysisReady] = useState<boolean | null>(null);
-  const [autoAnalysis, setAutoAnalysis] = useState<{ enabled: boolean; dailyLimit: number } | null>(null);
+  const [autoAnalysis, setAutoAnalysis] = useState<{ enabled: boolean; dailyLimit: number; backlogDailyLimit: number | null } | null>(null);
   const [detailDraft, setDetailDraft] = useState({ serviceIssues: "", summaryText: "" });
   const [detailSaveNotice, setDetailSaveNotice] = useState("");
   const optionsLoadedRef = useRef(false);
@@ -179,11 +179,11 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     const controller = new AbortController();
     void fetch("/api/customer-service/analyze", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
-        const payload = await response.json().catch(() => null) as { configured?: boolean; autoAnalysis?: { enabled?: boolean; dailyLimit?: number } } | null;
+        const payload = await response.json().catch(() => null) as { configured?: boolean; autoAnalysis?: { enabled?: boolean; dailyLimit?: number; backlogEnabled?: boolean; backlogDailyLimit?: number } } | null;
         if (!controller.signal.aborted) {
           setAnalysisReady(response.ok && payload?.configured === true);
           const auto = payload?.autoAnalysis;
-          setAutoAnalysis(response.ok && auto?.enabled === true && typeof auto.dailyLimit === "number" ? { enabled: true, dailyLimit: auto.dailyLimit } : null);
+          setAutoAnalysis(response.ok && auto?.enabled === true && typeof auto.dailyLimit === "number" ? { enabled: true, dailyLimit: auto.dailyLimit, backlogDailyLimit: auto.backlogEnabled === true && typeof auto.backlogDailyLimit === "number" ? auto.backlogDailyLimit : null } : null);
         }
       })
       .catch(() => { if (!controller.signal.aborted) setAnalysisReady(false); });
@@ -493,7 +493,7 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     <section className="customer-service-data-source panel"><strong>客服会话数据</strong><span>可在本页直接导入；「数据导入 → 客服会话」也保留相同入口。</span><div className="customer-service-shop-select"><span>会话店铺筛选</span><SearchableMultiSelect values={shopNames} onChange={setShopNames} ariaLabel="客服店铺筛选" allLabel="全部店铺" searchPlaceholder="搜索店铺" options={(filterData?.shops ?? []).map((value) => ({ value, label: value }))} /></div></section>
     {analysisNotice && <section className="customer-service-feedback" role="status">{analysisNotice}</section>}
     {(annotationError || error) && <section className="customer-service-feedback error" role="alert">{[annotationError, error].filter(Boolean).join("；")}</section>}
-    {canAnnotate && analysisReady === true && autoAnalysis && <section className="customer-service-feedback" role="status"><span>导入后自动 AI 分析已开启（优先分析最新且有聊天记录的会话，每分钟最多 8 条，每日上限 {autoAnalysis.dailyLimit} 条）</span></section>}
+    {canAnnotate && analysisReady === true && autoAnalysis && <section className="customer-service-feedback" role="status"><span>导入后自动 AI 分析已开启（优先分析最新且有聊天记录的会话，每分钟最多 8 条，新增会话每日上限 {autoAnalysis.dailyLimit} 条{autoAnalysis.backlogDailyLimit !== null ? `，历史积压每日上限 ${autoAnalysis.backlogDailyLimit} 条` : ""}）</span></section>}
     {canAnnotate && analysisReady === false && <section className="customer-service-feedback error customer-service-analysis-setup" role="status"><span>客服会话已导入；AI 标注尚缺文本模型。配置并测试成功后即可分批分析本页全部未标注记录。</span><button type="button" className="row-action" onClick={() => onNavigate("ai")}>前往 AI 助理配置</button></section>}
     <section className="customer-service-filters panel">
       <div className="global-period-context customer-global-period"><span>全局统计周期</span><strong>{startDate} 至 {endDate}</strong></div>

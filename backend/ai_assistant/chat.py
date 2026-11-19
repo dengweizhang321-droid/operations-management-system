@@ -714,6 +714,8 @@ def _day():
 
 
 def dispatch_budget(owner, model_id):
+    from django.conf import settings
+
     today = _day()
     chat = m.AiChatProviderDispatches.objects.filter(reserved_at__gte=today)
     agent = m.AiAgentProviderDispatches.objects.filter(reserved_at__gte=today)
@@ -729,18 +731,18 @@ def dispatch_budget(owner, model_id):
         _args=Cast("arguments_json", JSONField())
     ).filter(_args__modelId=model_id)
     counts = [
-        (chat.count() + agent.count() + auxiliary.count(), 1000),
+        (chat.count() + agent.count() + auxiliary.count(), settings.AI_DISPATCH_DAILY_LIMIT_GLOBAL),
         (
             auxiliary.filter(actor_email=owner).count()
             + chat.filter(owner_email=owner).count()
             + agent.filter(owner_email=owner).count(),
-            120,
+            settings.AI_DISPATCH_DAILY_LIMIT_PER_OWNER,
         ),
         (
             auxiliary_model.count()
             + chat.filter(model_id=model_id).count()
             + agent.filter(model_id=model_id).count(),
-            500,
+            settings.AI_DISPATCH_DAILY_LIMIT_PER_MODEL,
         ),
     ]
     if any(count >= maximum for count, maximum in counts):

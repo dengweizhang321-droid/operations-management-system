@@ -201,24 +201,37 @@ AUTO_ANALYSIS_NEWEST_POOL = 64
 AUTO_ANALYSIS_PENDING_COUNT_CAP = 1000
 
 
-def auto_analysis_candidates(limit: int) -> dict[str, object]:
-    """Newest never-analyzed conversations that have chat messages, from recently completed import batches.
+def auto_analysis_candidates(limit: int, lane: str = "new") -> dict[str, object]:
+    """Never-analyzed conversations that have chat messages, split into two lanes.
+
+    new:     first stored (created_at) within the last AUTO_ANALYSIS_WINDOW_HOURS, so conversations that
+             arrived with today's import get quota before the old backlog does. created_at (first
+             insertion) is used instead of last_import_batch_id because re-imports refresh the batch
+             pointer of old conversations and would keep them in the "recent" set forever.
+    backlog: every other never-analyzed conversation with chat messages, newest consulted_at first.
+
+    `ids` come from the requested lane. The legacy fields analyzedToday/pendingCount always describe the
+    new lane, so an old Worker keeps its meaning; analyzedTodayNew/Backlog and pendingCountNew/Backlog
+    expose both lanes. A today's AI analysis counts to "new" when its created_at is inside the window,
+    otherwise to "backlog" (no new column).
 
     Selection uses analysis_source == "" (not analyzed_at IS NULL) because manual edits set
     analysis_source="manual" without analyzed_at and must never be overwritten by the model.
     Conversations without chat messages (messages == []) are skipped: there is nothing to analyze.
 
-    pendingCount is a capped count: it is exact below AUTO_ANALYSIS_PENDING_COUNT_CAP and saturates at
-    the cap otherwise. An exact count has to decompress messages for every pending row (tens of
-    thousands), which timed out under load and failed the whole round; the capped count stops at the
-    cap through a LIMIT subquery.
+    pending counts are capped: exact below AUTO_ANALYSIS_PENDING_COUNT_CAP and saturating at the cap
+    otherwise. An exact count has to decompress messages for every pending row (tens of thousands),
+    which timed out under load and failed the whole round; the capped count stops at the cap through a
+    LIMIT subquery.
     """
+    if lane not in ("new", "backlog"):
+        raise ValueError("lane must be 'new' or 'backlog'")
     now = timezone.now()
     since = now - timedelta(hours=AUTO_ANALYSIS_WINDOW_HOURS)
-    batch_ids = CustomerServiceImportBatch.objects.filter(status="completed", completed_at__gte=since).values("id")
-    pending = CustomerServiceConversation.objects.filter(
-        analysis_source="", last_import_batch_id__in=batch_ids,
-    ).exclude(messages=[])
+    never_analyzed = CustomerServiceConversation.objects.filter(analysis_source="").exclude(messages=[])
+    pending_new = never_analyzed.filter(created_at__gte=since)
+    pending_backlog = never_analyzed.filter(created_at__lt=since)
+    pending = pending_new if lane == "new" else pending_backlog
     # Newest first, but sample at random inside a bounded newest pool instead of taking a strict
     # top-N: when the model fails deterministically on some content the whole batch is not written
     # back, and a strict order would re-pick the same stuck conversations every minute (burning the
@@ -228,8 +241,22 @@ def auto_analysis_candidates(limit: int) -> dict[str, object]:
     picked = set(random.sample(pool, min(limit, len(pool))))
     ids = [item for item in pool if item in picked]
     day_start = now.astimezone(ZoneInfo("Asia/Shanghai")).replace(hour=0, minute=0, second=0, microsecond=0)
-    analyzed_today = CustomerServiceConversation.objects.filter(analysis_source="ai", analyzed_at__gte=day_start).count()
-    return {"ids": ids, "pendingCount": pending.order_by().values("id")[:AUTO_ANALYSIS_PENDING_COUNT_CAP].count(), "analyzedToday": analyzed_today, "windowHours": AUTO_ANALYSIS_WINDOW_HOURS}
+    analyzed_today_all = CustomerServiceConversation.objects.filter(analysis_source="ai", analyzed_at__gte=day_start)
+    analyzed_today_new = analyzed_today_all.filter(created_at__gte=since).count()
+    analyzed_today_backlog = analyzed_today_all.count() - analyzed_today_new
+    pending_count_new = pending_new.order_by().values("id")[:AUTO_ANALYSIS_PENDING_COUNT_CAP].count()
+    pending_count_backlog = pending_backlog.order_by().values("id")[:AUTO_ANALYSIS_PENDING_COUNT_CAP].count()
+    return {
+        "ids": ids,
+        "lane": lane,
+        "pendingCount": pending_count_new,
+        "analyzedToday": analyzed_today_new,
+        "pendingCountNew": pending_count_new,
+        "pendingCountBacklog": pending_count_backlog,
+        "analyzedTodayNew": analyzed_today_new,
+        "analyzedTodayBacklog": analyzed_today_backlog,
+        "windowHours": AUTO_ANALYSIS_WINDOW_HOURS,
+    }
 
 
 def get_conversations_by_ids(ids: list[int], *, message_limit: int = AI_MESSAGE_LIMIT) -> list[dict[str, object]]:

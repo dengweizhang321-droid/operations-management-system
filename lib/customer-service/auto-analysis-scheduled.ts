@@ -1,25 +1,39 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
-import { requestDjangoCustomerServiceAutoAnalysisCandidates, type CustomerServiceAutoAnalysisCandidates } from "@/lib/django/customer-service";
+import { requestDjangoCustomerServiceAutoAnalysisCandidates, type CustomerServiceAutoAnalysisCandidates, type CustomerServiceAutoAnalysisLane } from "@/lib/django/customer-service";
 import { PublicApiError } from "@/lib/http/api-error";
 
 export const CUSTOMER_SERVICE_AUTO_ANALYSIS_DEFAULT_OWNER = "local-admin@teruisi.local";
-export const CUSTOMER_SERVICE_AUTO_ANALYSIS_DEFAULT_DAILY_LIMIT = 480;
+export const CUSTOMER_SERVICE_AUTO_ANALYSIS_DEFAULT_DAILY_LIMIT = 800;
+export const CUSTOMER_SERVICE_BACKLOG_ANALYSIS_DEFAULT_DAILY_LIMIT = 3000;
 export const CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE = 8;
 const CANDIDATE_TIMEOUT_MS = 5_000;
 
 type RuntimeEnvironment = Record<string, unknown>;
 
-export type CustomerServiceAutoAnalysisSettings = { enabled: boolean; owner: string; dailyLimit: number };
+export type CustomerServiceAutoAnalysisSettings = {
+  enabled: boolean;
+  owner: string;
+  /** Daily cap of the "new" lane (conversations first stored within 72 hours). */
+  dailyLimit: number;
+  backlogEnabled: boolean;
+  /** Daily cap of the "backlog" lane (every other never-analyzed conversation). */
+  backlogDailyLimit: number;
+};
+
+function positiveLimit(value: unknown, fallback: number) {
+  const text = typeof value === "string" ? value.trim() : "";
+  return /^[1-9]\d{0,8}$/.test(text) ? Number(text) : fallback;
+}
 
 export function customerServiceAutoAnalysisSettings(environment: RuntimeEnvironment): CustomerServiceAutoAnalysisSettings {
-  const switchValue = typeof environment.CUSTOMER_SERVICE_AUTO_ANALYSIS === "string" ? environment.CUSTOMER_SERVICE_AUTO_ANALYSIS.trim().toLowerCase() : "";
-  const ownerValue = typeof environment.CUSTOMER_SERVICE_AUTO_ANALYSIS_OWNER === "string" ? environment.CUSTOMER_SERVICE_AUTO_ANALYSIS_OWNER.trim() : "";
-  const limitValue = typeof environment.CUSTOMER_SERVICE_AUTO_ANALYSIS_DAILY_LIMIT === "string" ? environment.CUSTOMER_SERVICE_AUTO_ANALYSIS_DAILY_LIMIT.trim() : "";
-  const limit = /^[1-9]\d{0,8}$/.test(limitValue) ? Number(limitValue) : CUSTOMER_SERVICE_AUTO_ANALYSIS_DEFAULT_DAILY_LIMIT;
+  const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+  const off = ["off", "false", "0"];
   return {
-    enabled: !["off", "false", "0"].includes(switchValue),
-    owner: ownerValue || CUSTOMER_SERVICE_AUTO_ANALYSIS_DEFAULT_OWNER,
-    dailyLimit: limit,
+    enabled: !off.includes(text(environment.CUSTOMER_SERVICE_AUTO_ANALYSIS).toLowerCase()),
+    owner: text(environment.CUSTOMER_SERVICE_AUTO_ANALYSIS_OWNER) || CUSTOMER_SERVICE_AUTO_ANALYSIS_DEFAULT_OWNER,
+    dailyLimit: positiveLimit(environment.CUSTOMER_SERVICE_AUTO_ANALYSIS_DAILY_LIMIT, CUSTOMER_SERVICE_AUTO_ANALYSIS_DEFAULT_DAILY_LIMIT),
+    backlogEnabled: !off.includes(text(environment.CUSTOMER_SERVICE_BACKLOG_ANALYSIS).toLowerCase()),
+    backlogDailyLimit: positiveLimit(environment.CUSTOMER_SERVICE_BACKLOG_ANALYSIS_DAILY_LIMIT, CUSTOMER_SERVICE_BACKLOG_ANALYSIS_DEFAULT_DAILY_LIMIT),
   };
 }
 
@@ -41,16 +55,22 @@ type BackgroundPrincipalResult =
 export type CustomerServiceAutoAnalysisDependencies = {
   settings?: () => Promise<CustomerServiceAutoAnalysisSettings>;
   resolvePrincipal?: (owner: string) => Promise<BackgroundPrincipalResult>;
-  loadCandidates?: (principal: AppPrincipal, limit: number, signal: AbortSignal) => Promise<CustomerServiceAutoAnalysisCandidates>;
+  loadCandidates?: (principal: AppPrincipal, limit: number, signal: AbortSignal, lane: CustomerServiceAutoAnalysisLane) => Promise<CustomerServiceAutoAnalysisCandidates>;
   hasChatModel?: (principal: AppPrincipal) => Promise<boolean>;
   analyze?: (ids: number[], principal: AppPrincipal) => Promise<{ analyzed: number; requested: number; conflicts: number; failed: number }>;
 };
 
-export type CustomerServiceAutoAnalysisResult =
-  | { skipped: "disabled" | "owner_unavailable" | "owner_invalid" | "daily_limit" | "no_model" | "no_candidates" | "quota" | "model_unavailable"; analyzedToday?: number }
-  | { analyzed: number; requested: number; conflicts: number; failed: number; pendingCount: number };
+type SkipReason = "disabled" | "owner_unavailable" | "owner_invalid" | "daily_limit" | "no_model" | "no_candidates" | "quota" | "model_unavailable";
 
-/** One bounded batch per scheduler tick. Selects the newest never-analyzed conversations that have chat messages. */
+export type CustomerServiceAutoAnalysisResult =
+  | { skipped: SkipReason; analyzedToday?: number; lane?: CustomerServiceAutoAnalysisLane }
+  | { analyzed: number; requested: number; conflicts: number; failed: number; pendingCount: number; lane: CustomerServiceAutoAnalysisLane };
+
+/**
+ * One bounded batch per scheduler tick. The "new" lane (first stored within 72 hours) goes first; only when it
+ * has no candidates or has used its daily cap does the tick spend its single batch on the "backlog" lane.
+ * Each lane has its own daily cap, counted from the lane-split analyzedToday* fields.
+ */
 export async function runScheduledCustomerServiceAnalysis(
   dependencies: CustomerServiceAutoAnalysisDependencies = {},
 ): Promise<CustomerServiceAutoAnalysisResult> {
@@ -68,32 +88,40 @@ export async function runScheduledCustomerServiceAnalysis(
     return { skipped: "owner_invalid" };
   }
   const principal = owner.principal;
+  const load = dependencies.loadCandidates ?? ((who, limit, signal, lane) =>
+    requestDjangoCustomerServiceAutoAnalysisCandidates(who, limit, { signal }, lane));
 
-  const candidates = await (dependencies.loadCandidates ?? ((who, limit, signal) =>
-    requestDjangoCustomerServiceAutoAnalysisCandidates(who, limit, { signal })))(
-    principal, CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE, AbortSignal.timeout(CANDIDATE_TIMEOUT_MS),
-  );
-  if (candidates.analyzedToday >= settings.dailyLimit) return { skipped: "daily_limit", analyzedToday: candidates.analyzedToday };
-  const ids = candidates.ids.slice(0, Math.min(CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE, settings.dailyLimit - candidates.analyzedToday));
-  if (ids.length === 0) return { skipped: "no_candidates" };
+  const lanes: Array<{ lane: CustomerServiceAutoAnalysisLane; limit: number }> = [{ lane: "new", limit: settings.dailyLimit }];
+  if (settings.backlogEnabled) lanes.push({ lane: "backlog", limit: settings.backlogDailyLimit });
 
-  const hasModel = await (dependencies.hasChatModel ?? (async (who: AppPrincipal) => {
-    const { resolveChatModel } = await import("@/lib/ai/assistant-service");
-    return Boolean(await resolveChatModel(who));
-  }))(principal);
-  if (!hasModel) return { skipped: "no_model" };
+  let skipped: CustomerServiceAutoAnalysisResult = { skipped: "no_candidates" };
+  for (const { lane, limit } of lanes) {
+    const candidates = await load(principal, CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE, AbortSignal.timeout(CANDIDATE_TIMEOUT_MS), lane);
+    const analyzedToday = lane === "new" ? candidates.analyzedTodayNew : candidates.analyzedTodayBacklog;
+    if (analyzedToday >= limit) { skipped = { skipped: "daily_limit", analyzedToday, lane }; continue; }
+    const ids = candidates.ids.slice(0, Math.min(CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE, limit - analyzedToday));
+    if (ids.length === 0) { skipped = { skipped: "no_candidates", lane }; continue; }
 
-  try {
-    const analyze = dependencies.analyze ?? (async (batch: number[], who: AppPrincipal) => {
-      const { analyzeCustomerServiceConversations } = await import("@/lib/customer-service/analysis");
-      return analyzeCustomerServiceConversations(batch, who);
-    });
-    const result = await analyze(ids, principal);
-    return { analyzed: result.analyzed, requested: result.requested, conflicts: result.conflicts, failed: result.failed, pendingCount: candidates.pendingCount };
-  } catch (error) {
-    // Shared model quota exhausted or no text model configured: not a failure of this task.
-    if (error instanceof PublicApiError && error.status === 429) return { skipped: "quota" };
-    if (error instanceof PublicApiError && error.status === 503 && error.message.startsWith("尚未配置可用的文本模型")) return { skipped: "model_unavailable" };
-    throw error;
+    const hasModel = await (dependencies.hasChatModel ?? (async (who: AppPrincipal) => {
+      const { resolveChatModel } = await import("@/lib/ai/assistant-service");
+      return Boolean(await resolveChatModel(who));
+    }))(principal);
+    if (!hasModel) return { skipped: "no_model" };
+
+    try {
+      const analyze = dependencies.analyze ?? (async (batch: number[], who: AppPrincipal) => {
+        const { analyzeCustomerServiceConversations } = await import("@/lib/customer-service/analysis");
+        return analyzeCustomerServiceConversations(batch, who);
+      });
+      const result = await analyze(ids, principal);
+      const pendingCount = lane === "new" ? candidates.pendingCountNew : candidates.pendingCountBacklog;
+      return { analyzed: result.analyzed, requested: result.requested, conflicts: result.conflicts, failed: result.failed, pendingCount, lane };
+    } catch (error) {
+      // Shared model quota exhausted or no text model configured: not a failure of this task.
+      if (error instanceof PublicApiError && error.status === 429) return { skipped: "quota" };
+      if (error instanceof PublicApiError && error.status === 503 && error.message.startsWith("尚未配置可用的文本模型")) return { skipped: "model_unavailable" };
+      throw error;
+    }
   }
+  return skipped;
 }
