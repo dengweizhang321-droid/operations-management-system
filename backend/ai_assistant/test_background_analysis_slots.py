@@ -138,11 +138,10 @@ class AnalysisReplyHandlerTests(TestCase):
     def run_reply(self, payload=REPLY):
         return views.consumer(dict(payload), ADMIN, "request-1")
 
-    def test_model_is_called_through_the_streaming_path(self):
+    def test_success_audits_started_then_succeeded_without_streaming(self):
         with patch.object(provider, "turn", return_value={"text": "答"}) as turn:
             self.assertEqual(self.run_reply(), {"reply": "答"})
-        self.assertTrue(callable(turn.call_args.kwargs["on_text"]))
-        turn.call_args.kwargs["on_text"]("chunk")  # a no-op sink, must not raise
+        self.assertNotIn("on_text", turn.call_args.kwargs)
         self.assertEqual([entry[0] for entry in self.audits], [("configured_analysis", "started"), ("configured_analysis", "succeeded")])
 
     def test_provider_failure_writes_failed_audit_and_reraises(self):
