@@ -3519,6 +3519,138 @@ function Test-PostgresReady {
   return $readyRun.ExitCode -eq 0
 }
 
+function Initialize-ProcessPriorityNormalizer {
+  if ($null -ne ("Teruisi.ProcessPriorityNormalizer" -as [type])) { return }
+  Add-Type -TypeDefinition @'
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace Teruisi {
+  // Raises ONLY the current process to normal CPU, memory and I/O priority and
+  // never lowers anything. Children created afterwards (pg_ctl, postgres,
+  // Django workers) inherit these values; a BelowNormal parent otherwise hands
+  // BelowNormal / memory 2 / I/O 1 to PostgreSQL, whose page cache is then the
+  // first to be reclaimed. Every failure is reported in the result text; the
+  // method itself never throws.
+  public static class ProcessPriorityNormalizer {
+    private const int ProcessMemoryPriority = 0;
+    private const int ProcessIoPriority = 33;
+    private const uint MemoryPriorityNormal = 5;
+    private const uint IoPriorityNormal = 2;
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentProcess();
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetProcessInformation(IntPtr process, int informationClass, ref uint information, uint size);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetProcessInformation(IntPtr process, int informationClass, ref uint information, uint size);
+    [DllImport("ntdll.dll")]
+    private static extern int NtQueryInformationProcess(IntPtr process, int informationClass, ref uint information, int size, out int returned);
+    [DllImport("ntdll.dll")]
+    private static extern int NtSetInformationProcess(IntPtr process, int informationClass, ref uint information, int size);
+
+    // Result: "changed ...", "unchanged ..." or "failed ..." followed by the
+    // before/after values and any step errors. Never throws.
+    public static string Normalize() {
+      var errors = new StringBuilder();
+      var changed = false;
+      string classBefore = "unknown", classAfter = "unknown";
+      long memoryBefore = -1, memoryAfter = -1, ioBefore = -1, ioAfter = -1;
+      IntPtr self = GetCurrentProcess();
+
+      try {
+        using (Process current = Process.GetCurrentProcess()) {
+          ProcessPriorityClass before = current.PriorityClass;
+          classBefore = before.ToString();
+          if (before == ProcessPriorityClass.Idle || before == ProcessPriorityClass.BelowNormal) {
+            current.PriorityClass = ProcessPriorityClass.Normal;
+            changed = true;
+          }
+          current.Refresh();
+          classAfter = current.PriorityClass.ToString();
+        }
+      } catch (Exception ex) {
+        errors.Append(" class_error=").Append(ex.GetType().Name);
+      }
+
+      try {
+        uint memory = 0;
+        if (GetProcessInformation(self, ProcessMemoryPriority, ref memory, 4)) {
+          memoryBefore = memory;
+          memoryAfter = memory;
+          if (memory < MemoryPriorityNormal) {
+            uint target = MemoryPriorityNormal;
+            if (SetProcessInformation(self, ProcessMemoryPriority, ref target, 4)) {
+              memoryAfter = target;
+              changed = true;
+            } else {
+              errors.Append(" memory_set_win32=").Append(Marshal.GetLastWin32Error());
+            }
+          }
+        } else {
+          errors.Append(" memory_get_win32=").Append(Marshal.GetLastWin32Error());
+        }
+      } catch (Exception ex) {
+        errors.Append(" memory_error=").Append(ex.GetType().Name);
+      }
+
+      try {
+        uint io = 0;
+        int returned;
+        int status = NtQueryInformationProcess(self, ProcessIoPriority, ref io, 4, out returned);
+        if (status >= 0) {
+          ioBefore = io;
+          ioAfter = io;
+          if (io < IoPriorityNormal) {
+            uint target = IoPriorityNormal;
+            int setStatus = NtSetInformationProcess(self, ProcessIoPriority, ref target, 4);
+            if (setStatus >= 0) {
+              ioAfter = target;
+              changed = true;
+            } else {
+              errors.Append(" io_set_status=0x").Append(setStatus.ToString("X8"));
+            }
+          }
+        } else {
+          errors.Append(" io_get_status=0x").Append(status.ToString("X8"));
+        }
+      } catch (Exception ex) {
+        errors.Append(" io_error=").Append(ex.GetType().Name);
+      }
+
+      string verdict = errors.Length > 0 ? "failed" : (changed ? "changed" : "unchanged");
+      return verdict + " class=" + classBefore + "->" + classAfter +
+        " memory=" + memoryBefore + "->" + memoryAfter +
+        " io=" + ioBefore + "->" + ioAfter + errors.ToString();
+    }
+  }
+}
+'@
+}
+
+# PostgreSQL and the Django workers inherit CPU, memory and I/O priority from
+# the process that starts them. When this controller is launched from a
+# BelowNormal ancestor (Startup item, low-priority scheduled task), PostgreSQL
+# runs at BelowNormal / memory 2 / I/O 1 and its page cache is reclaimed first.
+# Raise this controller process before it creates any child. Best effort: a
+# failure is logged and never blocks or fails startup. Emits no pipeline output
+# because callers capture Start-Postgres' return value.
+function Set-ServiceProcessNormalPriority {
+  try {
+    Initialize-ProcessPriorityNormalizer
+    $result = [Teruisi.ProcessPriorityNormalizer]::Normalize()
+    if ($result.StartsWith("failed")) {
+      Write-LauncherEvent "WARN" "process_priority_normalize_failed" $result
+    } elseif ($result.StartsWith("changed")) {
+      Write-LauncherEvent "INFO" "process_priority_normalized" $result
+    }
+  } catch {
+    Write-LauncherEvent "WARN" "process_priority_normalize_failed" ("unavailable " + $_.Exception.GetType().Name)
+  }
+}
+
 function Invoke-PgCtl([string[]]$Arguments, [string]$Operation, [int]$TimeoutSeconds = 40) {
   $pgCtl = Join-Path $PostgresBin "pg_ctl.exe"
   $launchArguments = @($Arguments | ForEach-Object { ConvertTo-ProcessArgument $_ })
@@ -3541,6 +3673,8 @@ function Start-Postgres {
   $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
   $startupPhaseOutcome = 'completed'
   try {
+  # Before any child (pg_ctl, postgres, later Django workers) is created.
+  Set-ServiceProcessNormalPriority | Out-Null
   $pgCtl = Join-Path $PostgresBin "pg_ctl.exe"
   if (-not (Test-Path -LiteralPath $pgCtl -PathType Leaf)) { throw "缺少 PostgreSQL 17 运行文件" }
   $listeners = @(Get-PortListeners $NativePorts[5432])
