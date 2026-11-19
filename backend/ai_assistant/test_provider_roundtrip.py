@@ -309,6 +309,8 @@ class ScheduledAnalysisSeamTests(TransactionTestCase):
         else:  # Real provider.turn runs; only the SSE socket seam is synthetic.
             self.enterContext(patch.object(provider, "decrypt", return_value="fixture"))
             self.http = self.enterContext(patch.object(provider, "bounded_sse", side_effect=sse))
+            # A regression to non-streaming must fail as an assertion, never reach the network.
+            self.enterContext(patch.object(provider, "bounded_json", side_effect=AssertionError("scheduled analysis must stream")))
         self.catalog = self.enterContext(patch.object(transport, "catalog", side_effect=AssertionError("catalog must not run")))
         self.execute = self.enterContext(patch.object(transport, "execute_tool", side_effect=AssertionError("tools must not run")))
         return chat.answer(self.body, self.owner, client_id, dingtalk_session=self.session,
@@ -377,7 +379,7 @@ class ScheduledAnalysisSeamTests(TransactionTestCase):
             return collector.finish()
         result = self.invoke(client_id="sse-complete", sse=complete_stream)
         self.assertEqual(result["reply"], "确认本轮事实。")
-        self.assertEqual(self.http.call_count, 1)
+        self.http.assert_called_once()
 
     def test_incomplete_or_tool_calling_analysis_is_never_ready(self):
         for index, extra in enumerate([{"truncated": True}, {"calls": [{"id": "x", "name": "bad", "arguments": {}}]}, {"reply": "x" * 48001}]):
