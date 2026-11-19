@@ -13,6 +13,7 @@ import {
 } from "@/lib/market/annotation-limits";
 import { defaultAnnotationPromptBody } from "@/lib/market/annotation-prompt-template";
 import { remainingInferenceUnitsForJob } from "@/lib/market/annotation-progress";
+import { createInflightGate } from "@/lib/market/annotation-inflight-gate";
 import { AnnotationReadError, createAnnotationReadChannel, type AnnotationReadIssue } from "@/lib/market/annotation-read-channel";
 import { annotationExecutionState } from "@/lib/market/annotation-execution-state";
 import { canSelectAnnotationReviewItem } from "@/lib/market/annotation-review-state";
@@ -160,6 +161,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [progressReader] = useState(() => createAnnotationReadChannel({ label: "任务进度读取", onError: setProgressError, onIssue: setProgressIssue }));
   const [detailReader] = useState(() => createAnnotationReadChannel({ label: "详细统计读取", onError: setDetailError }));
   const [reviewReader] = useState(() => createAnnotationReadChannel({ label: "复核列表读取", onError: setReviewError }));
+  const [selectionGate] = useState(() => createInflightGate());
   const [selectionError, setSelectionError] = useState("");
   const [selectionReader] = useState(() => createAnnotationReadChannel({ label: "选择统计读取", onError: setSelectionError }));
   const [initialLoading, setInitialLoading] = useState(true);
@@ -236,11 +238,15 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
 
   /** Latest request wins: a new read (or a new list load) cancels the previous one, so stale counts never overwrite a newer filter. */
   const loadSelectionCounts = useCallback((filters: Parameters<typeof selectionCountsUrl>[0]) => {
-    setSelectionError("");
-    return selectionReader.read<SelectionCountsPayload>(selectionCountsUrl(filters), isSelectionCountsPayload,
-      (payload) => { if (mountedRef.current) setData((current) => current ? { ...current, selection: { ...payload.selection, deferred: false } } : current); })
-      .catch(() => undefined);
-  }, [selectionReader]);
+    const url = selectionCountsUrl(filters);
+    // Same filters already in flight: join it (the server query is the expensive part); a different key cancels the old read.
+    return selectionGate.run(url, () => {
+      setSelectionError("");
+      return selectionReader.read<SelectionCountsPayload>(url, isSelectionCountsPayload,
+        (payload) => { if (mountedRef.current) setData((current) => current ? { ...current, selection: { ...payload.selection, deferred: false } } : current); })
+        .catch(() => undefined);
+    });
+  }, [selectionReader, selectionGate]);
 
   const load = useCallback(async (nextJobId = jobId, nextItemPage = itemPage, resetDrafts = false, deferCandidateCounts = false) => {
     const loadSequence = ++loadSequenceRef.current;
@@ -444,6 +450,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     return payload?.result as Record<string, unknown> | undefined;
   };
   const act = async (name: string, fn: () => Promise<void>) => {
+    // A write invalidates any in-flight counts: the post-write reload always re-sends (it cancels the older read).
+    selectionGate.reset();
     setBusy(name); setError(""); setNotice("");
     try { await fn(); }
     catch (reason) {
