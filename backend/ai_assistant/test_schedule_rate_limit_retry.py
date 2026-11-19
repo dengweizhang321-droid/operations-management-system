@@ -17,10 +17,10 @@ class ScheduledRateLimitRetryTests(TransactionTestCase):
     setUp = support.AiDomainTests.setUp
     user = support.AiDomainTests.user
 
-    def run_case(self, outcomes, *, scheduled=True, client_id="rl"):
+    def run_case(self, outcomes, *, scheduled=True, client_id="rl", guard=None, sleep=None):
         self.slept = []
         self.http = self.enterContext(patch.object(provider, "turn", side_effect=outcomes))
-        self.enterContext(patch.object(chat, "_rate_limit_sleep", side_effect=self.slept.append))
+        self.enterContext(patch.object(chat, "_rate_limit_sleep", side_effect=sleep or self.slept.append))
         self.enterContext(patch.object(transport, "catalog", return_value=[]))
         body = {"clientRequestId": client_id, "modelId": self.model.id, "conversationId": None,
                 "workspaceModule": "ai", "message": "解读监控事实"}
@@ -31,7 +31,7 @@ class ScheduledRateLimitRetryTests(TransactionTestCase):
             external_conversation_id="fixture", owner_email=self.owner.email)
         analysis = {"facts": {"businessDate": "2026-10-15", "count": 2}, "systemPrompt": "仅解释库存事实。"}
         return chat.answer(body, self.owner, client_id, dingtalk_session=session,
-                           channel_guard=MagicMock(), scheduled_analysis=analysis)
+                           channel_guard=guard or MagicMock(), scheduled_analysis=analysis)
 
     def failed(self, client_id):
         return m.AiToolAuditLogs.objects.filter(request_id=client_id, status="failed", tool_name="ai_chat_provider")
@@ -82,3 +82,19 @@ class ScheduledRateLimitRetryTests(TransactionTestCase):
                 self.run_case([transport.ProviderHttpError(429), ok()], client_id="budget")
         self.assertEqual(self.http.call_count, 1)
         self.assertEqual(self.slept, [])
+
+    def test_revocation_during_backoff_stops_waiting(self):
+        guard = MagicMock()
+        slept = []
+
+        def sleep(seconds):
+            slept.append(seconds)
+            if len(slept) == 3:  # the guard is only armed once we are inside the wait
+                guard.side_effect = AiError("任务或执行槽已变化", "access_denied", 403)
+
+        with self.assertRaises(AiError) as caught:
+            self.run_case([transport.ProviderHttpError(429), ok()], client_id="revoked", guard=guard, sleep=sleep)
+        self.assertEqual(caught.exception.code, "access_denied")
+        self.assertEqual(self.http.call_count, 1)
+        self.assertEqual(len(slept), 3)
+        self.assertLess(sum(slept), 30)
