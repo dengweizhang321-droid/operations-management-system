@@ -408,9 +408,18 @@ class CustomerServiceAutoAnalysisTests(TestCase):
         self.assertEqual(len(self.get("?limit=3").json()["ids"]), 3)
         self.assertEqual(len(self.get().json()["ids"]), 8)
         self.assertEqual(self.get().json()["pendingCount"], 10)
-        for query in ("?limit=0", "?limit=9", "?limit=abc", "?limit=1&limit=2", "?foo=1"):
+        for query in ("?limit=0", "?limit=25", "?limit=abc", "?limit=1&limit=2", "?foo=1"):
             with self.subTest(query=query):
                 self.assertEqual(self.get(query).status_code, 400)
+
+    def test_limit_up_to_24_returns_distinct_ids_for_three_parallel_batches(self) -> None:
+        for index in range(40):
+            self.conversation(f"par{index}", "fresh", consulted_at=f"2026-11-16 10:{index:02d}:00")
+        for lane in ("", "?lane=backlog"):
+            data = self.get(("?limit=24" if not lane else "?limit=24&lane=backlog")).json()
+            self.assertLessEqual(len(data["ids"]), 24)
+            self.assertEqual(len(data["ids"]), len(set(data["ids"])))
+        self.assertEqual(len(self.get("?limit=24").json()["ids"]), 24)
 
     def test_analyzed_today_counts_only_ai_since_shanghai_midnight(self) -> None:
         now = timezone.now()

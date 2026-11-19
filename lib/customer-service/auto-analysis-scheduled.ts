@@ -6,6 +6,8 @@ export const CUSTOMER_SERVICE_AUTO_ANALYSIS_DEFAULT_OWNER = "local-admin@teruisi
 export const CUSTOMER_SERVICE_AUTO_ANALYSIS_DEFAULT_DAILY_LIMIT = 800;
 export const CUSTOMER_SERVICE_BACKLOG_ANALYSIS_DEFAULT_DAILY_LIMIT = 6000;
 export const CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE = 8;
+/** Parallel model batches per tick; matches BACKGROUND_ANALYSIS_SLOTS in backend/ai_assistant/views.py. */
+export const CUSTOMER_SERVICE_AUTO_ANALYSIS_MAX_PARALLEL_BATCHES = 3;
 const CANDIDATE_TIMEOUT_MS = 5_000;
 
 type RuntimeEnvironment = Record<string, unknown>;
@@ -57,19 +59,35 @@ export type CustomerServiceAutoAnalysisDependencies = {
   resolvePrincipal?: (owner: string) => Promise<BackgroundPrincipalResult>;
   loadCandidates?: (principal: AppPrincipal, limit: number, signal: AbortSignal, lane: CustomerServiceAutoAnalysisLane) => Promise<CustomerServiceAutoAnalysisCandidates>;
   hasChatModel?: (principal: AppPrincipal) => Promise<boolean>;
-  analyze?: (ids: number[], principal: AppPrincipal) => Promise<{ analyzed: number; requested: number; conflicts: number; failed: number }>;
+  analyze?: (ids: number[], principal: AppPrincipal, options: { background: true }) => Promise<{ analyzed: number; requested: number; conflicts: number; failed: number }>;
 };
 
-type SkipReason = "disabled" | "owner_unavailable" | "owner_invalid" | "daily_limit" | "no_model" | "no_candidates" | "quota" | "model_unavailable";
+type SkipReason = "disabled" | "owner_unavailable" | "owner_invalid" | "daily_limit" | "no_candidates" | "no_model" | "quota" | "model_unavailable";
 
 export type CustomerServiceAutoAnalysisResult =
   | { skipped: SkipReason; analyzedToday?: number; lane?: CustomerServiceAutoAnalysisLane }
-  | { analyzed: number; requested: number; conflicts: number; failed: number; pendingCount: number; lane: CustomerServiceAutoAnalysisLane };
+  | {
+    analyzed: number; requested: number; conflicts: number; failed: number;
+    /** Capped pending count of the first dispatched batch's lane. */
+    pendingCount: number; lane: CustomerServiceAutoAnalysisLane;
+    /** Batches dispatched this tick, and how many of them were rejected (quota, unavailable or error). */
+    batches: number; rejectedBatches: number;
+  };
+
+function chunk<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
+  return chunks;
+}
 
 /**
- * One bounded batch per scheduler tick. The "new" lane (first stored within 72 hours) goes first; only when it
- * has no candidates or has used its daily cap does the tick spend its single batch on the "backlog" lane.
- * Each lane has its own daily cap, counted from the lane-split analyzedToday* fields.
+ * One scheduler tick dispatches up to MAX_PARALLEL_BATCHES batches of at most BATCH_SIZE conversations,
+ * in parallel. The "new" lane (first stored within 72 hours) is filled first; the remaining batch slots go
+ * to the "backlog" lane. Each lane has its own daily cap, counted from the lane-split analyzedToday* fields,
+ * and the ids of all batches are disjoint. A failing batch never affects the others.
+ *
+ * Ticks cannot overlap: the local trigger supervisor starts the next tick only after the previous one
+ * (which awaits this function) has finished, so at most MAX_PARALLEL_BATCHES model calls are in flight.
  */
 export async function runScheduledCustomerServiceAnalysis(
   dependencies: CustomerServiceAutoAnalysisDependencies = {},
@@ -94,34 +112,62 @@ export async function runScheduledCustomerServiceAnalysis(
   const lanes: Array<{ lane: CustomerServiceAutoAnalysisLane; limit: number }> = [{ lane: "new", limit: settings.dailyLimit }];
   if (settings.backlogEnabled) lanes.push({ lane: "backlog", limit: settings.backlogDailyLimit });
 
+  const planned: Array<{ lane: CustomerServiceAutoAnalysisLane; ids: number[]; pendingCount: number }> = [];
+  const taken = new Set<number>();
   let skipped: CustomerServiceAutoAnalysisResult = { skipped: "no_candidates" };
   for (const { lane, limit } of lanes) {
-    const candidates = await load(principal, CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE, AbortSignal.timeout(CANDIDATE_TIMEOUT_MS), lane);
+    const slots = CUSTOMER_SERVICE_AUTO_ANALYSIS_MAX_PARALLEL_BATCHES - planned.length;
+    if (slots <= 0) break;
+    const wanted = slots * CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE;
+    const candidates = await load(principal, wanted, AbortSignal.timeout(CANDIDATE_TIMEOUT_MS), lane);
     const analyzedToday = lane === "new" ? candidates.analyzedTodayNew : candidates.analyzedTodayBacklog;
     if (analyzedToday >= limit) { skipped = { skipped: "daily_limit", analyzedToday, lane }; continue; }
-    const ids = candidates.ids.slice(0, Math.min(CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE, limit - analyzedToday));
+    // A conversation can cross the 72 h boundary between the two lane reads; never plan it twice.
+    const ids = candidates.ids.filter((id) => !taken.has(id)).slice(0, Math.min(wanted, limit - analyzedToday));
     if (ids.length === 0) { skipped = { skipped: "no_candidates", lane }; continue; }
-
-    const hasModel = await (dependencies.hasChatModel ?? (async (who: AppPrincipal) => {
-      const { resolveChatModel } = await import("@/lib/ai/assistant-service");
-      return Boolean(await resolveChatModel(who));
-    }))(principal);
-    if (!hasModel) return { skipped: "no_model" };
-
-    try {
-      const analyze = dependencies.analyze ?? (async (batch: number[], who: AppPrincipal) => {
-        const { analyzeCustomerServiceConversations } = await import("@/lib/customer-service/analysis");
-        return analyzeCustomerServiceConversations(batch, who);
-      });
-      const result = await analyze(ids, principal);
-      const pendingCount = lane === "new" ? candidates.pendingCountNew : candidates.pendingCountBacklog;
-      return { analyzed: result.analyzed, requested: result.requested, conflicts: result.conflicts, failed: result.failed, pendingCount, lane };
-    } catch (error) {
-      // Shared model quota exhausted or no text model configured: not a failure of this task.
-      if (error instanceof PublicApiError && error.status === 429) return { skipped: "quota" };
-      if (error instanceof PublicApiError && error.status === 503 && error.message.startsWith("尚未配置可用的文本模型")) return { skipped: "model_unavailable" };
-      throw error;
-    }
+    const pendingCount = lane === "new" ? candidates.pendingCountNew : candidates.pendingCountBacklog;
+    for (const batch of chunk(ids, CUSTOMER_SERVICE_AUTO_ANALYSIS_BATCH_SIZE)) planned.push({ lane, ids: batch, pendingCount });
+    for (const id of ids) taken.add(id);
   }
-  return skipped;
+  if (planned.length === 0) return skipped;
+
+  const hasModel = await (dependencies.hasChatModel ?? (async (who: AppPrincipal) => {
+    const { resolveChatModel } = await import("@/lib/ai/assistant-service");
+    return Boolean(await resolveChatModel(who));
+  }))(principal);
+  if (!hasModel) return { skipped: "no_model" };
+
+  const analyze = dependencies.analyze ?? (async (batch: number[], who: AppPrincipal, options: { background: true }) => {
+    const { analyzeCustomerServiceConversations } = await import("@/lib/customer-service/analysis");
+    return analyzeCustomerServiceConversations(batch, who, options);
+  });
+  const settled = await Promise.allSettled(planned.map((batch) => analyze(batch.ids, principal, { background: true })));
+
+  const total = { analyzed: 0, requested: 0, conflicts: 0, failed: 0 };
+  let fulfilled = 0;
+  let quota = false;
+  let unexpected: unknown = null;
+  for (const outcome of settled) {
+    if (outcome.status === "fulfilled") {
+      fulfilled += 1;
+      total.analyzed += outcome.value.analyzed;
+      total.requested += outcome.value.requested;
+      total.conflicts += outcome.value.conflicts;
+      total.failed += outcome.value.failed;
+      continue;
+    }
+    const error = outcome.reason;
+    // Shared model quota exhausted or no text model configured: not a failure of this task.
+    if (error instanceof PublicApiError && error.status === 429) quota = true;
+    else if (error instanceof PublicApiError && error.status === 503 && error.message.startsWith("尚未配置可用的文本模型")) continue;
+    else if (unexpected === null) unexpected = error;
+  }
+  const rejectedBatches = settled.length - fulfilled;
+  if (fulfilled === 0) {
+    if (unexpected !== null) throw unexpected;
+    return { skipped: quota ? "quota" : "model_unavailable" };
+  }
+  // Other batches succeeded: report their work and keep the odd failure visible in the log.
+  if (unexpected !== null) console.error(`customer service auto analysis: ${rejectedBatches} of ${settled.length} batches failed: ${unexpected instanceof Error ? unexpected.message.slice(0, 200) : "unknown error"}`);
+  return { ...total, pendingCount: planned[0]!.pendingCount, lane: planned[0]!.lane, batches: settled.length, rejectedBatches };
 }

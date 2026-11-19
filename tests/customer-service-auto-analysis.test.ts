@@ -32,17 +32,17 @@ function lane(over: Partial<Candidates> = {}): Candidates {
 }
 
 function harness(overrides: CustomerServiceAutoAnalysisDependencies = {}) {
-  const calls = { candidates: 0, model: 0, analyze: [] as number[][], lanes: [] as string[] };
+  const calls = { candidates: 0, model: 0, analyze: [] as number[][], lanes: [] as string[], limits: [] as number[], options: [] as unknown[] };
   const dependencies: CustomerServiceAutoAnalysisDependencies = {
     settings: async () => settings,
     resolvePrincipal: async () => ({ ok: true, principal: admin }),
-    loadCandidates: async (_who, _limit, _signal, which) => lane({ lane: which }),
+    loadCandidates: async (_who, _limit, _signal, which) => lane({ lane: which, ids: which === "new" ? [3, 1, 2] : [] }),
     hasChatModel: async () => { calls.model += 1; return true; },
-    analyze: async (ids) => { calls.analyze.push(ids); return { analyzed: ids.length, requested: ids.length, conflicts: 0, failed: 0 }; },
+    analyze: async (ids, _who, options) => { calls.analyze.push(ids); calls.options.push(options); return { analyzed: ids.length, requested: ids.length, conflicts: 0, failed: 0 }; },
     ...overrides,
   };
   const load = dependencies.loadCandidates!;
-  dependencies.loadCandidates = async (who, limit, signal, which) => { calls.candidates += 1; calls.lanes.push(which); return load(who, limit, signal, which); };
+  dependencies.loadCandidates = async (who, limit, signal, which) => { calls.candidates += 1; calls.lanes.push(which); calls.limits.push(limit); return load(who, limit, signal, which); };
   return { calls, dependencies };
 }
 
@@ -102,44 +102,70 @@ test("both lanes full or empty, and missing model, never reach analysis", async 
   assert.equal(harnessed.calls.analyze.length, 0);
 });
 
-test("new lane goes first and a tick dispatches exactly one batch", async () => {
-  const { calls, dependencies } = harness();
+const ok = (ids: number[]) => ({ analyzed: ids.length, requested: ids.length, conflicts: 0, failed: 0 });
+const range = (from: number, count: number) => Array.from({ length: count }, (_, index) => from + index);
+/** Candidate source honouring the requested limit, with fixed per-lane pools. */
+function pools(newIds: number[], backlogIds: number[], counts: Partial<Candidates> = {}) {
+  return async (_w: AppPrincipal, limit: number, _s: AbortSignal, which: "new" | "backlog") =>
+    lane({ lane: which, ids: (which === "new" ? newIds : backlogIds).slice(0, limit), analyzedTodayNew: 0, analyzedTodayBacklog: 0, ...counts });
+}
+
+test("a short new lane leaves the remaining batch slots to the backlog lane", async () => {
+  const { calls, dependencies } = harness({ loadCandidates: pools([3, 1, 2], range(100, 30), { pendingCountBacklog: 42 }) });
   const result = await runScheduledCustomerServiceAnalysis(dependencies);
-  assert.deepEqual(calls.lanes, ["new"]);
-  assert.deepEqual(calls.analyze, [[3, 1, 2]]);
-  assert.equal((result as { lane: string }).lane, "new");
-});
-
-test("new lane without candidates falls through to the backlog lane", async () => {
-  const { calls, dependencies } = harness({
-    loadCandidates: async (_w, _l, _s, which) => lane({ lane: which, ids: which === "new" ? [] : [9, 8], analyzedTodayNew: 5, analyzedTodayBacklog: 7, pendingCountBacklog: 42 }),
-  });
-  assert.deepEqual(await runScheduledCustomerServiceAnalysis(dependencies), { analyzed: 2, requested: 2, conflicts: 0, failed: 0, pendingCount: 42, lane: "backlog" });
   assert.deepEqual(calls.lanes, ["new", "backlog"]);
-  assert.deepEqual(calls.analyze, [[9, 8]]);
+  // new asks for three batches' worth, backlog only for the two slots left after the partial new batch.
+  assert.deepEqual(calls.limits, [24, 16]);
+  assert.deepEqual(calls.analyze, [[3, 1, 2], range(100, 8), range(108, 8)]);
+  assert.deepEqual(calls.options, [{ background: true }, { background: true }, { background: true }]);
+  assert.deepEqual(result, { analyzed: 19, requested: 19, conflicts: 0, failed: 0, pendingCount: 3, lane: "new", batches: 3, rejectedBatches: 0 });
 });
 
-test("new lane at its daily cap falls through to the backlog lane without analyzing new ids", async () => {
-  const { calls, dependencies } = harness({
-    loadCandidates: async (_w, _l, _s, which) => lane({ lane: which, ids: which === "new" ? [1, 2] : [7], analyzedTodayNew: 800, analyzedTodayBacklog: 0 }),
-  });
+test("a full new lane takes all three batch slots and never reads the backlog", async () => {
+  const { calls, dependencies } = harness({ loadCandidates: pools(range(1, 24), range(100, 24)) });
+  await runScheduledCustomerServiceAnalysis(dependencies);
+  assert.deepEqual(calls.lanes, ["new"]);
+  assert.deepEqual(calls.analyze, [range(1, 8), range(9, 8), range(17, 8)]);
+});
+
+test("batches never overlap, even when a conversation crosses the lane boundary between reads", async () => {
+  const { calls, dependencies } = harness({ loadCandidates: pools([5, 6, 7], [7, 8, 9, 5]) });
+  await runScheduledCustomerServiceAnalysis(dependencies);
+  const flat = calls.analyze.flat();
+  assert.equal(new Set(flat).size, flat.length);
+  assert.deepEqual(flat.sort((x, y) => x - y), [5, 6, 7, 8, 9]);
+});
+
+test("new lane without candidates puts the backlog in all three slots", async () => {
+  const { calls, dependencies } = harness({ loadCandidates: pools([], range(100, 40), { analyzedTodayNew: 5, analyzedTodayBacklog: 7, pendingCountBacklog: 42 }) });
+  const result = await runScheduledCustomerServiceAnalysis(dependencies);
+  assert.deepEqual(calls.lanes, ["new", "backlog"]);
+  assert.deepEqual(calls.limits, [24, 24]);
+  assert.equal(calls.analyze.length, 3);
+  assert.deepEqual(result, { analyzed: 24, requested: 24, conflicts: 0, failed: 0, pendingCount: 42, lane: "backlog", batches: 3, rejectedBatches: 0 });
+});
+
+test("new lane at its daily cap leaves everything to backlog without analyzing new ids", async () => {
+  const { calls, dependencies } = harness({ loadCandidates: pools([1, 2], [7], { analyzedTodayNew: 800 }) });
   await runScheduledCustomerServiceAnalysis(dependencies);
   assert.deepEqual(calls.analyze, [[7]]);
 });
 
-test("caps are independent between lanes", async () => {
-  let harnessed = harness({ loadCandidates: async (_w, _l, _s, which) => lane({ lane: which, analyzedTodayNew: 10, analyzedTodayBacklog: 6000 }) });
-  await runScheduledCustomerServiceAnalysis(harnessed.dependencies);
-  assert.deepEqual(harnessed.calls.analyze, [[3, 1, 2]]);
-  harnessed = harness({ loadCandidates: async (_w, _l, _s, which) => lane({ lane: which, ids: which === "new" ? [] : [4], analyzedTodayNew: 800, analyzedTodayBacklog: 2999 }) });
-  await runScheduledCustomerServiceAnalysis(harnessed.dependencies);
-  assert.deepEqual(harnessed.calls.analyze, [[4]]);
+test("lane caps trim their own share and are independent", async () => {
+  // new has 5 left (800-795), backlog has 12 left: batches are [5 new][8 backlog][4 backlog].
+  const { calls, dependencies } = harness({ loadCandidates: pools(range(1, 24), range(100, 24), { analyzedTodayNew: 795, analyzedTodayBacklog: 5988 }) });
+  await runScheduledCustomerServiceAnalysis(dependencies);
+  assert.deepEqual(calls.analyze, [range(1, 5), range(100, 8), range(108, 4)]);
+  // A full backlog never blocks new.
+  const full = harness({ loadCandidates: pools([3, 1, 2], range(100, 8), { analyzedTodayBacklog: 6000 }) });
+  await runScheduledCustomerServiceAnalysis(full.dependencies);
+  assert.deepEqual(full.calls.analyze, [[3, 1, 2]]);
 });
 
 test("backlog switch off never requests the backlog lane", async () => {
   const { calls, dependencies } = harness({
     settings: async () => ({ ...settings, backlogEnabled: false }),
-    loadCandidates: async (_w, _l, _s, which) => lane({ lane: which, ids: [] }),
+    loadCandidates: pools([], range(100, 8)),
   });
   assert.deepEqual(await runScheduledCustomerServiceAnalysis(dependencies), { skipped: "no_candidates", lane: "new" });
   assert.deepEqual(calls.lanes, ["new"]);
@@ -151,13 +177,45 @@ test("master switch off also skips the backlog lane", async () => {
   assert.equal(calls.candidates, 0);
 });
 
-test("remaining daily budget trims the batch", async () => {
+test("remaining daily budget trims the lane's ids", async () => {
   const { calls, dependencies } = harness({
     settings: async () => ({ ...settings, dailyLimit: 12, backlogDailyLimit: 12 }),
-    loadCandidates: async (_w, _l, _s, which) => lane({ lane: which, ids: [1, 2, 3, 4, 5, 6, 7, 8], pendingCountNew: 40, analyzedTodayNew: 10, analyzedTodayBacklog: 10 }),
+    loadCandidates: pools(range(1, 24), range(100, 24), { analyzedTodayNew: 10, analyzedTodayBacklog: 10 }),
   });
   await runScheduledCustomerServiceAnalysis(dependencies);
-  assert.deepEqual(calls.analyze, [[1, 2]]);
+  assert.deepEqual(calls.analyze, [[1, 2], [100, 101]]);
+});
+
+test("a 429 on one batch does not disturb the others and is not a failure", async () => {
+  const seen: number[][] = [];
+  const { dependencies } = harness({
+    loadCandidates: pools(range(1, 24), []),
+    analyze: async (ids) => {
+      seen.push(ids);
+      if (ids[0] === 9) throw new PublicApiError(429, "invalid_request", "quota");
+      return ok(ids);
+    },
+  });
+  const result = await runScheduledCustomerServiceAnalysis(dependencies);
+  assert.equal(seen.length, 3);
+  assert.deepEqual(result, { analyzed: 16, requested: 16, conflicts: 0, failed: 0, pendingCount: 3, lane: "new", batches: 3, rejectedBatches: 1 });
+});
+
+test("an unexpected error in one batch is logged while the others still report; all failing throws", async () => {
+  const originalError = console.error;
+  const logged: string[] = [];
+  console.error = (message: string) => { logged.push(String(message)); };
+  try {
+    const partial = harness({ loadCandidates: pools(range(1, 16), []), analyze: async (ids) => { if (ids[0] === 1) throw new Error("boom"); return ok(ids); } });
+    const result = await runScheduledCustomerServiceAnalysis(partial.dependencies) as { analyzed: number; rejectedBatches: number };
+    assert.equal(result.analyzed, 8);
+    assert.equal(result.rejectedBatches, 1);
+    assert.ok(logged.some((line) => line.includes("boom")));
+    const allFail = harness({ loadCandidates: pools(range(1, 16), []), analyze: async () => { throw new Error("boom"); } });
+    await assert.rejects(runScheduledCustomerServiceAnalysis(allFail.dependencies), /boom/);
+  } finally {
+    console.error = originalError;
+  }
 });
 
 test("normal tick analyzes exactly the returned ids as the background principal", async () => {
@@ -165,9 +223,17 @@ test("normal tick analyzes exactly the returned ids as the background principal"
   const { calls, dependencies } = harness({
     analyze: async (ids, principal) => { seen = principal; calls.analyze.push(ids); return { analyzed: 3, requested: 3, conflicts: 0, failed: 0 }; },
   });
-  assert.deepEqual(await runScheduledCustomerServiceAnalysis(dependencies), { analyzed: 3, requested: 3, conflicts: 0, failed: 0, pendingCount: 3, lane: "new" });
+  assert.deepEqual(await runScheduledCustomerServiceAnalysis(dependencies), { analyzed: 3, requested: 3, conflicts: 0, failed: 0, pendingCount: 3, lane: "new", batches: 1, rejectedBatches: 0 });
   assert.deepEqual(calls.analyze, [[3, 1, 2]]);
   assert.equal(seen, admin);
+});
+
+test("the Worker payload carries background only when scheduled analysis asks for it", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(new URL("../lib/ai/assistant-service.ts", import.meta.url), "utf8");
+  assert.match(source, /\.\.\.\(input\.background === true \? \{ background: true \} : \{\}\)/);
+  const analysis = await readFile(new URL("../lib/customer-service/analysis.ts", import.meta.url), "utf8");
+  assert.match(analysis, /background: options\.background === true/);
 });
 
 test("quota 429 and missing model return skipped while other errors propagate", async () => {

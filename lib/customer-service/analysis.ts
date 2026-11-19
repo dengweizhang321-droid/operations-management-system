@@ -104,7 +104,7 @@ export function packCustomerServiceAnalysisBatches(records: CustomerServiceAnaly
   return batches;
 }
 
-export async function analyzeCustomerServiceConversations(ids: unknown, principal: AppPrincipal) {
+export async function analyzeCustomerServiceConversations(ids: unknown, principal: AppPrincipal, options: { background?: boolean } = {}) {
   const normalizedIds = normalizeCustomerServiceAnalysisIds(ids);
   const conversations = await getCustomerServiceConversationsByIds(normalizedIds, principal);
   const conversationsById = new Map(conversations.map((item) => [item.id, item]));
@@ -129,7 +129,7 @@ export async function analyzeCustomerServiceConversations(ids: unknown, principa
     try {
       let reply: string;
       try {
-        reply = await generateConfiguredAnalysisReply({ prompt, principal, requestId: `customer-service-ai-${crypto.randomUUID()}`, auditArguments: { conversationIds: batch.map((item) => item.id), recordCount: batch.length } });
+        reply = await generateConfiguredAnalysisReply({ prompt, principal, requestId: `customer-service-ai-${crypto.randomUUID()}`, background: options.background === true, auditArguments: { conversationIds: batch.map((item) => item.id), recordCount: batch.length } });
       } catch (error) {
         if (error instanceof Error && error.message.startsWith("尚未配置可用的文本模型")) {
           throw new PublicApiError(503, "service_unavailable", error.message);
