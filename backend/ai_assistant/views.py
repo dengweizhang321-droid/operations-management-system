@@ -1073,7 +1073,9 @@ def consumer(payload, principal, request_id):
             )
         started_at = time.monotonic()
         try:
-            result = provider.turn(model, [{"role": "user", "content": prompt}], system, [])
+            # Streaming keeps the connection busy while the model reasons; a silent non-streaming
+            # call can be dropped by middleboxes long before the model answers.
+            result = provider.turn(model, [{"role": "user", "content": prompt}], system, [], on_text=lambda _content: None)
         except Exception as error:
             # started has no other closing row; record the failure (never counted by dispatch_budget,
             # which only counts status="started").
