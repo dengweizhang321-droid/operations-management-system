@@ -905,13 +905,30 @@ def _review_eligibility(scope_query, *, require_snapshot: bool = True):
     return eligible, contexts
 
 
-def _review(params: dict[str, object]) -> dict[str, object]:
+def _selection_counts(scope_query, query, eligibility) -> dict[str, object]:
+    """The four snapshot-dependent counts. Single source for `_review` and the deferred read."""
+    counts = query.filter(eligibility).aggregate(reviewable=Count("id"), selected=Count("id", filter=Q(selected=True)))
+    return {
+        "filteredReviewableCount": counts["reviewable"],
+        "filteredSelectedCount": counts["selected"],
+        "scopeSelectedCount": scope_query.filter(eligibility, selected=True).count(),
+        "staleSelectedCount": scope_query.filter(status="approved", selected=True).exclude(Exists(_matching_snapshot())).count(),
+    }
+
+
+def _review_selection_counts(params: dict[str, object]) -> dict[str, object]:
+    scope_query = _review_scope(params)
+    query = _filter_review_items(scope_query, params)
+    eligibility, _contexts = _review_eligibility(scope_query)
+    return {"selection": {**_selection_counts(scope_query, query, eligibility), "deferred": False}}
+
+
+def _review(params: dict[str, object], *, defer_selection: bool = False) -> dict[str, object]:
     item_page = int(_integer(params.get("itemPage"), "itemPage", fallback=1, minimum=1, maximum=MAX_PAGE) or 1)
     item_page_size = int(_integer(params.get("itemPageSize"), "itemPageSize", fallback=20, minimum=10, maximum=MAX_PAGE_SIZE) or 20)
     scope_query = _review_scope(params)
     query = _filter_review_items(scope_query, params)
     eligibility, contexts = _review_eligibility(scope_query)
-    selectable = query.filter(eligibility)
     total = query.count()
     # Two steps: slice plain ids first, then compute the audit-log/snapshot columns only for the page.
     page_ids = list(query.order_by("-created_at", "id").values_list("id", flat=True)[(item_page - 1) * item_page_size : item_page * item_page_size])
@@ -921,8 +938,10 @@ def _review(params: dict[str, object]) -> dict[str, object]:
     for row in page_rows:
         context = contexts.get(row.job_id, {"segments": [], "ready": False})
         items.append({**_item_value(row, context["segments"]), "reviewJobReady": context["ready"], "reviewSegments": context["segments"], "snapshotValid": row.snapshot_valid})
-    counts = selectable.aggregate(reviewable=Count("id"), selected=Count("id", filter=Q(selected=True)))
-    reviewable, selected = counts["reviewable"], counts["selected"]
+    if defer_selection:
+        selection = {"filteredReviewableCount": None, "filteredSelectedCount": None, "scopeSelectedCount": None, "staleSelectedCount": None, "deferred": True}
+    else:
+        selection = _selection_counts(scope_query, query, eligibility)
     return {
         "items": items,
         "itemPagination": {"page": item_page, "pageSize": item_page_size, "total": total, "pageCount": max(1, math.ceil(total / item_page_size))},
@@ -931,17 +950,12 @@ def _review(params: dict[str, object]) -> dict[str, object]:
             "recordCount": scope_query.count(),
             "uniqueCandidateCount": scope_query.values("category", "scope", "sku_code", "ranking_dimension", "month", "image_content_sha256").distinct().count(),
         },
-        "selection": {
-            "filteredReviewableCount": reviewable,
-            "filteredSelectedCount": selected,
-            "scopeSelectedCount": scope_query.filter(eligibility, selected=True).count(),
-            "staleSelectedCount": scope_query.filter(status="approved", selected=True).exclude(Exists(_matching_snapshot())).count(),
-        },
+        "selection": selection,
     }
 
 
 def annotation_workspace(params: dict[str, object], principal: Principal, *, candidate_count: bool = True) -> dict[str, object]:
-    review = _review(params)
+    review = _review(params, defer_selection=params.get("deferSelectionCounts") is True)
     categories = []
     counts_by_category = {item["value"]: item["candidateCount"] for item in candidate_counts()["categories"]} if candidate_count else {}
     for row in MarketRankingEntry.objects.exclude(category="").values("category").annotate(count=Count("sku_code", distinct=True)).order_by("-count", "category")[:200]:
@@ -959,9 +973,10 @@ def annotation_workspace(params: dict[str, object], principal: Principal, *, can
     ]
     setting_map = {(item["category"], item["executor"]): int(item["concurrency"]) for item in settings}
     cloud_runs = []
-    for run in MarketAnnotationCloudRun.objects.order_by("-updated_at")[:100]:
-        job = MarketAnnotationJob.objects.filter(id=run.job_id).first()
-        cloud_runs.append(_cloud_run_value(run, setting_map.get((job.category if job else "", "cloud"), 10)))
+    recent_runs = list(MarketAnnotationCloudRun.objects.order_by("-updated_at")[:100])
+    job_categories = dict(MarketAnnotationJob.objects.filter(id__in=[run.job_id for run in recent_runs]).values_list("id", "category"))
+    for run in recent_runs:
+        cloud_runs.append(_cloud_run_value(run, setting_map.get((job_categories.get(run.job_id, ""), "cloud"), 10)))
     validation_runs = []
     for run in MarketAnnotationValidationRun.objects.order_by("-created_at")[:30]:
         validation_runs.append(
@@ -1101,7 +1116,9 @@ def execute_annotation_query(payload: dict[str, object], principal: Principal) -
     if view == "catalog":
         return {"catalog": _catalog(params)}
     if view == "review":
-        return _review(params)
+        return _review(params, defer_selection=params.get("deferSelectionCounts") is True)
+    if view == "review_selection_counts":
+        return _review_selection_counts(params)
     if view in {"workspace", "workspace_fast"}:
         return annotation_workspace(params, principal, candidate_count=view == "workspace")
     raise _error("不支持的市场标注视图")
