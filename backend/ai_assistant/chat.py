@@ -1295,6 +1295,9 @@ def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbou
                     # every dispatch preserves the saved provider parameters.
                     emit("reset", {"stage": "正在生成回答" if final_turn else "正在分析问题", "ordinal": ordinal})
                     stream_options = {"on_text": lambda content: emit("delta", {"content": content})} if on_event else {}
+                    if not stream_options and scheduled_analysis is not None:
+                        # Non-streaming calls leave the connection idle while the model reasons; middleboxes then drop it.
+                        stream_options = {"on_text": lambda content: None}
                     execution["providerCalls"] += 1
                     with transport.provider_send_fence(commit_send if dingtalk_session is None else None), \
                          provider.conversation_session(conv.id):
