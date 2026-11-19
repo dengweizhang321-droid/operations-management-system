@@ -1118,6 +1118,12 @@ def consumer(payload, principal, request_id):
     raise AiError("AI consumer 操作不在白名单")
 
 
+# analysis-reply is a single blocking model call over up to 40,000 prompt characters. Successful
+# batches take 1-1.5 minutes and slower ones used to hit the generic 120 s budget and return 503
+# provider_timeout with only a "started" audit row. Kept below the writer's 320 s channel-timeout
+# and the Worker's 250 s fetch timeout (lib/django/ai-service.ts).
+ANALYSIS_REPLY_BUDGET_SECONDS = 240
+
 _primary_slots = BoundedSemaphore(2)
 _consumer_slots = BoundedSemaphore(2)
 _dataset_slots = BoundedSemaphore(2)
@@ -1127,6 +1133,7 @@ def dispatch(request, path=""):
     # Six writer threads: at most two blocking primary requests + two nested
     # consumers. Two threads remain available for tool audits and cancellation.
     gate = None
+    analysis_reply_request = False
     dataset_request = path == "datasets" or path.startswith("datasets/")
     if request.method != "GET" and not path.endswith("/cancel"):
         if path == "consumer":
@@ -1135,6 +1142,7 @@ def dispatch(request, path=""):
             except AiError:
                 operation = None
             dataset_request = operation in {"datasets-describe", "datasets-query"}
+            analysis_reply_request = operation == "analysis-reply"
             if operation in {"analysis-reply", "analysis-plan", "pandas-analysis"}:
                 gate = _consumer_slots
         else:
@@ -1153,7 +1161,7 @@ def dispatch(request, path=""):
             # the legacy 120-second route budget does not govern Pi.
             return _dispatch(request, path)
         with transport.request_budget(
-            28 if dataset_request else None if path == "chat" else 610 if path == "models" else 195 if path == "scheduler" else 120
+            28 if dataset_request else None if path == "chat" else 610 if path == "models" else 195 if path == "scheduler" else ANALYSIS_REPLY_BUDGET_SECONDS if analysis_reply_request else 120
         ):
             result = _dispatch(request, path)
         if result.status_code < 400:
