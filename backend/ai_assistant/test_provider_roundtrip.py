@@ -11,6 +11,14 @@ from .policy import AiError, canonical, mutation
 from .provider_contract import InvalidProviderResponse, PROVIDER_ADAPTER_VERSION
 
 
+def sse_event(value):
+    return ("data: " + (value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)) + "\r\n\r\n").encode()
+
+
+def sse_openai(delta=None, reason=None):
+    return {"id": "stream-fixture", "choices": [{"index": 0, "delta": delta or {}, "finish_reason": reason}]}
+
+
 def fixture_model(protocol="openai_compatible"):
     return SimpleNamespace(id="fixture", version=1, protocol=protocol, model_type="text", model_name="fixture",
         base_url="https://opencode.ai/zen/go/v1", api_key_encrypted="fixture", max_tokens=65536,
@@ -283,7 +291,7 @@ class ScheduledAnalysisSeamTests(TransactionTestCase):
     setUp = support.AiDomainTests.setUp
     user = support.AiDomainTests.user
 
-    def invoke(self, *, reply="确认本轮事实。", calls=None, truncated=False, analysis=None, client_id="fixed-monitor", provider_error=None):
+    def invoke(self, *, reply="确认本轮事实。", calls=None, truncated=False, analysis=None, client_id="fixed-monitor", provider_error=None, sse=None):
         self.session = m.AiDingTalkSession.objects.create(id="session-" + client_id, config_digest="a" * 64,
             corp_id="fixture", robot_code="fixture", sender_id="fixture", conversation_type="1",
             external_conversation_id="fixture", owner_email=self.owner.email)
@@ -296,7 +304,13 @@ class ScheduledAnalysisSeamTests(TransactionTestCase):
             if provider_error:
                 raise provider_error
             return {"text": reply, "calls": calls or [], "frame": {"role": "assistant", "content": reply}, "usage": {}, "truncated": truncated}
-        self.http = self.enterContext(patch.object(provider, "turn", side_effect=respond))
+        if sse is None:
+            self.http = self.enterContext(patch.object(provider, "turn", side_effect=respond))
+        else:  # Real provider.turn runs; only the SSE socket seam is synthetic.
+            self.enterContext(patch.object(provider, "decrypt", return_value="fixture"))
+            self.http = self.enterContext(patch.object(provider, "bounded_sse", side_effect=sse))
+            # A regression to non-streaming must fail as an assertion, never reach the network.
+            self.enterContext(patch.object(provider, "bounded_json", side_effect=AssertionError("scheduled analysis must stream")))
         self.catalog = self.enterContext(patch.object(transport, "catalog", side_effect=AssertionError("catalog must not run")))
         self.execute = self.enterContext(patch.object(transport, "execute_tool", side_effect=AssertionError("tools must not run")))
         return chat.answer(self.body, self.owner, client_id, dingtalk_session=self.session,
@@ -322,6 +336,50 @@ class ScheduledAnalysisSeamTests(TransactionTestCase):
             chat.answer(self.body, self.owner, "fixed-changed", dingtalk_session=self.session, channel_guard=self.guard,
                         scheduled_analysis={**self.analysis, "facts": {"count": 999}})
         self.assertEqual(self.http.call_count, 1)
+
+    def test_fixed_analysis_passes_noop_on_text_so_provider_streams(self):
+        self.invoke()
+        on_text = self.http.call_args.kwargs.get("on_text")
+        self.assertTrue(callable(on_text))
+        before = m.AiConversationMessages.objects.count()
+        self.assertIsNone(on_text("正文片段"))
+        self.assertEqual(m.AiConversationMessages.objects.count(), before)
+
+    def test_ordinary_dingtalk_call_stays_non_streaming(self):
+        # Same dingtalk session but no scheduled_analysis and no on_event: scope must not widen.
+        self.session = m.AiDingTalkSession.objects.create(id="session-ordinary", config_digest="a" * 64,
+            corp_id="fixture", robot_code="fixture", sender_id="fixture", conversation_type="1",
+            external_conversation_id="fixture", owner_email=self.owner.email)
+        reply = {"text": "ok", "calls": [], "frame": {"role": "assistant", "content": "ok"}, "usage": {}, "truncated": False}
+        catalog = [{"name": "get_data_freshness", "description": "fixture", "parameters": {"type": "object", "properties": {}},
+                    "execution": {"maxCallsPerRequest": 1}}]
+        with patch.object(provider, "turn", return_value=reply) as http, patch.object(transport, "catalog", return_value=catalog), \
+             patch.object(transport, "execute_tool", return_value={"ok": True, "auditStatus": "ok"}):
+            chat.answer({"clientRequestId": "ordinary", "modelId": self.model.id, "conversationId": None,
+                         "workspaceModule": "ai", "message": "普通问题"}, self.owner, "ordinary",
+                        dingtalk_session=self.session, channel_guard=MagicMock())
+        http.assert_called()
+        self.assertNotIn("on_text", http.call_args.kwargs)
+
+    def test_fixed_analysis_sse_without_done_is_not_ready(self):
+        def truncated_stream(url, body, headers, *, timeout, collector):
+            collector.feed(sse_event(sse_openai({"content": "半截正文"})))
+            collector.feed(sse_event(sse_openai(reason="stop")))
+            return collector.finish()  # no [DONE]
+        with self.assertRaises(InvalidProviderResponse) as caught:
+            self.invoke(client_id="sse-no-done", sse=truncated_stream)
+        self.http.assert_called_once()
+        self.assertEqual(caught.exception.diagnostics["reason"], "sse_incomplete")
+        self.assertFalse(m.AiConversationMessages.objects.filter(role="assistant").exists())
+
+    def test_fixed_analysis_complete_sse_returns_text(self):
+        def complete_stream(url, body, headers, *, timeout, collector):
+            for chunk in [sse_event(sse_openai({"content": "确认本轮事实。"})), sse_event(sse_openai(reason="stop")), sse_event("[DONE]")]:
+                collector.feed(chunk)
+            return collector.finish()
+        result = self.invoke(client_id="sse-complete", sse=complete_stream)
+        self.assertEqual(result["reply"], "确认本轮事实。")
+        self.http.assert_called_once()
 
     def test_incomplete_or_tool_calling_analysis_is_never_ready(self):
         for index, extra in enumerate([{"truncated": True}, {"calls": [{"id": "x", "name": "bad", "arguments": {}}]}, {"reply": "x" * 48001}]):
