@@ -67,6 +67,7 @@ function annotationParams(params: URLSearchParams): JsonRecord {
     recognitionSources: params.getAll("recognitionSource")
       .filter((value) => value === "ai" || value === "non_ai"),
     includeCatalog: params.get("includeCatalog") === "1",
+    deferSelectionCounts: params.get("deferSelectionCounts") === "1",
   };
 }
 
@@ -182,7 +183,7 @@ export async function GET(request: Request) {
       const result = await requestAnnotationControl<JsonRecord>(operator, command, true, { signal: request.signal });
       return Response.json(result.data, { headers: { "cache-control": "no-store", "x-market-data-revision": result.revision } });
     }
-    if (!["workspace", "workspace_fast", "progress", "progress_light", "candidate_counts", "review", "catalog"].includes(view)) {
+    if (!["workspace", "workspace_fast", "progress", "progress_light", "candidate_counts", "review", "review_selection_counts", "catalog"].includes(view)) {
       throw new PublicApiError(400, "invalid_request", "不支持的市场标注视图");
     }
     const result = await marketQuery<JsonRecord>(
