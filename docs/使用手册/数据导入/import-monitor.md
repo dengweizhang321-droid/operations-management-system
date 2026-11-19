@@ -76,8 +76,8 @@ Django 读取由运维显式配置的 `TERUISI_N8N_STATUS_DATABASE_PATH`。进�
 为避免老会话积压挤占当天新会话的额度，自动分析拆成两条通道，每个定时 tick 仍只处理一批（最多 8 条）：先分析新增通道，新增无候选或已达上限时才分析积压通道。
 
 - 新增通道：从未分析、有聊天记录、首次入库（`created_at`）在 72 小时内的会话；每日上限 `CUSTOMER_SERVICE_AUTO_ANALYSIS_DAILY_LIMIT`，默认 800。此条替代上文 2026-11-16 段中“按最近一次导入批次判断、默认 480”的口径。
-- 积压通道：其余所有从未分析、有聊天记录的会话，按咨询时间从新到旧（先 11 月，再 10 月、9 月……）；每日上限 `CUSTOMER_SERVICE_BACKLOG_ANALYSIS_DAILY_LIMIT`，默认 3000；`CUSTOMER_SERVICE_BACKLOG_ANALYSIS` 设为 `off`/`false`/`0` 可只关闭积压通道（默认开启）。
+- 积压通道：其余所有从未分析、有聊天记录的会话，按咨询时间从新到旧（先 11 月，再 10 月、9 月……）；每日上限 `CUSTOMER_SERVICE_BACKLOG_ANALYSIS_DAILY_LIMIT`，默认 6000；`CUSTOMER_SERVICE_BACKLOG_ANALYSIS` 设为 `off`/`false`/`0` 可只关闭积压通道（默认开启）。
 - 计额：当天的 AI 分析（含手动按钮）按其会话首次入库是否在 72 小时内，分别计入新增或积压；`CUSTOMER_SERVICE_AUTO_ANALYSIS=off` 同时关闭两条通道。
-- 模型派发上限放宽（Django 环境变量，改后需重启 Django）：全局每日 2500 次、单账号 1000 次、单模型 2000 次，分别由 `TERUISI_AI_DISPATCH_DAILY_LIMIT_GLOBAL`、`TERUISI_AI_DISPATCH_DAILY_LIMIT_PER_OWNER`、`TERUISI_AI_DISPATCH_DAILY_LIMIT_PER_MODEL` 调整；上文“单账号每日 120 次、全局 1000 次”的数字已作废。
+- 模型派发上限放宽（Django 环境变量，每次派发时读取；非法值回落默认并记 warning）：全局每日 4000 次、单账号 2500 次、单模型 4000 次，分别由 `TERUISI_AI_DISPATCH_DAILY_LIMIT_GLOBAL`、`TERUISI_AI_DISPATCH_DAILY_LIMIT_PER_OWNER`、`TERUISI_AI_DISPATCH_DAILY_LIMIT_PER_MODEL` 调整；上文“单账号每日 120 次、全局 1000 次”的数字已作废。
 - 客服分析页提示同时显示新增与积压两个每日上限。
 详见 [两通道与额度放宽](../../cs-auto-ai-analysis-20261116/2026-11-19-两通道与额度放宽.md)。

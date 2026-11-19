@@ -21,7 +21,7 @@ const { customerServiceAutoAnalysisSettings, runScheduledCustomerServiceAnalysis
 const { PublicApiError } = await import("../lib/http/api-error");
 
 const admin: AppPrincipal = { email: "local-admin@teruisi.local", displayName: "本地管理员", role: "admin", scope: null };
-const settings = { enabled: true, owner: admin.email, dailyLimit: 800, backlogEnabled: true, backlogDailyLimit: 3000 };
+const settings = { enabled: true, owner: admin.email, dailyLimit: 800, backlogEnabled: true, backlogDailyLimit: 6000 };
 
 type Candidates = Awaited<ReturnType<NonNullable<CustomerServiceAutoAnalysisDependencies["loadCandidates"]>>>;
 function lane(over: Partial<Candidates> = {}): Candidates {
@@ -46,14 +46,14 @@ function harness(overrides: CustomerServiceAutoAnalysisDependencies = {}) {
   return { calls, dependencies };
 }
 
-test("settings default to enabled, local admin, 800 new and 3000 backlog per day", () => {
-  assert.deepEqual(customerServiceAutoAnalysisSettings({}), { enabled: true, owner: "local-admin@teruisi.local", dailyLimit: 800, backlogEnabled: true, backlogDailyLimit: 3000 });
+test("settings default to enabled, local admin, 800 new and 6000 backlog per day", () => {
+  assert.deepEqual(customerServiceAutoAnalysisSettings({}), { enabled: true, owner: "local-admin@teruisi.local", dailyLimit: 800, backlogEnabled: true, backlogDailyLimit: 6000 });
   for (const off of ["off", "FALSE", " 0 "]) assert.equal(customerServiceAutoAnalysisSettings({ CUSTOMER_SERVICE_AUTO_ANALYSIS: off }).enabled, false);
   assert.equal(customerServiceAutoAnalysisSettings({ CUSTOMER_SERVICE_AUTO_ANALYSIS: "on" }).enabled, true);
   assert.deepEqual(customerServiceAutoAnalysisSettings({ CUSTOMER_SERVICE_AUTO_ANALYSIS_OWNER: " a@b.c ", CUSTOMER_SERVICE_AUTO_ANALYSIS_DAILY_LIMIT: "16", CUSTOMER_SERVICE_BACKLOG_ANALYSIS_DAILY_LIMIT: "5000" }), { enabled: true, owner: "a@b.c", dailyLimit: 16, backlogEnabled: true, backlogDailyLimit: 5000 });
   for (const bad of ["0", "-1", "abc", "1.5", ""]) {
     assert.equal(customerServiceAutoAnalysisSettings({ CUSTOMER_SERVICE_AUTO_ANALYSIS_DAILY_LIMIT: bad }).dailyLimit, 800);
-    assert.equal(customerServiceAutoAnalysisSettings({ CUSTOMER_SERVICE_BACKLOG_ANALYSIS_DAILY_LIMIT: bad }).backlogDailyLimit, 3000);
+    assert.equal(customerServiceAutoAnalysisSettings({ CUSTOMER_SERVICE_BACKLOG_ANALYSIS_DAILY_LIMIT: bad }).backlogDailyLimit, 6000);
   }
   for (const off of ["off", "FALSE", " 0 "]) assert.equal(customerServiceAutoAnalysisSettings({ CUSTOMER_SERVICE_BACKLOG_ANALYSIS: off }).backlogEnabled, false);
   assert.equal(customerServiceAutoAnalysisSettings({ CUSTOMER_SERVICE_BACKLOG_ANALYSIS: "on" }).backlogEnabled, true);
@@ -88,8 +88,8 @@ test("owner failures skip without reading candidates or calling the model", asyn
 });
 
 test("both lanes full or empty, and missing model, never reach analysis", async () => {
-  let harnessed = harness({ loadCandidates: async (_w, _l, _s, which) => lane({ lane: which, analyzedTodayNew: 800, analyzedTodayBacklog: 3000 }) });
-  assert.deepEqual(await runScheduledCustomerServiceAnalysis(harnessed.dependencies), { skipped: "daily_limit", analyzedToday: 3000, lane: "backlog" });
+  let harnessed = harness({ loadCandidates: async (_w, _l, _s, which) => lane({ lane: which, analyzedTodayNew: 800, analyzedTodayBacklog: 6000 }) });
+  assert.deepEqual(await runScheduledCustomerServiceAnalysis(harnessed.dependencies), { skipped: "daily_limit", analyzedToday: 6000, lane: "backlog" });
   assert.deepEqual(harnessed.calls.lanes, ["new", "backlog"]);
   assert.equal(harnessed.calls.model + harnessed.calls.analyze.length, 0);
 
@@ -128,7 +128,7 @@ test("new lane at its daily cap falls through to the backlog lane without analyz
 });
 
 test("caps are independent between lanes", async () => {
-  let harnessed = harness({ loadCandidates: async (_w, _l, _s, which) => lane({ lane: which, analyzedTodayNew: 10, analyzedTodayBacklog: 3000 }) });
+  let harnessed = harness({ loadCandidates: async (_w, _l, _s, which) => lane({ lane: which, analyzedTodayNew: 10, analyzedTodayBacklog: 6000 }) });
   await runScheduledCustomerServiceAnalysis(harnessed.dependencies);
   assert.deepEqual(harnessed.calls.analyze, [[3, 1, 2]]);
   harnessed = harness({ loadCandidates: async (_w, _l, _s, which) => lane({ lane: which, ids: which === "new" ? [] : [4], analyzedTodayNew: 800, analyzedTodayBacklog: 2999 }) });
