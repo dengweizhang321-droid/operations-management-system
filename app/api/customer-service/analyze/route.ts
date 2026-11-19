@@ -9,7 +9,7 @@ export async function GET() {
     const principal = await requireAppPrincipal(["operator", "admin"]);
     requireUnrestrictedDataScope(principal, "客服 AI 分析");
     const autoAnalysis = await readCustomerServiceAutoAnalysisSettings();
-    return Response.json({ configured: Boolean(await resolveChatModel(principal)), autoAnalysis: { enabled: autoAnalysis.enabled, dailyLimit: autoAnalysis.dailyLimit } }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ configured: Boolean(await resolveChatModel(principal)), autoAnalysis: { enabled: autoAnalysis.enabled, dailyLimit: autoAnalysis.dailyLimit, backlogEnabled: autoAnalysis.backlogEnabled, backlogDailyLimit: autoAnalysis.backlogDailyLimit } }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
     return safeApiErrorResponse(error, "读取 AI 分析状态失败。", { headers: { "cache-control": "no-store" } });

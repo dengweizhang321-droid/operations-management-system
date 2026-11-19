@@ -244,9 +244,12 @@ def auto_analysis(request: HttpRequest) -> JsonResponse:
     try:
         _require_process("customer_service_reader")
         _principal(request, {"operator", "admin"})
-        _unknown(request, {"limit"}, "客服自动分析候选")
-        limit = _positive(_one(request, "limit"), 8, "limit", 8)
-        payload, revision = _consistent_read(lambda: auto_analysis_candidates(limit))
+        _unknown(request, {"limit", "lane"}, "客服自动分析候选")
+        limit = _positive(_one(request, "limit"), 8, "limit", 24)
+        lane = _one(request, "lane") or "new"
+        if lane not in ("new", "backlog"):
+            raise CustomerServiceApiError("lane 超出允许范围")
+        payload, revision = _consistent_read(lambda: auto_analysis_candidates(limit, lane))
         return _json(payload, revision=revision)
     except Exception as error:
         return _error(error, "读取客服自动分析候选失败")

@@ -81,6 +81,8 @@ declare module "cloudflare:workers" {
     CUSTOMER_SERVICE_AUTO_ANALYSIS?: string;
     CUSTOMER_SERVICE_AUTO_ANALYSIS_OWNER?: string;
     CUSTOMER_SERVICE_AUTO_ANALYSIS_DAILY_LIMIT?: string;
+    CUSTOMER_SERVICE_BACKLOG_ANALYSIS?: string;
+    CUSTOMER_SERVICE_BACKLOG_ANALYSIS_DAILY_LIMIT?: string;
     [binding: string]: unknown;
   };
 }

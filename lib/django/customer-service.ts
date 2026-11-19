@@ -238,10 +238,19 @@ export function createDjangoCustomerService(config?: DjangoCustomerServiceConfig
   };
 }
 
+export type CustomerServiceAutoAnalysisLane = "new" | "backlog";
+
 export type CustomerServiceAutoAnalysisCandidates = {
+  /** Candidates of the requested lane. */
   ids: number[];
+  lane: CustomerServiceAutoAnalysisLane;
+  /** Legacy fields: always describe the "new" lane. */
   pendingCount: number;
   analyzedToday: number;
+  pendingCountNew: number;
+  pendingCountBacklog: number;
+  analyzedTodayNew: number;
+  analyzedTodayBacklog: number;
   windowHours: number;
 };
 
@@ -249,20 +258,22 @@ function nonNegativeInteger(value: unknown) {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
-/** Never-analyzed conversations from recently completed imports (read-only, reader process). */
+/** Never-analyzed conversations of one lane (read-only, reader process). The default "new" lane sends the legacy query. */
 export async function requestDjangoCustomerServiceAutoAnalysisCandidates(
   principal: AppPrincipal,
   limit: number,
   options: DjangoCustomerServiceOptions = {},
+  lane: CustomerServiceAutoAnalysisLane = "new",
 ): Promise<CustomerServiceAutoAnalysisCandidates> {
   const result = await requestDjangoCustomerServiceJson<Record<string, unknown>>(principal, {
-    method: "GET", path: CUSTOMER_SERVICE_AUTO_ANALYSIS_PATH, service: "reader", rawQuery: `limit=${limit}`,
+    method: "GET", path: CUSTOMER_SERVICE_AUTO_ANALYSIS_PATH, service: "reader",
+    rawQuery: lane === "new" ? `limit=${limit}` : `limit=${limit}&lane=${lane}`,
   }, options);
-  const { ids, pendingCount, analyzedToday, windowHours } = result.data;
-  const pending = nonNegativeInteger(pendingCount);
-  const today = nonNegativeInteger(analyzedToday);
-  const window = nonNegativeInteger(windowHours);
-  if (!Array.isArray(ids) || ids.length > limit || pending === null || today === null || window === null
+  const data = result.data;
+  const counts = [data.pendingCount, data.analyzedToday, data.pendingCountNew, data.pendingCountBacklog, data.analyzedTodayNew, data.analyzedTodayBacklog, data.windowHours].map(nonNegativeInteger);
+  const { ids } = data;
+  if (!Array.isArray(ids) || ids.length > limit || data.lane !== lane || counts.some((value) => value === null)
     || ids.some((id) => typeof id !== "number" || !Number.isSafeInteger(id) || id <= 0)) throw unavailable();
-  return { ids: ids as number[], pendingCount: pending, analyzedToday: today, windowHours: window };
+  const [pendingCount, analyzedToday, pendingCountNew, pendingCountBacklog, analyzedTodayNew, analyzedTodayBacklog, windowHours] = counts as number[];
+  return { ids: ids as number[], lane, pendingCount, analyzedToday, pendingCountNew, pendingCountBacklog, analyzedTodayNew, analyzedTodayBacklog, windowHours };
 }

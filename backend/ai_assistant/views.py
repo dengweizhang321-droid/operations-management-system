@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import re
+import time
 from datetime import timedelta
 from threading import BoundedSemaphore
 from django.conf import settings
@@ -33,6 +34,7 @@ from . import (
 from .control_models import AiWriteReceipt, AiMutationAudit
 from .policy import (
     AiError,
+    boolean,
     canonical,
     cas,
     current_principal,
@@ -1050,9 +1052,13 @@ def consumer(payload, principal, request_id):
     if operation == "analysis-reply":
         fields(
             payload,
-            {"operation", "modelId", "prompt", "systemPrompt", "surface", "title"},
+            {"operation", "modelId", "prompt", "systemPrompt", "surface", "title", "background"},
             {"operation", "prompt", "systemPrompt"},
         )
+        if "background" in payload:
+            # Scheduling hint only (selects the background execution slots in dispatch()); the
+            # signature check there decides whether it is honoured, never this field alone.
+            boolean(payload["background"], "background")
         model = configuration.resolve_model(payload.get("modelId"))
         prompt = configuration.text(payload["prompt"], "prompt", 48000)
         system = configuration.text(payload["systemPrompt"], "systemPrompt", 16000)
@@ -1065,7 +1071,27 @@ def consumer(payload, principal, request_id):
                 "started",
                 arguments={"modelId": model.id, "promptDigest": digest(prompt)},
             )
-        result = provider.turn(model, [{"role": "user", "content": prompt}], system, [])
+        started_at = time.monotonic()
+        try:
+            # Streaming keeps the connection busy while the model reasons; a silent non-streaming
+            # call can be dropped by middleboxes long before the model answers.
+            result = provider.turn(model, [{"role": "user", "content": prompt}], system, [], on_text=lambda _content: None)
+        except Exception as error:
+            # started has no other closing row; record the failure (never counted by dispatch_budget,
+            # which only counts status="started").
+            try:
+                with mutation(principal):
+                    chat.audit(
+                        principal,
+                        request_id,
+                        "configured_analysis",
+                        "failed",
+                        error_code=str(getattr(error, "code", "") or "internal_error")[:80],
+                        duration=int((time.monotonic() - started_at) * 1000),
+                    )
+            except Exception:
+                logger.warning("configured_analysis failure audit was not written", exc_info=True)
+            raise
         reply = configuration.text(result["text"], "模型回复", 48000)
         response_payload = {"reply": reply}
         with mutation(principal):
@@ -1118,24 +1144,59 @@ def consumer(payload, principal, request_id):
     raise AiError("AI consumer 操作不在白名单")
 
 
+# analysis-reply is a single blocking model call over up to 40,000 prompt characters. Successful
+# batches take 1-1.5 minutes and slower ones used to hit the generic 120 s budget and return 503
+# provider_timeout with only a "started" audit row. Kept below the writer's 320 s channel-timeout
+# and the Worker's 250 s fetch timeout (lib/django/ai-service.ts).
+ANALYSIS_REPLY_BUDGET_SECONDS = 240
+
+# Background (scheduled, Worker-originated) analysis-reply calls get their own slots so that a
+# backlog run can neither starve nor be starved by human requests. Only a request whose internal
+# signature verifies may claim them (see _background_request).
+BACKGROUND_ANALYSIS_SLOTS = 3
 _primary_slots = BoundedSemaphore(2)
 _consumer_slots = BoundedSemaphore(2)
+_background_slots = BoundedSemaphore(BACKGROUND_ANALYSIS_SLOTS)
 _dataset_slots = BoundedSemaphore(2)
 
 
+def _background_request(request, payload):
+    """True only for a Worker-signed analysis-reply that asks for the background slots.
+
+    The marker lives in the signed body (the signature covers its SHA-256), so a caller that cannot
+    sign cannot set it; an unsigned or mismatching request falls back to the interactive consumer
+    slots and is then rejected by _dispatch's own verification. A restricted-scope principal is
+    never background.
+    """
+    if payload.get("background") is not True:
+        return False
+    try:
+        principal = verify_principal(request)
+    except PrincipalEnvelopeError:
+        return False
+    return principal.scope is None and principal.role in {"operator", "admin"}
+
+
 def dispatch(request, path=""):
-    # Six writer threads: at most two blocking primary requests + two nested
-    # consumers. Two threads remain available for tool audits and cancellation.
+    # Writer threads: blocking primary requests (2) + their nested consumers (2) + dataset
+    # queries (2) + background analysis-reply calls (BACKGROUND_ANALYSIS_SLOTS) each hold one
+    # thread for the whole model call. The thread count in tools/django-ai.ps1 must exceed that
+    # sum by a few threads left for tool audits and cancellation.
     gate = None
+    analysis_reply_request = False
     dataset_request = path == "datasets" or path.startswith("datasets/")
     if request.method != "GET" and not path.endswith("/cancel"):
         if path == "consumer":
             try:
-                operation = body(request).get("operation")
+                payload = body(request)
+                operation = payload.get("operation")
             except AiError:
-                operation = None
+                payload, operation = {}, None
             dataset_request = operation in {"datasets-describe", "datasets-query"}
-            if operation in {"analysis-reply", "analysis-plan", "pandas-analysis"}:
+            analysis_reply_request = operation == "analysis-reply"
+            if operation == "analysis-reply" and _background_request(request, payload):
+                gate = _background_slots
+            elif operation in {"analysis-reply", "analysis-plan", "pandas-analysis"}:
                 gate = _consumer_slots
         else:
             gate = _primary_slots
@@ -1153,7 +1214,7 @@ def dispatch(request, path=""):
             # the legacy 120-second route budget does not govern Pi.
             return _dispatch(request, path)
         with transport.request_budget(
-            28 if dataset_request else None if path == "chat" else 610 if path == "models" else 195 if path == "scheduler" else 120
+            28 if dataset_request else None if path == "chat" else 610 if path == "models" else 195 if path == "scheduler" else ANALYSIS_REPLY_BUDGET_SECONDS if analysis_reply_request else 120
         ):
             result = _dispatch(request, path)
         if result.status_code < 400:
