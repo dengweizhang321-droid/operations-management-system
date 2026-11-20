@@ -2362,14 +2362,9 @@ async function verifyHardLinks(manifest, releaseRoot) {
   }
 }
 
-// sing-box/v2rayN TUN 下连 ::1 的 TCP connect 一律 EACCES；仅对 ::1 视为不可连，独占 bind 探测仍是占用的权威判据。
-export function isUnreachableConnectError(host, code) {
-  return ["ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "EADDRNOTAVAIL"].includes(code) || (host === "::1" && code === "EACCES");
-}
-
-export async function probeAnyLocalPort(port) {
+export async function probeAnyLocalPort(port, { connect = createConnection } = {}) {
   const canConnect = (host) => new Promise((resolveProbe, rejectProbe) => {
-    const socket = createConnection({ host, port });
+    const socket = connect({ host, port });
     let settled = false;
     const finish = (value) => {
       if (settled) return;
@@ -2381,7 +2376,7 @@ export async function probeAnyLocalPort(port) {
     socket.once("connect", () => finish(true));
     socket.once("timeout", () => finish(false));
     socket.once("error", (error) => {
-      if (isUnreachableConnectError(host, error?.code)) {
+      if (["ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "EADDRNOTAVAIL"].includes(error?.code)) {
         finish(false);
       } else {
         settled = true;
@@ -2401,7 +2396,12 @@ export async function probeAnyLocalPort(port) {
       server.close((error) => (error ? rejectProbe(error) : resolveProbe(false)));
     });
   });
-  if (await canConnect("127.0.0.1") || await canConnect("::1")) return true;
+  // sing-box/v2rayN TUN 下 TCP connect ::1 一律 EACCES；此时以独占 bind ::1 判定是否存在仅监听 ::1 的占用（通配 bind 不覆盖 ::1），bind 失败仍 fail-closed。
+  const canConnectLoopback6 = () => canConnect("::1").catch((error) => {
+    if (error?.code === "EACCES") return cannotBind("::1", { ipv6Only: true });
+    throw error;
+  });
+  if (await canConnect("127.0.0.1") || await canConnectLoopback6()) return true;
   if (await cannotBind("0.0.0.0")) return true;
   return cannotBind("::", { ipv6Only: true });
 }
