@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, readdir, writeFile, rm, lstat } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { createServer } from "node:net";
 import { syncBuiltinESMExports } from "node:module";
 import { DatabaseSync } from "node:sqlite";
@@ -72,7 +73,9 @@ async function fixture(t: TestContext, options: { mutate?: (plan: CustomerServic
   return { root, files, plan, bytes, port, receipts, served,
     close: (request?: typeof fetch, extra: ConfirmedPartialImportOptions = {}) => closeCustomerServiceConfirmedPartialImport(root, plan, bytes, next, files.directory, { request, ...extra }),
     change: (sql: string, ...args: (string | number | null)[]) => { const d = new DatabaseSync(path.join(home, ".n8n/database.sqlite")); try { d.prepare(sql).run(...args); } finally { d.close(); } },
-    sealPrune: () => { sealCustomerServiceExecutionEvidence(files.directory, store.storeKey, old); const d = new DatabaseSync(path.join(home, ".n8n/database.sqlite")); try { d.prepare("DELETE FROM execution_entity WHERE id=?").run(old); } finally { d.close(); } } };
+    prune: () => { const d = new DatabaseSync(path.join(home, ".n8n/database.sqlite")); try { d.prepare("DELETE FROM execution_entity WHERE id=?").run(old); } finally { d.close(); } },
+    seal: () => sealCustomerServiceExecutionEvidence(files.directory, store.storeKey, old),
+    sealPrune() { this.seal(); this.prune(); } };
 }
 const unresolved = /PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION/;
 const noReceipt = async (dir: string) => assert.equal(await lstat(dir).then(() => true, () => false), false);
@@ -184,8 +187,9 @@ test("closure works when the n8n row was pruned and only the sealed evidence cop
   const f = await fixture(t);
   f.sealPrune();
   assert.equal((await f.close(f.served)).kind, "confirmed_partial_import");
-  const g = await fixture(t); g.sealPrune();
-  await assert.rejects(closeCustomerServiceConfirmedPartialImport(g.root, g.plan, g.bytes, next, path.join(g.root, "elsewhere"), { request: g.served }), "without the seal the pruned row is rejected");
+  // Same plan and active in the real directory; the only difference is no sealed copy.
+  const g = await fixture(t); g.prune();
+  await assert.rejects(g.close(g.served), /CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID/); await noReceipt(g.receipts);
 });
 
 test("503 then success during readback still closes inside the closure", async t => {
@@ -195,13 +199,31 @@ test("503 then success during readback still closes inside the closure", async t
   assert.deepEqual(waits, [1000]);
 });
 
-test("the deadline passing during readback rejects and writes nothing", async t => {
+test("the deadline passing during readback, or after the last readback and before the write, rejects and writes nothing", async t => {
   const f = await fixture(t); let clock = 0; const waits: number[] = [];
   const opts = { now: () => clock, sleep: async (ms: number) => { waits.push(ms); clock += ms; }, deadline: 3500 };
   await assert.rejects(f.close((async () => page503()) as typeof fetch, opts), /BATCH_READBACK_FAILED/);
   assert.deepEqual(waits, [1000], "no sleep may cross the deadline"); await noReceipt(f.receipts);
-  clock = 0;
-  // A deadline that passes between readback and the write also leaves no receipt.
-  await assert.rejects(f.close((async () => { clock = 99; return f.served(""); }) as typeof fetch, { now: () => clock, deadline: 50 }), unresolved);
-  await noReceipt(f.receipts);
+  // Clock moves only during the LAST proof's fetch, so the per-proof check passes and only the pre-write check can stop it.
+  clock = 0; let fetches = 0;
+  await assert.rejects(f.close((async () => { if (++fetches === f.plan.proofs.length) clock = 99; return f.served(""); }) as typeof fetch, { now: () => clock, deadline: 50 }), unresolved);
+  assert.equal(fetches, f.plan.proofs.length); await noReceipt(f.receipts);
+});
+
+test("A: a deadline lapsing after the closure leaves receipt only; the next A reuses it and advances active", async t => {
+  const f = await fixture(t);
+  t.mock.method(globalThis, "fetch", f.served);
+  const receiptFile = path.join(f.receipts, `${old}-${sha(f.bytes)}.json`);
+  const lapsed = () => (existsSync(receiptFile) ? 1e12 : 0);
+  await assert.rejects(planCustomerServiceRun(f.root, next, new Date("2026-11-11T01:00:00Z"), store.storeKey, undefined, lapsed), unresolved);
+  const stored = await readFile(receiptFile);
+  assert.deepEqual(JSON.parse(await readFile(f.files.active, "utf8")), { executionId: old });
+  assert.equal(await lstat(customerServicePlanFiles(f.root, next, store.storeKey).plan).then(() => true, () => false), false);
+  f.change("UPDATE execution_entity SET status='error' WHERE id=?", next);
+  f.change("INSERT INTO execution_entity VALUES(11061,?,'running','trigger','2026-11-12 01:00:00.000',NULL,NULL,NULL)", store.workflowId);
+  const plan = await planCustomerServiceRun(f.root, "11061", new Date("2026-11-12T01:00:00Z"), store.storeKey);
+  assert.equal(plan.executionId, "11061"); assert.deepEqual(await readFile(receiptFile), stored, "the receipt is reused, not rewritten");
+  assert.equal(JSON.parse(stored.toString()).replacementExecutionId, next);
+  assert.deepEqual(JSON.parse(await readFile(f.files.active, "utf8")), { executionId: "11061" });
+  assert.deepEqual(await readFile(f.files.plan), f.bytes);
 });

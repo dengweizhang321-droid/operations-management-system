@@ -20,6 +20,8 @@ execution 11802 在导入 19 天后，回查 `GET /api/customer-service/import-h
    - 写入前再次核对原计划字节与 active 未变。
    - 整个闭合有 75 秒总截止（n8n 对 A 的超时为 120 秒），回查期间与写回执前都检查；超时则拒绝且不写任何内容。A 在写新计划与 active 前同样复查该截止，避免 n8n 放弃后遗留无法闭合的 planned 计划。
    - 已存在的同稳定字段回执原样返回（不以新的替代 executionId 与时间重建）；被篡改或不一致的回执一律拒绝。
+   - 全局 Chromium 锁被占用时立即失败（不排队等待），因此闭合若与其他店铺的 B 撞锁，只会在下一次计划运行时重试。
+   - 截止时间使用单调时钟（`performance.now()`），`planCustomerServiceRun` 末位可选参数 `clock` 仅供测试注入。
    - A 的分派：`isCustomerServiceConfirmedPartialImport` 为真则调用本闭合，否则调用导出前闭合。
    通过后在 `failure-closures/<executionId>-<planSha256>.json` 创建即只读写入回执（协议标记、`kind: confirmed_partial_import`、原 executionId、原计划 sha256、失败码、已核验批次、替代 executionId、完成时间），不修改原计划文件。已入库日期重新导入时由 Django 内容幂等返回 `duplicate`。
 3. 失败边界步骤：`runCustomerServicePlan` 仅在 `dailyFiles` 保存后、逐日导入循环前把 `step` 设为 `import_days`。此前不变，`PAIR_PARSE_REJECTED` 的来源恢复仍要求 `export_messages`；导出前闭合与来源恢复的步骤白名单未改。

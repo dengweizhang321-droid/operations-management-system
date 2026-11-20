@@ -75,7 +75,7 @@ export function customerServiceHelperError(stage: string, busy: boolean, route: 
   const expected = stage === "ready" ? restoreExecuted ? "verify" : "plan" : stage === "planned" ? "run" : stage === "executed" ? "verify" : null;
   return expected && route === `/jd/customer-service/${expected}` ? null : { error: "customer_service_stage_mismatch" };
 }
-export async function planCustomerServiceRun(root: string, executionId: string, now = new Date(), storeKey = contract.storeKey as string, recoverySha256?: string) {
+export async function planCustomerServiceRun(root: string, executionId: string, now = new Date(), storeKey = contract.storeKey as string, recoverySha256?: string, clock: () => number = () => performance.now()) {
   const store = customerServiceStore(storeKey);
   const files = customerServicePlanFiles(root, executionId, store.storeKey);
   await mkdir(files.directory, { recursive: true });
@@ -107,8 +107,8 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
           if (!await consumeCustomerServiceOperatorClosure(root, previous, previousBytes, executionId)) {
             // The partial-import closure is slow (live readback); n8n gives A 120s, so it carries its own 75s deadline.
             if (isCustomerServiceConfirmedPartialImport(previous)) {
-              closureDeadline = Date.now() + confirmedPartialImportDeadlineMs;
-              await closeCustomerServiceConfirmedPartialImport(root, previous, previousBytes, executionId, files.directory, { deadline: closureDeadline });
+              closureDeadline = clock() + confirmedPartialImportDeadlineMs;
+              await closeCustomerServiceConfirmedPartialImport(root, previous, previousBytes, executionId, files.directory, { deadline: closureDeadline, now: clock });
             } else await closeCustomerServicePreSubmitFailure(root, previous, previousBytes, executionId, files.directory);
           }
         }
@@ -120,7 +120,7 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
     const plan: CustomerServiceN8nPlan = { version: 1, storeKey: store.storeKey, shopName: store.shopName, shopId: store.shopId, executionId, period: customerServicePeriod(now), createdAt, updatedAt: createdAt, stage: "planned", source: recovered?.source ?? {}, proofs: [], ...(recovery ? { sourceRecovery: recovery } : {}) };
     if (closedPreviousBytes && active) {
       // n8n may already have given up on A; never leave a stray planned plan behind.
-      if (closureDeadline !== undefined && Date.now() >= closureDeadline) reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
+      if (closureDeadline !== undefined && clock() >= closureDeadline) reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
       if (!Buffer.from(await customerServiceControlBytes(customerServicePlanFiles(root, active.executionId!, store.storeKey).plan)).equals(closedPreviousBytes)
         || !isDeepStrictEqual(JSON.parse((await customerServiceControlBytes(files.active)).toString("utf8")), active)) reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
       await writeJsonDurable(files.plan, plan, true);

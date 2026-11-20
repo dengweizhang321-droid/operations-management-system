@@ -106,7 +106,8 @@ export const confirmedPartialImportDeadlineMs = 75_000;
 export type ConfirmedPartialImportOptions = { request?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; deadline?: number };
 /** Called only under the original per-store planning lock, by the new A owner. */
 export async function closeCustomerServiceConfirmedPartialImport(root: string, previous: CustomerServiceN8nPlan, previousBytes: Uint8Array, replacementId: string, directory: string, options: ConfirmedPartialImportOptions = {}) {
-  const now = options.now ?? Date.now, deadline = options.deadline ?? now() + confirmedPartialImportDeadlineMs;
+  // Monotonic clock: wall-clock steps must not stretch or collapse the deadline.
+  const now = options.now ?? (() => performance.now()), deadline = options.deadline ?? now() + confirmedPartialImportDeadlineMs;
   const beforeDeadline = () => { if (now() >= deadline) reject(); };
   if (!isCustomerServiceConfirmedPartialImport(previous) || previous.storeKey === undefined) reject();
   const store = customerServiceStore(previous.storeKey);
@@ -136,6 +137,8 @@ export async function closeCustomerServiceConfirmedPartialImport(root: string, p
     if (existing === null) { await writeJsonDurable(file, receipt, true); return receipt; }
     // A crash between receipt and new plan must not strand the next A: reuse the stored receipt as is.
     const stored = JSON.parse((await customerServiceControlBytes(file)).toString("utf8"));
+    if (typeof stored.completedAt !== "string" || !Number.isFinite(Date.parse(stored.completedAt))
+      || typeof stored.replacementExecutionId !== "string" || !/^[A-Za-z0-9_-]{1,96}$/.test(stored.replacementExecutionId)) reject();
     const rest = { ...stored }; delete rest.replacementExecutionId; delete rest.completedAt;
     if (!isDeepStrictEqual(rest, stable)) reject();
     return stored as typeof receipt;
