@@ -8,6 +8,7 @@ import { validateJdStoreRegistry } from "../lib/jd/store-registry";
 import { withJdChromiumRunLock, defaultJdChromiumRunLockDirectory } from "../lib/jd/chromium-run-lock";
 import { readCustomerServiceFailureEvidence } from "../lib/jackyun/n8n-preflight-evidence";
 import { readJsonDurableOr, writeJsonDurable } from "../lib/jackyun/json-file";
+import { verifyCustomerServiceBatch } from "./jd-customer-service-import";
 import type { CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline";
 
 const sha = (value: Uint8Array) => createHash("sha256").update(value).digest("hex");
@@ -79,5 +80,67 @@ export async function closeCustomerServicePreSubmitFailure(root: string, previou
     if (existing === null) await writeJsonDurable(file, receipt, true);
     else if (!isDeepStrictEqual(JSON.parse((await customerServiceControlBytes(file)).toString("utf8")), receipt)) reject();
     return receipt;
+  }, defaultJdChromiumRunLockDirectory(root));
+}
+
+const partialImportProtocol = "jd-customer-service-confirmed-partial-import-v1";
+/** Narrow eligibility for a readback-only failure after confirmed POSTs: every
+ * proof is a confirmed import and `importingDate` is the last proven day, so no
+ * POST outcome is unknown. Re-import of stored days is Django-idempotent. */
+export function isCustomerServiceConfirmedPartialImport(plan: CustomerServiceN8nPlan) {
+  if (plan.version !== 1 || plan.stage !== "failed" || plan.failureCode !== "BATCH_READBACK_FAILED"
+    || "sourceRecovery" in plan || "operatorVerification" in plan || plan.storeKey === undefined) return false;
+  const boundary = plan.failureBoundary, days = plan.dailyFiles, proofs = plan.proofs;
+  // `export_messages` is the legacy step recorded before `import_days` existed.
+  if (!plain(boundary) || boundary.version !== 1 || boundary.browserClosed !== true
+    || !["import_days", "export_messages"].includes(boundary.step)) return false;
+  if (!plain(plan.source) || plan.source.list?.phase !== "downloaded" || plan.source.messages?.phase !== "downloaded") return false;
+  if (!Array.isArray(days) || !days.length || !Array.isArray(proofs) || !proofs.length || proofs.length > days.length) return false;
+  if (!proofs.every((proof, index) => plain(proof) && proof.date === days[index]?.date && proof.conversationCount === days[index].conversationCount
+    && proof.storeKey === plan.storeKey && typeof proof.batchId === "string")) return false;
+  return plan.importingDate === proofs[proofs.length - 1].date;
+}
+
+/** n8n's A call times out at 120s; the whole closure must finish well inside it. */
+export const confirmedPartialImportDeadlineMs = 75_000;
+export type ConfirmedPartialImportOptions = { request?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void>; deadline?: number };
+/** Called only under the original per-store planning lock, by the new A owner. */
+export async function closeCustomerServiceConfirmedPartialImport(root: string, previous: CustomerServiceN8nPlan, previousBytes: Uint8Array, replacementId: string, directory: string, options: ConfirmedPartialImportOptions = {}) {
+  // Monotonic clock: wall-clock steps must not stretch or collapse the deadline.
+  const now = options.now ?? (() => performance.now()), deadline = options.deadline ?? now() + confirmedPartialImportDeadlineMs;
+  const beforeDeadline = () => { if (now() >= deadline) reject(); };
+  if (!isCustomerServiceConfirmedPartialImport(previous) || previous.storeKey === undefined) reject();
+  const store = customerServiceStore(previous.storeKey);
+  if (previous.shopName !== store.shopName || previous.shopId !== store.shopId) reject();
+  return withJdChromiumRunLock("jd-customer-service-confirmed-partial-import-closure", async () => {
+    const registered = validateJdStoreRegistry(JSON.parse(await readFile(path.join(root, "config/jd-store-accounts.json"), "utf8")), root).find(s => s.storeKey === store.storeKey);
+    if (!registered?.enabled || registered.shopId !== store.shopId || registered.shopName !== store.shopName) reject();
+    await assertPortAbsent(registered.browser.debugPort);
+    const evidence = readCustomerServiceFailureEvidence(store.storeKey, previous.executionId, replacementId, directory);
+    if (![previous.failureCode, `${previous.failureCode}_MANUAL_ACTION`].includes(evidence.failureCode)) reject();
+    // Live readback of every confirmed proof; any failure leaves the plan unresolved.
+    for (const proof of previous.proofs) {
+      beforeDeadline();
+      await verifyCustomerServiceBatch(proof, "http://localhost:3000", options.request ?? fetch, store.storeKey, { sleep: options.sleep, deadline, now });
+    }
+    const planSha256 = sha(previousBytes);
+    if (sha(await customerServiceControlBytes(path.join(directory, `${previous.executionId}.json`))) !== planSha256
+      || !isDeepStrictEqual(JSON.parse((await customerServiceControlBytes(path.join(directory, "active.json"))).toString("utf8")), { executionId: previous.executionId })) reject();
+    const stable = { version: 1, protocol: partialImportProtocol, kind: "confirmed_partial_import", storeKey: store.storeKey, shopId: store.shopId, shopName: store.shopName,
+      executionId: previous.executionId, planSha256, failureCode: previous.failureCode,
+      proofs: previous.proofs.map(({ date, batchId, fileHash }) => ({ date, batchId, fileHash })), evidence };
+    beforeDeadline();
+    const receipt = { ...stable, replacementExecutionId: replacementId, completedAt: new Date().toISOString() };
+    const receipts = path.join(directory, "failure-closures"); await mkdir(receipts, { recursive: true });
+    const file = path.join(receipts, `${previous.executionId}-${planSha256}.json`);
+    const existing = await readJsonDurableOr<Record<string, unknown> | null>(file, null);
+    if (existing === null) { await writeJsonDurable(file, receipt, true); return receipt; }
+    // A crash between receipt and new plan must not strand the next A: reuse the stored receipt as is.
+    const stored = JSON.parse((await customerServiceControlBytes(file)).toString("utf8"));
+    if (typeof stored.completedAt !== "string" || !Number.isFinite(Date.parse(stored.completedAt))
+      || typeof stored.replacementExecutionId !== "string" || !/^[A-Za-z0-9_-]{1,96}$/.test(stored.replacementExecutionId)) reject();
+    const rest = { ...stored }; delete rest.replacementExecutionId; delete rest.completedAt;
+    if (!isDeepStrictEqual(rest, stable)) reject();
+    return stored as typeof receipt;
   }, defaultJdChromiumRunLockDirectory(root));
 }

@@ -18,7 +18,7 @@ import { assertCustomerServiceShop, exportCustomerServiceView, openCustomerServi
 import { buildCustomerServiceDailyFiles } from "./jd-customer-service-daily-files";
 import { importCustomerServiceDay, verifyCustomerServiceBatch, type CustomerServiceBatchProof } from "./jd-customer-service-import";
 import { assertCustomerServiceSourceRecoveryNotClosed, consumeCustomerServiceOperatorClosure } from "./jd-customer-service-operator-reconcile";
-import { closeCustomerServicePreSubmitFailure, customerServiceControlBytes } from "./jd-customer-service-failure-closure";
+import { closeCustomerServiceConfirmedPartialImport, closeCustomerServicePreSubmitFailure, confirmedPartialImportDeadlineMs, customerServiceControlBytes, isCustomerServiceConfirmedPartialImport } from "./jd-customer-service-failure-closure";
 import { sealCustomerServiceExecutionEvidence } from "../lib/jackyun/n8n-preflight-evidence";
 
 export type CustomerServiceN8nPlan = {
@@ -75,7 +75,7 @@ export function customerServiceHelperError(stage: string, busy: boolean, route: 
   const expected = stage === "ready" ? restoreExecuted ? "verify" : "plan" : stage === "planned" ? "run" : stage === "executed" ? "verify" : null;
   return expected && route === `/jd/customer-service/${expected}` ? null : { error: "customer_service_stage_mismatch" };
 }
-export async function planCustomerServiceRun(root: string, executionId: string, now = new Date(), storeKey = contract.storeKey as string, recoverySha256?: string) {
+export async function planCustomerServiceRun(root: string, executionId: string, now = new Date(), storeKey = contract.storeKey as string, recoverySha256?: string, clock: () => number = () => performance.now()) {
   const store = customerServiceStore(storeKey);
   const files = customerServicePlanFiles(root, executionId, store.storeKey);
   await mkdir(files.directory, { recursive: true });
@@ -87,6 +87,7 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
     let recovered: Awaited<ReturnType<typeof inspectCustomerServiceRecovery>> | undefined;
     let recovery: CustomerServiceSourceRecovery | undefined;
     let closedPreviousBytes: Uint8Array | undefined;
+    let closureDeadline: number | undefined;
     if (recoverySha256 && !active) reject("SOURCE_RECOVERY_REJECTED_MANUAL_ACTION");
     if (active) {
       if (typeof active.executionId !== "string") reject("ACTIVE_PLAN_INVALID_MANUAL_ACTION");
@@ -103,8 +104,13 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
         // Best effort: copy the old execution's fixed metadata before n8n prunes it.
         try { sealCustomerServiceExecutionEvidence(files.directory, store.storeKey, previous.executionId); } catch { /* closure below remains authoritative */ }
         try {
-          if (!await consumeCustomerServiceOperatorClosure(root, previous, previousBytes, executionId))
-            await closeCustomerServicePreSubmitFailure(root, previous, previousBytes, executionId, files.directory);
+          if (!await consumeCustomerServiceOperatorClosure(root, previous, previousBytes, executionId)) {
+            // The partial-import closure is slow (live readback); n8n gives A 120s, so it carries its own 75s deadline.
+            if (isCustomerServiceConfirmedPartialImport(previous)) {
+              closureDeadline = clock() + confirmedPartialImportDeadlineMs;
+              await closeCustomerServiceConfirmedPartialImport(root, previous, previousBytes, executionId, files.directory, { deadline: closureDeadline, now: clock });
+            } else await closeCustomerServicePreSubmitFailure(root, previous, previousBytes, executionId, files.directory);
+          }
         }
         catch { reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION"); }
         closedPreviousBytes = previousBytes;
@@ -113,6 +119,8 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
     const createdAt = new Date().toISOString();
     const plan: CustomerServiceN8nPlan = { version: 1, storeKey: store.storeKey, shopName: store.shopName, shopId: store.shopId, executionId, period: customerServicePeriod(now), createdAt, updatedAt: createdAt, stage: "planned", source: recovered?.source ?? {}, proofs: [], ...(recovery ? { sourceRecovery: recovery } : {}) };
     if (closedPreviousBytes && active) {
+      // n8n may already have given up on A; never leave a stray planned plan behind.
+      if (closureDeadline !== undefined && clock() >= closureDeadline) reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
       if (!Buffer.from(await customerServiceControlBytes(customerServicePlanFiles(root, active.executionId!, store.storeKey).plan)).equals(closedPreviousBytes)
         || !isDeepStrictEqual(JSON.parse((await customerServiceControlBytes(files.active)).toString("utf8")), active)) reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
       await writeJsonDurable(files.plan, plan, true);
@@ -194,6 +202,7 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
       plan.sourceCounts = { listRows: daily.summary.sessionCount, logSessions: daily.summary.chatSessionCount, ambiguous: daily.summary.ambiguousCount };
       plan.dailyFiles = daily.files.map(({ date, sessionSha256, chatSha256, contentSha256, conversationCount }) => ({ date, sessionSha256, chatSha256, contentSha256, conversationCount }));
       await save();
+      step = "import_days";
       for (const day of daily.files) {
         await writeFile(path.join(downloadDirectory, `${day.date}.xlsx`), day.sessionBytes, { flag: "wx" });
         await writeFile(path.join(downloadDirectory, `${day.date}.log`), day.chatBytes, { flag: "wx" });
