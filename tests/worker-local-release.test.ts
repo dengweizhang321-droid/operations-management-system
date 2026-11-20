@@ -34,6 +34,7 @@ import {
   ordinalCompare,
   publishSalesAuthorityPayload,
   publishFirstCurrentPointer,
+  isUnreachableConnectError,
   probeAnyLocalPort,
   salesRetirementMigrationSha256,
   sha256Bytes,
@@ -2394,4 +2395,15 @@ if ($text -match 'serve|--manifest') { throw 'diagnostic leaked a command line' 
     assert.equal(result.stdout.trim(), "verified");
   }
   assert.ok(ran >= 1);
+});
+
+test("isUnreachableConnectError 仅对 ::1 把 EACCES 视为不可连", () => {
+  assert.equal(isUnreachableConnectError("::1", "EACCES"), true);
+  assert.equal(isUnreachableConnectError("127.0.0.1", "EACCES"), false);
+  assert.equal(isUnreachableConnectError("::1", "EPERM"), false);
+  assert.equal(isUnreachableConnectError("127.0.0.1", undefined), false);
+  for (const code of ["ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "EADDRNOTAVAIL"]) {
+    assert.equal(isUnreachableConnectError("127.0.0.1", code), true);
+    assert.equal(isUnreachableConnectError("::1", code), true);
+  }
 });

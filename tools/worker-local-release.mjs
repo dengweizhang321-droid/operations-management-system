@@ -2362,6 +2362,11 @@ async function verifyHardLinks(manifest, releaseRoot) {
   }
 }
 
+// sing-box/v2rayN TUN 下连 ::1 的 TCP connect 一律 EACCES；仅对 ::1 视为不可连，独占 bind 探测仍是占用的权威判据。
+export function isUnreachableConnectError(host, code) {
+  return ["ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "EADDRNOTAVAIL"].includes(code) || (host === "::1" && code === "EACCES");
+}
+
 export async function probeAnyLocalPort(port) {
   const canConnect = (host) => new Promise((resolveProbe, rejectProbe) => {
     const socket = createConnection({ host, port });
@@ -2376,7 +2381,7 @@ export async function probeAnyLocalPort(port) {
     socket.once("connect", () => finish(true));
     socket.once("timeout", () => finish(false));
     socket.once("error", (error) => {
-      if (["ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "EADDRNOTAVAIL"].includes(error?.code)) {
+      if (isUnreachableConnectError(host, error?.code)) {
         finish(false);
       } else {
         settled = true;
