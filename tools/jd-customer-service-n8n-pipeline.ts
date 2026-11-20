@@ -18,7 +18,7 @@ import { assertCustomerServiceShop, exportCustomerServiceView, openCustomerServi
 import { buildCustomerServiceDailyFiles } from "./jd-customer-service-daily-files";
 import { importCustomerServiceDay, verifyCustomerServiceBatch, type CustomerServiceBatchProof } from "./jd-customer-service-import";
 import { assertCustomerServiceSourceRecoveryNotClosed, consumeCustomerServiceOperatorClosure } from "./jd-customer-service-operator-reconcile";
-import { closeCustomerServicePreSubmitFailure, customerServiceControlBytes } from "./jd-customer-service-failure-closure";
+import { closeCustomerServiceConfirmedPartialImport, closeCustomerServicePreSubmitFailure, customerServiceControlBytes } from "./jd-customer-service-failure-closure";
 import { sealCustomerServiceExecutionEvidence } from "../lib/jackyun/n8n-preflight-evidence";
 
 export type CustomerServiceN8nPlan = {
@@ -103,8 +103,11 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
         // Best effort: copy the old execution's fixed metadata before n8n prunes it.
         try { sealCustomerServiceExecutionEvidence(files.directory, store.storeKey, previous.executionId); } catch { /* closure below remains authoritative */ }
         try {
-          if (!await consumeCustomerServiceOperatorClosure(root, previous, previousBytes, executionId))
-            await closeCustomerServicePreSubmitFailure(root, previous, previousBytes, executionId, files.directory);
+          if (!await consumeCustomerServiceOperatorClosure(root, previous, previousBytes, executionId)) {
+            // Third path is only the confirmed-partial-import readback failure; it throws unless fully proven.
+            try { await closeCustomerServicePreSubmitFailure(root, previous, previousBytes, executionId, files.directory); }
+            catch { await closeCustomerServiceConfirmedPartialImport(root, previous, previousBytes, executionId, files.directory); }
+          }
         }
         catch { reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION"); }
         closedPreviousBytes = previousBytes;
@@ -194,6 +197,7 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
       plan.sourceCounts = { listRows: daily.summary.sessionCount, logSessions: daily.summary.chatSessionCount, ambiguous: daily.summary.ambiguousCount };
       plan.dailyFiles = daily.files.map(({ date, sessionSha256, chatSha256, contentSha256, conversationCount }) => ({ date, sessionSha256, chatSha256, contentSha256, conversationCount }));
       await save();
+      step = "import_days";
       for (const day of daily.files) {
         await writeFile(path.join(downloadDirectory, `${day.date}.xlsx`), day.sessionBytes, { flag: "wx" });
         await writeFile(path.join(downloadDirectory, `${day.date}.log`), day.chatBytes, { flag: "wx" });

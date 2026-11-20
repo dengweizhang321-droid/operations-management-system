@@ -66,29 +66,43 @@ export async function importCustomerServiceDay(day: CustomerServiceDailyFile, ba
   assertBatch(batch, expected, store.storeKey);
   return { ...expected, storeKey: store.storeKey, batchId: String(batch.id), fileHash: String(batch.fileHash), status: payload.status } as CustomerServiceBatchProof;
 }
-export async function verifyCustomerServiceBatch(proof: CustomerServiceBatchProof, baseUrl: string, request: typeof fetch = fetch, storeKey = contract.storeKey as string) {
+// Django answers 503 when the customer-service revision moves during its two
+// consistent-read attempts (e.g. concurrent AI annotation writes). Only that
+// status is transient: restart the whole scan, a bounded number of times.
+const readbackBackoffMs = [2000, 5000, 10000];
+export type CustomerServiceReadbackOptions = { sleep?: (ms: number) => Promise<void> };
+export async function verifyCustomerServiceBatch(proof: CustomerServiceBatchProof, baseUrl: string, request: typeof fetch = fetch, storeKey = contract.storeKey as string, options: CustomerServiceReadbackOptions = {}) {
   const store = customerServiceStore(storeKey);
   const origin = customerServiceLocalBaseUrl(baseUrl);
   if (proof.storeKey && proof.storeKey !== store.storeKey) reject("IMPORT_BATCH_IDENTITY_MISMATCH");
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
   // Existing public API exposes paginated history. Never assume the newest
   // batch is this run's batch, and never treat truncated history as absence.
-  for (let page = 1; page <= 100; page++) {
-    const response = await request(`${origin}/api/customer-service/import-history?page=${page}&pageSize=100`, {
-      redirect: "error", signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) reject("BATCH_READBACK_FAILED");
-    const payload = await json(response); const paging = object(payload.pagination);
-    if (!Array.isArray(payload.items) || payload.items.length > 100 || paging.page !== page
-      || paging.pageSize !== 100 || paging.returned !== payload.items.length || typeof paging.truncated !== "boolean"
-      || !Number.isSafeInteger(paging.total) || Number(paging.total) < payload.items.length) reject("BATCH_READBACK_INVALID");
-    const matches = payload.items.map(object).filter(batch => batch.id === proof.batchId);
-    if (matches.length > 1) reject("BATCH_READBACK_AMBIGUOUS");
-    if (matches.length === 1) {
-      assertBatch(matches[0], proof, store.storeKey);
-      if (matches[0].fileHash !== proof.fileHash || matches[0].warningTotalCount !== proof.warningTotalCount) reject("BATCH_READBACK_MISMATCH");
-      return;
+  const scan = async (): Promise<"unavailable" | "verified"> => {
+    for (let page = 1; page <= 100; page++) {
+      const response = await request(`${origin}/api/customer-service/import-history?page=${page}&pageSize=100`, {
+        redirect: "error", signal: AbortSignal.timeout(30_000),
+      });
+      if (response.status === 503) { await response.body?.cancel().catch(() => undefined); return "unavailable"; }
+      if (!response.ok) reject("BATCH_READBACK_FAILED");
+      const payload = await json(response); const paging = object(payload.pagination);
+      if (!Array.isArray(payload.items) || payload.items.length > 100 || paging.page !== page
+        || paging.pageSize !== 100 || paging.returned !== payload.items.length || typeof paging.truncated !== "boolean"
+        || !Number.isSafeInteger(paging.total) || Number(paging.total) < payload.items.length) reject("BATCH_READBACK_INVALID");
+      const matches = payload.items.map(object).filter(batch => batch.id === proof.batchId);
+      if (matches.length > 1) reject("BATCH_READBACK_AMBIGUOUS");
+      if (matches.length === 1) {
+        assertBatch(matches[0], proof, store.storeKey);
+        if (matches[0].fileHash !== proof.fileHash || matches[0].warningTotalCount !== proof.warningTotalCount) reject("BATCH_READBACK_MISMATCH");
+        return "verified";
+      }
+      if (!paging.truncated || !payload.items.length) break;
     }
-    if (!paging.truncated || !payload.items.length) break;
+    reject("EXACT_BATCH_NOT_FOUND_MANUAL_ACTION");
+  };
+  for (let attempt = 0; ; attempt++) {
+    if (await scan() === "verified") return;
+    if (attempt >= readbackBackoffMs.length) reject("BATCH_READBACK_FAILED");
+    await sleep(readbackBackoffMs[attempt]);
   }
-  reject("EXACT_BATCH_NOT_FOUND_MANUAL_ACTION");
 }
