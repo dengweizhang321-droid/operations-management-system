@@ -69,8 +69,9 @@ export async function importCustomerServiceDay(day: CustomerServiceDailyFile, ba
 // Django answers 503 when the customer-service revision moves during its two
 // consistent-read attempts (e.g. concurrent AI annotation writes). Only that
 // status is transient: restart the whole scan, a bounded number of times.
-const readbackBackoffMs = [2000, 5000, 10000];
-export type CustomerServiceReadbackOptions = { sleep?: (ms: number) => Promise<void> };
+const readbackBackoffMs = [1000, 3000, 6000];
+// `deadline` is an absolute `now()` time (ms); a retry never sleeps past it, it fails instead.
+export type CustomerServiceReadbackOptions = { sleep?: (ms: number) => Promise<void>; deadline?: number; now?: () => number };
 export async function verifyCustomerServiceBatch(proof: CustomerServiceBatchProof, baseUrl: string, request: typeof fetch = fetch, storeKey = contract.storeKey as string, options: CustomerServiceReadbackOptions = {}) {
   const store = customerServiceStore(storeKey);
   const origin = customerServiceLocalBaseUrl(baseUrl);
@@ -103,6 +104,7 @@ export async function verifyCustomerServiceBatch(proof: CustomerServiceBatchProo
   for (let attempt = 0; ; attempt++) {
     if (await scan() === "verified") return;
     if (attempt >= readbackBackoffMs.length) reject("BATCH_READBACK_FAILED");
+    if (options.deadline !== undefined && (options.now ?? Date.now)() + readbackBackoffMs[attempt] >= options.deadline) reject("BATCH_READBACK_FAILED");
     await sleep(readbackBackoffMs[attempt]);
   }
 }

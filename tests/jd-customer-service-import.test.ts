@@ -45,21 +45,21 @@ test("缺失批次、损坏分页、变动指纹均不得确认导入成功", as
 });
 const okPage = (page: number, truncated = false) => Response.json({ items: page === 2 || !truncated ? [batch] : [{ ...batch, id: `cs_${"f".repeat(64)}` }],
   pagination: { page, pageSize: 100, total: 101, returned: 1, truncated } });
-test("回查仅对503有界重试，每次从第1页重扫，退避2s/5s/10s", async () => {
+test("回查仅对503有界重试，每次从第1页重扫，退避1s/3s/6s", async () => {
   const urls: string[] = []; const waits: number[] = []; let n = 0;
   await verifyCustomerServiceBatch(proof, "http://localhost:3000", (async (url: string) => { urls.push(url); n++;
     if (n === 1) return okPage(1, true);                                  // attempt 1, page 1 fine
     if (n === 2) return new Response("{}", { status: 503 });              // attempt 1, page 2 revision moved
     if (n === 3) return new Response("{}", { status: 503 });              // attempt 2, page 1
     return okPage(n === 4 ? 1 : 2, n === 4); }) as typeof fetch, undefined, { sleep: async ms => { waits.push(ms); } });
-  assert.deepEqual(waits, [2000, 5000]);
+  assert.deepEqual(waits, [1000, 3000]);
   assert.deepEqual(urls.map(u => new URL(u).searchParams.get("page")), ["1", "2", "1", "1", "2"]);
 });
 test("503耗尽后仍为BATCH_READBACK_FAILED，共4次尝试", async () => {
   const waits: number[] = []; let calls = 0;
   await assert.rejects(verifyCustomerServiceBatch(proof, "http://localhost:3000", (async () => { calls++; return new Response("{}", { status: 503 }); }) as typeof fetch,
     undefined, { sleep: async ms => { waits.push(ms); } }), /BATCH_READBACK_FAILED/);
-  assert.equal(calls, 4); assert.deepEqual(waits, [2000, 5000, 10000]);
+  assert.equal(calls, 4); assert.deepEqual(waits, [1000, 3000, 6000]);
 });
 test("非503状态不重试且保持原拒绝码", async () => {
   for (const status of [500, 502, 404, 429]) {

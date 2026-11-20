@@ -9,7 +9,8 @@ import os from "node:os";
 import path from "node:path";
 import { customerServiceStore } from "../lib/jd/customer-service-stores";
 import { customerServicePeriod } from "../lib/jd/customer-service-workflow";
-import { closeCustomerServiceConfirmedPartialImport } from "../tools/jd-customer-service-failure-closure";
+import { closeCustomerServiceConfirmedPartialImport, type ConfirmedPartialImportOptions } from "../tools/jd-customer-service-failure-closure";
+import { sealCustomerServiceExecutionEvidence } from "../lib/jackyun/n8n-preflight-evidence";
 import type { CustomerServiceBatchProof } from "../tools/jd-customer-service-import";
 import { customerServicePlanFiles, planCustomerServiceRun, type CustomerServiceN8nPlan } from "../tools/jd-customer-service-n8n-pipeline";
 
@@ -69,7 +70,9 @@ async function fixture(t: TestContext, options: { mutate?: (plan: CustomerServic
   const receipts = path.join(files.directory, "failure-closures");
   const served = history(plan.proofs.map(p => batchOf(p.date)));
   return { root, files, plan, bytes, port, receipts, served,
-    close: (request?: typeof fetch) => closeCustomerServiceConfirmedPartialImport(root, plan, bytes, next, files.directory, request) };
+    close: (request?: typeof fetch, extra: ConfirmedPartialImportOptions = {}) => closeCustomerServiceConfirmedPartialImport(root, plan, bytes, next, files.directory, { request, ...extra }),
+    change: (sql: string, ...args: (string | number | null)[]) => { const d = new DatabaseSync(path.join(home, ".n8n/database.sqlite")); try { d.prepare(sql).run(...args); } finally { d.close(); } },
+    sealPrune: () => { sealCustomerServiceExecutionEvidence(files.directory, store.storeKey, old); const d = new DatabaseSync(path.join(home, ".n8n/database.sqlite")); try { d.prepare("DELETE FROM execution_entity WHERE id=?").run(old); } finally { d.close(); } } };
 }
 const unresolved = /PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION/;
 const noReceipt = async (dir: string) => assert.equal(await lstat(dir).then(() => true, () => false), false);
@@ -159,4 +162,46 @@ test("failure boundary becomes import_days only after dailyFiles is saved, never
   assert.equal(source.match(/step = "import_days"/g)?.length, 1);
   assert.equal(source.slice(0, saved).includes("import_days"), false);
   assert.ok(source.includes("step = `export_${view}`"));
+});
+
+const page503 = () => new Response("{}", { status: 503 });
+test("an existing receipt is reused as stored with another replacement id; a tampered one is rejected", async t => {
+  const f = await fixture(t);
+  const first = await f.close(f.served);
+  const file = path.join(f.receipts, `${old}-${sha(f.bytes)}.json`);
+  f.change("UPDATE execution_entity SET status='error' WHERE id=?", next);
+  f.change("INSERT INTO execution_entity VALUES(11061,?,'running','trigger','2026-11-12 01:00:00.000',NULL,NULL,NULL)", store.workflowId);
+  const again = await closeCustomerServiceConfirmedPartialImport(f.root, f.plan, f.bytes, "11061", f.files.directory, { request: f.served });
+  assert.deepEqual(again, JSON.parse(await readFile(file, "utf8")));
+  assert.deepEqual(again, first); assert.equal(again.replacementExecutionId, next);
+  const tampered = { ...first, proofs: first.proofs.slice(0, 1) };
+  await writeFile(file, JSON.stringify(tampered));
+  await assert.rejects(closeCustomerServiceConfirmedPartialImport(f.root, f.plan, f.bytes, "11061", f.files.directory, { request: f.served }), unresolved);
+  assert.deepEqual(JSON.parse(await readFile(file, "utf8")), tampered, "a tampered receipt is never overwritten");
+});
+
+test("closure works when the n8n row was pruned and only the sealed evidence copy exists", async t => {
+  const f = await fixture(t);
+  f.sealPrune();
+  assert.equal((await f.close(f.served)).kind, "confirmed_partial_import");
+  const g = await fixture(t); g.sealPrune();
+  await assert.rejects(closeCustomerServiceConfirmedPartialImport(g.root, g.plan, g.bytes, next, path.join(g.root, "elsewhere"), { request: g.served }), "without the seal the pruned row is rejected");
+});
+
+test("503 then success during readback still closes inside the closure", async t => {
+  const f = await fixture(t); let calls = 0; const waits: number[] = [];
+  const request = (async () => (++calls === 1 ? page503() : f.served(""))) as typeof fetch;
+  assert.equal((await f.close(request, { sleep: async ms => { waits.push(ms); } })).kind, "confirmed_partial_import");
+  assert.deepEqual(waits, [1000]);
+});
+
+test("the deadline passing during readback rejects and writes nothing", async t => {
+  const f = await fixture(t); let clock = 0; const waits: number[] = [];
+  const opts = { now: () => clock, sleep: async (ms: number) => { waits.push(ms); clock += ms; }, deadline: 3500 };
+  await assert.rejects(f.close((async () => page503()) as typeof fetch, opts), /BATCH_READBACK_FAILED/);
+  assert.deepEqual(waits, [1000], "no sleep may cross the deadline"); await noReceipt(f.receipts);
+  clock = 0;
+  // A deadline that passes between readback and the write also leaves no receipt.
+  await assert.rejects(f.close((async () => { clock = 99; return f.served(""); }) as typeof fetch, { now: () => clock, deadline: 50 }), unresolved);
+  await noReceipt(f.receipts);
 });
