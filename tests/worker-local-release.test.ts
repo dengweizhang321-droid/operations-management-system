@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
+import { EventEmitter } from "node:events";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
@@ -2394,4 +2395,38 @@ if ($text -match 'serve|--manifest') { throw 'diagnostic leaked a command line' 
     assert.equal(result.stdout.trim(), "verified");
   }
   assert.ok(ran >= 1);
+});
+
+test("probeAnyLocalPort 在 ::1 connect 为 EACCES 时以 ::1 独占 bind 判定占用并保持 fail-closed", async () => {
+  const failWith = (code: string) => () => {
+    const socket = new EventEmitter() as EventEmitter & { setTimeout: () => void; destroy: () => void };
+    socket.setTimeout = () => {};
+    socket.destroy = () => {};
+    setImmediate(() => socket.emit("error", Object.assign(new Error(code), { code })));
+    return socket as never;
+  };
+  const connect = (v4: string, v6: string) => ({ host }: { host: string }) => failWith(host === "::1" ? v6 : v4)();
+  const listener = createServer();
+  try {
+    await new Promise<void>((resolveListen, rejectListen) => {
+      listener.once("error", rejectListen);
+      listener.listen({ host: "::1", port: 0, ipv6Only: true }, resolveListen);
+    });
+  } catch (error) {
+    if (!new Set(["EAFNOSUPPORT", "EADDRNOTAVAIL", "EPROTONOSUPPORT"]).has((error as NodeJS.ErrnoException).code ?? "")) throw error;
+    return;
+  }
+  const busyPort = (listener.address() as { port: number }).port;
+  try {
+    assert.equal(await probeAnyLocalPort(busyPort, { connect: connect("ECONNREFUSED", "EACCES") }), true);
+    await assert.rejects(probeAnyLocalPort(busyPort, { connect: connect("ECONNREFUSED", "EPERM") }), { code: "EPERM" });
+    await assert.rejects(probeAnyLocalPort(busyPort, { connect: connect("EACCES", "EACCES") }), { code: "EACCES" });
+  } finally {
+    await new Promise((resolveClose) => listener.close(resolveClose));
+  }
+  const probe = createServer();
+  await new Promise<void>((resolveListen) => probe.listen({ host: "::1", port: 0, ipv6Only: true }, resolveListen));
+  const freePort = (probe.address() as { port: number }).port;
+  await new Promise((resolveClose) => probe.close(resolveClose));
+  assert.equal(await probeAnyLocalPort(freePort, { connect: connect("ECONNREFUSED", "EACCES") }), false);
 });
