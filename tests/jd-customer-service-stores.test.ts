@@ -113,6 +113,7 @@ test("三份新增n8n定义与设备店逐节点同条件，仅更换身份、�
   const load = async (file: string) => JSON.parse(await readFile(new URL(`../automation/n8n/${file}`, import.meta.url), "utf8"));
   const baseline = await load("jd-customer-service-daily.workflow.json");
   const ids = new Set([baseline.id]);
+  const retryWebhooks = new Map<string, { path: string; webhookId: string }>();
   for (const store of jdCustomerServiceStores.slice(1)) {
     const flow = await load(`${store.fileStem}.candidate.workflow.json`);
     assert.equal(flow.id, store.workflowId);
@@ -142,6 +143,17 @@ test("三份新增n8n定义与设备店逐节点同条件，仅更换身份、�
         assert.deepEqual(actual, expected);
         continue;
       }
+      if (actual.type === "n8n-nodes-base.webhook") {
+        // Two active workflows cannot share a webhook path, so path/webhookId are per-store; all else must match.
+        for (const [node, source] of [[actual, flow], [expected, baseline]] as const) {
+          assert.match(node.parameters.path, /^teruisi-hourly-retry-[a-f0-9]{40}$/);
+          assert.ok(typeof node.webhookId === "string" && node.webhookId.length > 0);
+          assert.equal(source.meta?.hourlyRetryPolicy?.webhookPath ?? node.parameters.path, node.parameters.path);
+        }
+        retryWebhooks.set(flow.id, { path: actual.parameters.path, webhookId: actual.webhookId });
+        retryWebhooks.set(baseline.id, { path: expected.parameters.path, webhookId: expected.webhookId });
+        for (const node of [actual, expected]) { delete node.parameters.path; delete node.webhookId; }
+      }
       if (actual.type === "n8n-nodes-base.httpRequest") {
         const headers = actual.parameters.headerParameters.parameters;
         assert.deepEqual(headers.pop(), { name: "X-TERUISI-JD-CUSTOMER-SERVICE-STORE-KEY", value: store.storeKey });
@@ -149,4 +161,14 @@ test("三份新增n8n定义与设备店逐节点同条件，仅更换身份、�
       assert.deepEqual(actual, expected);
     }
   }
+  assert.equal(retryWebhooks.size, jdCustomerServiceStores.length);
+  assert.equal(new Set([...retryWebhooks.values()].map(item => item.path)).size, retryWebhooks.size, "retry webhook paths must be unique");
+  assert.equal(new Set([...retryWebhooks.values()].map(item => item.webhookId)).size, retryWebhooks.size, "retry webhookIds must be unique");
+  // The shared hourly-retry workflow must route each workflow ID to that workflow's own webhook path.
+  const retry = await load("data-import-hourly-safe-retry.workflow.json");
+  const code = retry.nodes.find((node: { name: string }) => node.name === "仅保留可安全自动重试的失败");
+  const literal = /const targets = (\{[\s\S]*?\});/.exec(code?.parameters?.jsCode ?? "");
+  assert.ok(literal, "targets literal not found in the retry filter node");
+  const targets = JSON.parse(literal[1]) as Record<string, string>;
+  for (const [workflowId, { path }] of retryWebhooks) assert.equal(targets[workflowId], `http://127.0.0.1:5678/webhook/${path}`, workflowId);
 });
