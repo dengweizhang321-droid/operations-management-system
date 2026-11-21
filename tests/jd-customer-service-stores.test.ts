@@ -129,7 +129,19 @@ test("三份新增n8n定义与设备店逐节点同条件，仅更换身份、�
       const actual = structuredClone(flow.nodes[i]); const expected = structuredClone(baseline.nodes[i]);
       assert.notEqual(actual.id, expected.id); delete actual.id; delete expected.id;
       if (actual.type === "n8n-nodes-base.stickyNote") continue;
-      if (actual.type === "n8n-nodes-base.scheduleTrigger") { assert.equal(actual.type, expected.type); continue; }
+      if (actual.type === "n8n-nodes-base.scheduleTrigger") {
+        // Strip only the per-store parts (cron and the name derived from it); everything else must match.
+        const label = (node: typeof actual) => {
+          const match = /^(\d{1,2}) (\d{1,2}) \* \* \*$/.exec(node.parameters.rule.interval[0].expression);
+          assert.ok(match, `unexpected cron: ${node.parameters.rule.interval[0].expression}`);
+          return `每天 ${match[2].padStart(2, "0")}:${match[1].padStart(2, "0")} 执行`;
+        };
+        assert.equal(actual.name, label(actual));
+        assert.equal(expected.name, label(expected));
+        for (const node of [actual, expected]) { delete node.name; node.parameters.rule.interval[0].expression = "<cron>"; }
+        assert.deepEqual(actual, expected);
+        continue;
+      }
       if (actual.type === "n8n-nodes-base.httpRequest") {
         const headers = actual.parameters.headerParameters.parameters;
         assert.deepEqual(headers.pop(), { name: "X-TERUISI-JD-CUSTOMER-SERVICE-STORE-KEY", value: store.storeKey });
