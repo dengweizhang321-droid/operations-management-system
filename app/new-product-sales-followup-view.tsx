@@ -142,16 +142,15 @@ function statusLabel(value: FollowupItem["status"]) {
 }
 
 function localIsoDate() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
 function previousMonday() {
-  const now = new Date();
-  const day = (now.getDay() + 6) % 7;
-  now.setHours(12, 0, 0, 0);
-  now.setDate(now.getDate() - day - 7);
-  const value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  // Business weeks are Beijing-time weeks; use a UTC carrier for calendar arithmetic only.
+  const today = new Date(`${localIsoDate()}T00:00:00Z`);
+  const day = (today.getUTCDay() + 6) % 7;
+  today.setUTCDate(today.getUTCDate() - day - 7);
+  const value = today.toISOString().slice(0, 10);
   return value < REPORT_TIMELINE_START ? REPORT_TIMELINE_START : value;
 }
 
@@ -596,7 +595,7 @@ export default function NewProductSalesFollowupView({ canWrite, actorEmail }: { 
   const currentByLine = useMemo(() => new Map(report?.items.map((item) => [item.id, item]) ?? []), [report]);
 
   return <div className="new-product-followup-view" data-report-state={error ? "error" : loading ? "loading" : "ready"}>
-    <section className="workflow-toolbar workflow-section-hero launch-followup-hero"><div><span className="eyebrow">NEW PRODUCT WEEKLY SALES</span><h2>上新销售跟进</h2><p>以吉客云货品代码归集销售，由你定义产品线名称；周报周期使用运行机器的本地时间。</p></div><div className="workflow-hero-actions"><span>{report?.timezone ?? "读取本机时区中"}</span><button type="button" className="secondary-button" disabled={learning || !canWrite || !actorEmail || learningState.phase === "blocked"} onClick={() => void learningClientRef.current?.start()}>{learningState.phase === "submitting" ? "学习中…" : learningState.phase === "confirming" ? "正在确认…" : learningState.phase === "unconfirmed" ? "继续本次学习" : "学习新代码"}</button><button type="button" className="primary-button" disabled={!canWrite} onClick={() => setEditor("create")}>＋ 新建产品线</button></div></section>
+    <section className="workflow-toolbar workflow-section-hero launch-followup-hero"><div><span className="eyebrow">NEW PRODUCT WEEKLY SALES</span><h2>上新销售跟进</h2><p>以吉客云货品代码归集销售，由你定义产品线名称；周报周期使用北京时间。</p></div><div className="workflow-hero-actions"><span>{report?.timezone ?? "读取北京时间中"}</span><button type="button" className="secondary-button" disabled={learning || !canWrite || !actorEmail || learningState.phase === "blocked"} onClick={() => void learningClientRef.current?.start()}>{learningState.phase === "submitting" ? "学习中…" : learningState.phase === "confirming" ? "正在确认…" : learningState.phase === "unconfirmed" ? "继续本次学习" : "学习新代码"}</button><button type="button" className="primary-button" disabled={!canWrite} onClick={() => setEditor("create")}>＋ 新建产品线</button></div></section>
     {feedback && <div className="workflow-feedback" role="status"><span>i</span><p>{feedback}</p>{learningState.phase === "unconfirmed" && <button type="button" className="secondary-button" onClick={() => learningClientRef.current?.confirm()}>查询学习结果</button>}<button type="button" aria-label="关闭提示" onClick={() => setFeedback("")}>×</button></div>}
     <section className="panel launch-followup-controls"><label><span>报告周（星期一）</span><input type="date" min={REPORT_TIMELINE_START} value={weekStart} onChange={(event) => changeWeek(event.target.value)} /></label><button type="button" className="secondary-button" disabled={loading} onClick={() => void load()}>刷新周报</button><span>周维度自 {REPORT_TIMELINE_START} 起持续累积 · 销售数据截至：{report?.dataCutoffDate ?? "暂无"}</span>{report?.dataIncomplete && <strong>本周数据尚未完整</strong>}</section>
     {error && <section className="panel data-state operations-data-state operations-data-state-error" role="alert"><span className="state-symbol">!</span><strong>新品销售跟进加载失败</strong><p>{error}</p><button type="button" className="secondary-button" onClick={() => void load()}>重新加载</button></section>}

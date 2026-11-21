@@ -260,11 +260,11 @@ async function parseCli(): Promise<CliOptions> {
     throw new Error(`${moduleValue} 必须提供有效的 --snapshot YYYY-MM-DD。`);
   }
   if ((moduleValue === "inventory" || moduleValue === "inventory_age") && snapshotDate !== yesterday) {
-    throw new Error(`每日 ${moduleValue} 的 --snapshot 必须是本机时区昨天 ${yesterday}；历史补跑请使用独立人工流程。`);
+    throw new Error(`每日 ${moduleValue} 的 --snapshot 必须是北京时间昨天 ${yesterday}；历史补跑请使用独立人工流程。`);
   }
   if (moduleValue === "sales" && !isIsoDate(asOfDate)) throw new Error("sales 必须提供有效的 --as-of YYYY-MM-DD。");
   if (moduleValue === "sales" && asOfDate !== yesterday) {
-    throw new Error(`每日 sales 的 --as-of 必须是本机时区昨天 ${yesterday}；历史补跑请使用独立人工流程。`);
+    throw new Error(`每日 sales 的 --as-of 必须是北京时间昨天 ${yesterday}；历史补跑请使用独立人工流程。`);
   }
   if (moduleValue === "sales" && !values.get("--cost-source")) {
     throw new Error("sales 必须显式提供本轮库存输出 --cost-source。");

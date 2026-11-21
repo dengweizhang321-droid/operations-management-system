@@ -1,9 +1,7 @@
-/** Workflows use the execution host's calendar; persisted plans keep their zone. */
+/** Workflows always use fixed Beijing time, never the host zone; persisted plans keep their frozen zone. */
+export const workflowFixedTimeZone = "Asia/Shanghai";
 export function workflowTimeZone(): string {
-  const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
-  if (!zone) throw new Error("WORKFLOW_LOCAL_TIMEZONE_UNAVAILABLE");
-  new Intl.DateTimeFormat("en", { timeZone: zone }).format(0);
-  return zone;
+  return workflowFixedTimeZone;
 }
 
 export function workflowLocalDate(now = new Date(), offsetDays = 0, timeZone = workflowTimeZone()): string {

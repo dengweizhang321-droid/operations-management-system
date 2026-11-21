@@ -81,7 +81,7 @@ export default function DingTalkRobotSettings({ canWrite }: { canWrite: boolean 
       setConfig(payload.config);
       setDraft(payload.config);
       setNotice(payload.config.enabled
-        ? "钉钉图片周报已启用，将按本机时间执行。"
+        ? "钉钉图片周报已启用，将按北京时间执行。"
         : "机器人配置已保存，定时发送保持停用。");
     } catch (reason) {
       setError(messageOf(reason, "钉钉机器人配置保存失败。"));
@@ -124,7 +124,7 @@ export default function DingTalkRobotSettings({ canWrite }: { canWrite: boolean 
       <div className="launch-followup-robot-notice"><strong>发送门禁</strong><span>每次发送前动态唯一核验机器人、目标群及机器人入群关系，并用投递账本阻止同一报告周重复发送。</span></div>
       <div className="launch-followup-schedule">
         <label><span>发送日</span><select disabled={!canWrite} value={draft.sendWeekday} onChange={(event) => setDraft({ ...draft, sendWeekday: Number(event.target.value) })}>{WEEKDAYS.map((label, index) => <option key={label} value={index}>{label}</option>)}</select></label>
-        <label><span>本机时间</span><input type="time" disabled={!canWrite} value={draft.sendLocalTime} onChange={(event) => setDraft({ ...draft, sendLocalTime: event.target.value })} /></label>
+        <label><span>北京时间</span><input type="time" disabled={!canWrite} value={draft.sendLocalTime} onChange={(event) => setDraft({ ...draft, sendLocalTime: event.target.value })} /></label>
         <label className="workflow-checkbox-field"><input type="checkbox" disabled={!canWrite} checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} /><span>启用每周钉钉图片周报</span></label>
       </div>
       {draft.lastDelivery && <small>最近投递：{draft.lastDelivery.weekStart} 至 {draft.lastDelivery.weekEnd} · {draft.lastDelivery.status} · {formatDateTime(draft.lastDelivery.deliveredAt)}</small>}

@@ -9,6 +9,7 @@ import re
 import unicodedata
 from datetime import date, datetime, time, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 from urllib.parse import urlsplit
 
 from django.db import connection, transaction
@@ -211,13 +212,16 @@ def _normalized_match_text(value: str) -> str:
     return re.sub(r"[^0-9a-z\u3400-\u9fff]+", "", normalized)
 
 
+BEIJING = ZoneInfo("Asia/Shanghai")
+
+
 def _local_clock() -> tuple[date, str]:
-    local = datetime.now().astimezone()
+    local = datetime.now(BEIJING)
     offset = local.utcoffset() or timedelta(0)
     total_minutes = int(offset.total_seconds() // 60)
     sign = "+" if total_minutes >= 0 else "-"
     hours, minutes = divmod(abs(total_minutes), 60)
-    zone = local.tzname() or "本机时区"
+    zone = local.tzname() or "北京时间"
     return local.date(), f"{zone} (UTC{sign}{hours:02d}:{minutes:02d})"
 
 
@@ -651,7 +655,7 @@ def weekly_followup(*, week_start: date | None = None, embed_uploaded_images: bo
     local_today, zone_label = _local_clock()
     start = week_start or (local_today - timedelta(days=local_today.weekday() + 7))
     if start.weekday() != 0:
-        raise _error("周起始日期必须是本机日历中的星期一")
+        raise _error("周起始日期必须是北京时间日历中的星期一")
     end = start + timedelta(days=7)
     previous_start = start - timedelta(days=7)
     line_query = NewProductLine.objects.filter(deleted_at__isnull=True, active=True)

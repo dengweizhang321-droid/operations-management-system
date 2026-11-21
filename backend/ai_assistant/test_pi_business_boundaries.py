@@ -2,6 +2,7 @@
 from copy import deepcopy
 from contextlib import closing
 from datetime import datetime, timedelta, timezone as dtz
+from zoneinfo import ZoneInfo
 import hashlib
 import json
 from pathlib import Path
@@ -130,7 +131,7 @@ class PiBusinessBoundaryTests(TestCase):
         return path, definition, store
 
     def native_args(self):
-        yesterday = datetime.now().astimezone().date()-timedelta(days=1)
+        yesterday = datetime.now(ZoneInfo("Asia/Shanghai")).date()-timedelta(days=1)
         return {"capabilityId": native.CAPABILITY, "storeKey": "tmall-yijiu", "dataset": "product_and_promotion",
             "startDate": (yesterday-timedelta(days=6)).isoformat(), "endDate": yesterday.isoformat()}
 

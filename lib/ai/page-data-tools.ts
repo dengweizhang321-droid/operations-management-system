@@ -1457,7 +1457,7 @@ export async function getAutomationRunStatusPageData(
     source: payload.source, timezone: payload.timezone,
     items: boundedRecords(payload.items.filter(item => ids.has(item.workflowId)), 11,
       ["workflowId", "active", "state", "completedToday", "completedAt", "completedMode", "executionId", "executionMode", "startedAt", "finishedAt"]),
-    message: "仅运行机器本地今天自动触发或完整自动重试的 n8n 记录；共用工作流表示整链状态，手动调试不计入。" };
+    message: "仅北京时间今天自动触发或完整自动重试的 n8n 记录；共用工作流表示整链状态，手动调试不计入。" };
 }
 
 function parseMarketSelections(value: unknown): MarketSelection[] {
