@@ -108,6 +108,37 @@ test("inventory processing removes negative on-hand or available quantity and im
   assert.equal(prepared.expectedBatchRowCount, 1);
 });
 
+test("inventory and inventory_age processing exclude the postage virtual product by exact code", () => {
+  const inventory = createXlsxWorkbookBytes([{
+    name: "sheetTitle",
+    rows: [
+      ["货品编号", "货品名称", "规格", "单位", "仓库", "固定成本价", "库存数量", "可用库存"],
+      ["SKU-1", "正常", "标准", "台", "主仓", 10, 3, 3],
+      ["YF-YF-001", "邮费", "默认规格", "PCS", "广东仓", 0, 18_768_445, 18_766_945],
+      ["YF-YF-001", "邮费", "默认规格", "PCS", "上海仓", 0, 0, 0],
+      ["YF-CJ-001", "补的差价/运费", "默认规格", "PCS", "广东仓", 0, 5, 5],
+    ],
+  }]);
+  const prepared = prepareJackyunWorkbook("inventory", inventory, { minimumRows: 1, snapshotDate: "2026-11-22" });
+  assert.equal(prepared.preprocessing.excludedPostageRows, 2);
+  assert.equal(prepared.preprocessing.retainedRows, 2);
+  assert.equal(prepared.expectedBatchRowCount, 2);
+  const parsed = parseInventoryStockXlsx(prepared.importBytes);
+  assert.deepEqual(parsed.rows.map((row) => row.productCode), ["SKU-1", "YF-CJ-001"]);
+
+  const age = createXlsxWorkbookBytes([{
+    name: "sheetTitle",
+    rows: [
+      ["仓库", "货品编号", "货品名称", "库存数量", "成本金额", "库龄(天)"],
+      ["主仓", "SKU-1", "正常", 3, 30, 10],
+      ["广东仓", "YF-YF-001", "邮费", 18_768_445, 0, 100],
+    ],
+  }]);
+  const preparedAge = prepareJackyunWorkbook("inventory_age", age, { minimumRows: 1, snapshotDate: "2026-11-22" });
+  assert.equal(preparedAge.preprocessing.excludedPostageRows, 1);
+  assert.equal(preparedAge.expectedBatchRowCount, 1);
+});
+
 test("inventory row identity is stable when workbook rows are reordered", () => {
   const workbook = (rows: XlsxCellValue[][]) => createXlsxWorkbookBytes([{
     name: "库存",
