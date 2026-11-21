@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { attachHourlyRetryTarget } from "./n8n-hourly-retry-policy.mjs";
 import { withJackyunRecoveryContract } from "./n8n-jackyun-recovery-contract.mjs";
+import { n8nWorkflowOutputUrl } from "./n8n-workflow-output.mjs";
 
 const root = new URL("../", import.meta.url);
 const directHttp = process.argv.includes("--direct-http");
@@ -61,5 +62,9 @@ if (apiOnly) {
   note.parameters.content = note.parameters.content.replace("页面总数", "接口查询总数");
   note.parameters.content = note.parameters.content.replace("默认手动、未激活，无定时器。", "每天本机时间 00:10 定时运行，同时保留手动入口。工作流固定使用北京时间（Asia/Shanghai，UTC+08:00），与主机时区无关；本机需保持开机且 n8n/helper 服务运行。仓库模板未激活，实际调度以 n8n 已发布版本为准。");
 }
-attachHourlyRetryTarget(workflow);
-await writeFile(new URL(apiOnly ? "automation/n8n/jackyun-five-dataset-api.workflow.json" : directHttp ? "automation/n8n/jackyun-five-dataset-http.workflow.json" : "automation/n8n/jackyun-five-dataset-daily.workflow.json", root), `${JSON.stringify(apiOnly ? withJackyunRecoveryContract(workflow) : workflow, null, 2)}\n`, "utf8");
+// Only the adopted API variant is the registered hourly-retry target (see
+// hourlyRetryTargets). The web-session and direct-HTTP variants are retained
+// manual templates that share the same n8n ID; their notes say business-node
+// failures stop, so they must not carry the retry webhook or errorWorkflow.
+if (apiOnly) attachHourlyRetryTarget(workflow);
+await writeFile(n8nWorkflowOutputUrl(apiOnly ? "jackyun-five-dataset-api.workflow.json" : directHttp ? "jackyun-five-dataset-http.workflow.json" : "jackyun-five-dataset-daily.workflow.json"),`${JSON.stringify(apiOnly ? withJackyunRecoveryContract(workflow) : workflow, null, 2)}\n`, "utf8");
