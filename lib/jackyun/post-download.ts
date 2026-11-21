@@ -43,9 +43,17 @@ export type JackyunPreprocessingSummary = {
   excludedImplausibleValueRows: number;
   /** 实盘/可用库存为负数且系统未允许负库存的行，仅 inventory 模块。 */
   excludedNegativeQuantityRows: number;
+  /** 吉客云“邮费”虚拟货品（货品编号 YF-YF-001）行，适用于 inventory 与 inventory_age。 */
+  excludedPostageRows: number;
   retainedRows: number;
   similarWarehouseNames: string[];
 };
+
+/**
+ * 吉客云用“邮费”虚拟货品记账运费，ERP 中会累积千万级的虚拟库存（成本为 0），
+ * 不是实物库存，并会触发服务端单行数量上限门禁导致整批拒绝。按货品编号精确剔除。
+ */
+export const JACKYUN_POSTAGE_PRODUCT_CODES: ReadonlySet<string> = new Set(["YF-YF-001"]);
 
 export type PreparedJackyunWorkbook = {
   module: JackyunWorkbookModule;
@@ -202,6 +210,7 @@ function noPreprocessing(rowCount: number): JackyunPreprocessingSummary {
     excludedZeroCostRows: 0,
     excludedImplausibleValueRows: 0,
     excludedNegativeQuantityRows: 0,
+    excludedPostageRows: 0,
     retainedRows: rowCount,
     similarWarehouseNames: [],
   };
@@ -256,9 +265,11 @@ function prepareSingleSheet(
   const excludedInvalidCostRows: XlsxRow[] = [];
   const excludedImplausibleValueRows: XlsxRow[] = [];
   const excludedNegativeQuantityRows: XlsxRow[] = [];
+  const excludedPostageRows: XlsxRow[] = [];
   const retainedRows: XlsxRow[] = [];
   for (const row of sourceRows) {
     if (text(row.cells[warehouseColumn]) === "刷刷仓") excludedRows.push(row);
+    else if (JACKYUN_POSTAGE_PRODUCT_CODES.has(text(row.cells[productCodeColumn]))) excludedPostageRows.push(row);
     else if (module === "inventory" && costColumn !== undefined && nonNegativeNumber(row.cells[costColumn]) === null) {
       excludedInvalidCostRows.push(row);
     }
@@ -331,6 +342,7 @@ function prepareSingleSheet(
       excludedZeroCostRows: 0,
       excludedImplausibleValueRows: excludedImplausibleValueRows.length,
       excludedNegativeQuantityRows: excludedNegativeQuantityRows.length,
+      excludedPostageRows: excludedPostageRows.length,
       retainedRows: retainedRows.length,
       similarWarehouseNames,
     },
