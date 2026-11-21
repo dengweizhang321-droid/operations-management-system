@@ -11,10 +11,10 @@ test("customer-service monitoring binds exactly one registered workflow to each 
   assert.equal(rules.length, 4);
   // Independently stated per 线上实际 (store, time-of-day), not copied from the file under test.
   const liveSchedule: Record<string, string> = {
-    JdCustomerService2026: "10 13 * * *",
-    JdCustomerServiceCutMeat2026: "10 12 * * *",
-    JdCustomerServiceChudian2026: "50 12 * * *",
-    JdCustomerServiceDishwasher2026: "30 12 * * *",
+    JdCustomerService2026: "5 9 * * *",
+    JdCustomerServiceCutMeat2026: "5 10 * * *",
+    JdCustomerServiceChudian2026: "25 9 * * *",
+    JdCustomerServiceDishwasher2026: "45 9 * * *",
   };
   for (const store of jdCustomerServiceStores) {
     const rule = rules.find(rule => rule.workflowId === store.workflowId);
@@ -46,10 +46,10 @@ test("every chain's entities run at a unique time of day, and the definition fil
   // Cross-check with an independent per-source read, so a stale generated file
   // that merely echoes its own prior (wrong) output cannot pass silently.
   for (const [workflowId, fileName, expectedCron] of [
-    ["JdCustomerService2026", "jd-customer-service-daily.workflow.json", "10 13 * * *"],
-    ["JdCustomerServiceCutMeat2026", "jd-customer-service-cut-meat-daily.candidate.workflow.json", "10 12 * * *"],
-    ["JdCustomerServiceChudian2026", "jd-customer-service-chudian-daily.candidate.workflow.json", "50 12 * * *"],
-    ["JdCustomerServiceDishwasher2026", "jd-customer-service-dishwasher-daily.candidate.workflow.json", "30 12 * * *"],
+    ["JdCustomerService2026", "jd-customer-service-daily.workflow.json", "5 9 * * *"],
+    ["JdCustomerServiceCutMeat2026", "jd-customer-service-cut-meat-daily.candidate.workflow.json", "5 10 * * *"],
+    ["JdCustomerServiceChudian2026", "jd-customer-service-chudian-daily.candidate.workflow.json", "25 9 * * *"],
+    ["JdCustomerServiceDishwasher2026", "jd-customer-service-dishwasher-daily.candidate.workflow.json", "45 9 * * *"],
   ]) {
     const definition = JSON.parse(await readFile(new URL(`../automation/n8n/${fileName}`, import.meta.url), "utf8"));
     assert.equal(definition.id, workflowId);

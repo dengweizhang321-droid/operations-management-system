@@ -36,7 +36,7 @@ test("n8n候选禁用、固定9点和时间锚点，不包含旧日期或自动�
   const candidate = JSON.parse(await readFile(new URL("../automation/n8n/jd-customer-service-daily.candidate.workflow.json", import.meta.url), "utf8"));
   assert.equal(candidate.active, false);
   assert.equal(candidate.settings.timezone, undefined);
-  assert.equal(candidate.nodes.find((node: {type: string}) => node.type === "n8n-nodes-base.scheduleTrigger").parameters.rule.interval[0].expression, "0 9 * * *");
+  assert.equal(candidate.nodes.find((node: {type: string}) => node.type === "n8n-nodes-base.scheduleTrigger").parameters.rule.interval[0].expression, "5 9 * * *");
   const names = new Set(candidate.nodes.map((node: {name: string}) => node.name));
   for (const group of Object.values(candidate.connections) as Array<{main: Array<Array<{node: string}>>}>)
     for (const edges of group.main) for (const edge of edges) assert.ok(names.has(edge.node));

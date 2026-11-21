@@ -119,12 +119,17 @@ test("三份新增n8n定义与设备店逐节点同条件，仅更换身份、�
     assert.ok(!ids.has(flow.id)); ids.add(flow.id);
     assert.equal(flow.active, false);
     assert.deepEqual(flow.settings, baseline.settings);
-    assert.deepEqual(flow.connections, baseline.connections);
+    // Each store owns its live staggered schedule: compare connections with the trigger key normalised.
+    const triggerKey = (def: {nodes: Array<{type: string; name: string}>}) => def.nodes.find(node => node.type === "n8n-nodes-base.scheduleTrigger")!.name;
+    const normalised = (def: {connections: Record<string, unknown>; nodes: Array<{type: string; name: string}>}) =>
+      Object.fromEntries(Object.entries(def.connections).map(([key, value]) => [key === triggerKey(def) ? "<schedule>" : key, value]));
+    assert.deepEqual(normalised(flow), normalised(baseline));
     assert.equal(flow.nodes.length, baseline.nodes.length);
     for (let i = 0; i < flow.nodes.length; i++) {
       const actual = structuredClone(flow.nodes[i]); const expected = structuredClone(baseline.nodes[i]);
       assert.notEqual(actual.id, expected.id); delete actual.id; delete expected.id;
       if (actual.type === "n8n-nodes-base.stickyNote") continue;
+      if (actual.type === "n8n-nodes-base.scheduleTrigger") { assert.equal(actual.type, expected.type); continue; }
       if (actual.type === "n8n-nodes-base.httpRequest") {
         const headers = actual.parameters.headerParameters.parameters;
         assert.deepEqual(headers.pop(), { name: "X-TERUISI-JD-CUSTOMER-SERVICE-STORE-KEY", value: store.storeKey });
