@@ -9,6 +9,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
+from zoneinfo import ZoneInfo
 from urllib.parse import urlparse
 
 from django.conf import settings
@@ -231,7 +232,7 @@ class Command(BaseCommand):
         learned = learn_product_line_codes(principal)
         report = weekly_followup(embed_uploaded_images=True)
         config = NewProductWeeklyReportConfig.objects.get(id=1)
-        local_now = datetime.now().astimezone()
+        local_now = datetime.now(ZoneInfo("Asia/Shanghai"))
         base = {
             "status": "ready",
             "localNow": local_now.isoformat(),

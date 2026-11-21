@@ -7,11 +7,13 @@ import sqlite3
 import time
 from datetime import datetime, time as day_time, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 
 from .errors import WorkflowApiError
 
+BEIJING = ZoneInfo("Asia/Shanghai")
 CATALOG = Path(__file__).with_name("import_chain_catalog.json")
 MAX_ROWS = 2000
 SYNTHETIC_APPLICATION_ID = 0x54525349
@@ -140,10 +142,10 @@ def summarize_workflow(workflow_id, active, rows):
     # All rows have already been restricted to today's terminal executions or
     # currently active executions. Manual successes have full-run evidence.
     # n8n SQLite timestamps may omit the zone or include milliseconds. Return
-    # explicit host-local offsets, preserving the instant and server wall clock
-    # even when the viewer's browser is in a different timezone.
-    rows = [{**r, "startedAt": _instant(r["startedAt"]).astimezone().isoformat() if r["startedAt"] else None,
-             "stoppedAt": _instant(r["stoppedAt"]).astimezone().isoformat() if r["stoppedAt"] else None} for r in rows]
+    # explicit Beijing (+08:00) offsets, preserving the instant and the fixed
+    # workflow wall clock even when the viewer's browser is in a different timezone.
+    rows = [{**r, "startedAt": _instant(r["startedAt"]).astimezone(BEIJING).isoformat() if r["startedAt"] else None,
+             "stoppedAt": _instant(r["stoppedAt"]).astimezone(BEIJING).isoformat() if r["stoppedAt"] else None} for r in rows]
     success = [r for r in rows if r["status"] == "success" and r["stoppedAt"]]
     success.sort(key=lambda r: _instant(r["stoppedAt"]), reverse=True)
     ongoing = [r for r in rows if r["status"] in {"new", "running", "waiting"} and not r["stoppedAt"]]
@@ -166,10 +168,10 @@ def summarize_workflow(workflow_id, active, rows):
 
 def read_today_status(*, now=None):
     now = now or datetime.now(timezone.utc)
-    local_day = now.astimezone().date()
-    start = datetime.combine(local_day, day_time()).astimezone(timezone.utc)
-    # Resolve tomorrow separately: a local calendar day can be 23 or 25 hours.
-    end = datetime.combine(local_day + timedelta(days=1), day_time()).astimezone(timezone.utc)
+    local_day = now.astimezone(BEIJING).date()
+    start = datetime.combine(local_day, day_time(), tzinfo=BEIJING).astimezone(timezone.utc)
+    # Resolve tomorrow separately from the fixed Beijing calendar, never the host zone.
+    end = datetime.combine(local_day + timedelta(days=1), day_time(), tzinfo=BEIJING).astimezone(timezone.utc)
     configured = getattr(settings, "N8N_STATUS_DATABASE_PATH", "")
     if not configured:
         raise _unavailable()
@@ -235,7 +237,7 @@ def read_today_status(*, now=None):
                               "startedAt": None, "finishedAt": None})
             else:
                 items.append(summarize_workflow(workflow_id, workflows[workflow_id], [dict(r) for r in rows if r["workflowId"] == workflow_id]))
-        return {"date": local_day.isoformat(), "timezone": "local", "checkedAt": now.astimezone().isoformat(),
+        return {"date": local_day.isoformat(), "timezone": "Asia/Shanghai", "checkedAt": now.astimezone(BEIJING).isoformat(),
                 "dayStart": start.isoformat(), "dayEnd": end.isoformat(),
                 "source": "synthetic_n8n" if synthetic else "n8n_execution_metadata", "items": items}
     except (sqlite3.Error, ValueError, TypeError, OSError):

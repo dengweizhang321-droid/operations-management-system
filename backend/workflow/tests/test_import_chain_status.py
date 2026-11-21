@@ -6,7 +6,8 @@ import sqlite3
 import tempfile
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from unittest.mock import patch
 
@@ -71,15 +72,22 @@ class ImportChainStatusTests(SimpleTestCase):
         return read_today_status(now=self.now)
 
     def assertCompletedAt(self, item, expected_utc):
-        # summarize_workflow() projects host-local offsets via .astimezone(),
-        # which reads the machine zone and ignores settings.TIME_ZONE. Assert
-        # the instant plus the explicit-offset property, so the contract holds
-        # on a server that is not in UTC+8 instead of pinning "+08:00".
+        # summarize_workflow() projects fixed Beijing (+08:00) offsets, never the
+        # machine zone, so the contract holds on a server in any host timezone.
         expected = datetime.fromisoformat(expected_utc)
         actual = datetime.fromisoformat(item["completedAt"])
         self.assertEqual(actual, expected)
-        self.assertEqual(actual.utcoffset(), expected.astimezone().utcoffset())
-        self.assertEqual(item["completedAt"], expected.astimezone().isoformat())
+        self.assertEqual(actual.utcoffset(), timedelta(hours=8))
+        self.assertEqual(item["completedAt"], expected.astimezone(ZoneInfo("Asia/Shanghai")).isoformat())
+
+    def test_today_window_is_the_beijing_calendar_day_regardless_of_host_zone(self):
+        # self.now is 2026-09-10 10:00 in Beijing (02:00Z), 2026-09-09 19:00 in Los Angeles.
+        result = self.read()
+        self.assertEqual(result["timezone"], "Asia/Shanghai")
+        self.assertEqual(result["date"], "2026-09-10")
+        self.assertEqual(result["dayStart"], "2026-09-09T16:00:00+00:00")
+        self.assertEqual(result["dayEnd"], "2026-09-10T16:00:00+00:00")
+        self.assertEqual(result["checkedAt"], "2026-09-10T10:00:00+08:00")
 
     def test_clean_native_child_resolves_persisted_config_through_settings_and_reads_metadata(self):
         self.add()
