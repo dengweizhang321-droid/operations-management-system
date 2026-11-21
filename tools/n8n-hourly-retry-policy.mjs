@@ -629,6 +629,7 @@ return prepared;` },
     active: false,
     settings: {
       executionOrder: "v1",
+      timezone: "Asia/Shanghai",
       callerPolicy: "workflowsFromSameOwner",
     },
     meta: {
