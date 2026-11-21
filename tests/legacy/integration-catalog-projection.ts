@@ -27,7 +27,7 @@ export function preIntegrationCatalog(entries: readonly AiToolEntry[]): AiToolEn
     })
     .map(entry => {
       if (entry.name === "get_automation_run_status") {
-        assert.equal(entry.description, "通过 Django 只读读取运行机器本地今天对应 n8n 工作流的定时、自动重试和已核验完整手动补跑成功状态、完成时间及执行编号。仅无数据范围限制账号可查；共用多店工作流表示整链状态，排除单节点测试、固定测试数据和局部执行；仅返回执行状态摘要，不返回节点内容、Cookie 或凭据。来源不可用时拒绝推测完成。",
+        assert.equal(entry.description, "通过 Django 只读读取北京时间今天对应 n8n 工作流的定时、自动重试和已核验完整手动补跑成功状态、完成时间及执行编号。仅无数据范围限制账号可查；共用多店工作流表示整链状态，排除单节点测试、固定测试数据和局部执行；仅返回执行状态摘要，不返回节点内容、Cookie 或凭据。来源不可用时拒绝推测完成。",
           "Only the reviewed complete-manual-run status description may be projected");
         // f1a74330（B3 自动化运行只读接口）把 workflowKey 从 6 个扩到 9 个。新增三个
         // key 各有独立测试：tests/ai-page-data-tools.test.ts 覆盖处理器行为，

@@ -35,7 +35,7 @@ export function assertJackyunDailyDatePolicy(snapshotDate: string, asOfDate: str
     throw new JackyunDailyRunError(
       "FIELD_MISMATCH",
       "validate_daily_date_policy",
-      `每日自动化的 snapshotDate 与 asOfDate 必须同时等于本机时区昨天 ${yesterday}；历史补跑必须使用独立人工取证流程。`,
+      `每日自动化的 snapshotDate 与 asOfDate 必须同时等于北京时间昨天 ${yesterday}；历史补跑必须使用独立人工取证流程。`,
     );
   }
 }

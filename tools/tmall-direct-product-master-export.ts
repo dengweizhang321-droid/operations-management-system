@@ -140,6 +140,7 @@ function normalizeLocalBaseUrl(value: string) {
 
 function shanghaiToday(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
