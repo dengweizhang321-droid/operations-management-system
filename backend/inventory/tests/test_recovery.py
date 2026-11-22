@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.db import transaction
 from types import SimpleNamespace
 
-from common.import_recovery import lock_upload_guard, reconcile
+from common.import_recovery import lock_upload_guard, reconcile, recorded_rejection
 
 from inventory.errors import InventoryApiError
 from inventory.import_service import import_inventory_payload
@@ -118,12 +118,26 @@ class InventoryRecoveryTests(TestCase):
         self.assertEqual(read_recovery(self.query(payload, session), "admin@example.test")["status"], "unknown")
         self.assertEqual(InventoryImportBatch.objects.count(), 0)
 
+    def test_attempt_bound_to_the_upload_under_another_date_or_file_still_withdraws_rejected_upload(self):
+        payload = stock_payload(stock_row("P1", 2))
+        token = InventoryImportScopeHead.objects.get(dataset="stock").state_token
+        _, session = self.guarded(payload, token)
+        InventoryRawUploadSession.objects.filter(id=session.id).update(status="completed", owner_token="",
+            result_payload={"ok": False, "status": "rejected"}, result_batch_id="")
+        self.assertEqual(read_recovery(self.query(payload, session), "admin@example.test")["status"], "rejected_upload")
+        # e.g. an earlier owner committed with a row/file-name derived snapshot date and was then released.
+        InventoryImportAttempt.objects.create(id="e" * 32, dataset="stock", scope_json={"dataset": "stock", "snapshotDate": "2020-01-01"},
+            scope_key="other", raw_file_hash="d" * 64, outcome="imported", batch_id="stock:other", actor_email="admin@example.test",
+            completed_at=timezone.now(), metadata={"fileName": "other.xlsx", "fileSizeBytes": 1, "rawUploadId": str(session.id)})
+        self.assertEqual(read_recovery(self.query(payload, session), "admin@example.test")["status"], "unknown")
+
     def test_rejected_upload_requires_an_explicit_owner_recorded_rejection(self):
         rejected = {"ok": False, "status": "rejected"}
         def session(**overrides):
             return SimpleNamespace(**{"id": "u1", "status": "completed", "result_batch_id": "", "result_payload": rejected, **overrides})
         def status(*, attempts=(), **overrides):
-            return reconcile(attempts=list(attempts), sessions=[session(**overrides)], batch_reader=lambda _: None)["status"]
+            return reconcile(attempts=list(attempts), sessions=[session(**overrides)], batch_reader=lambda _: None,
+                             rejected_upload_proof=recorded_rejection)["status"]
         self.assertEqual(status(), "rejected_upload")
         for overrides in ({"result_batch_id": "stock:abc"}, {"status": "failed"}, {"result_payload": {}},
                           {"result_payload": {"ok": True, "status": "imported"}}, {"result_payload": {"ok": False, "status": "error"}},
@@ -131,7 +145,13 @@ class InventoryRecoveryTests(TestCase):
                           {"result_payload": {"ok": "false", "status": "rejected"}}, {"result_payload": None}):
             with self.subTest(overrides=overrides):
                 self.assertEqual(status(**overrides), "unknown")
-        # Domains without result_batch_id (e.g. ERP reference sessions) never qualify.
-        erp = SimpleNamespace(id="u1", status="completed", result_payload=rejected)
-        self.assertEqual(reconcile(attempts=[], sessions=[erp], batch_reader=lambda _: None)["status"], "unknown")
         self.assertEqual(status(attempts=[SimpleNamespace(outcome="rejected", batch_id="")]), "unknown")
+        # Opt-in only: domains that do not pass the proof (ERP reference, sales) keep the old answer,
+        # including sales sessions that have result_batch_id but no result_payload.
+        for other in (SimpleNamespace(id="u1", status="completed", result_payload=rejected),
+                      SimpleNamespace(id="u1", status="completed", result_batch_id=""),
+                      SimpleNamespace(id="u1", status="expired", result_batch_id=""), session()):
+            with self.subTest(other=vars(other)):
+                self.assertEqual(reconcile(attempts=[], sessions=[other], batch_reader=lambda _: None)["status"], "unknown")
+        self.assertFalse(recorded_rejection(SimpleNamespace(id="u1", status="completed", result_batch_id="")))
+        self.assertFalse(recorded_rejection(SimpleNamespace(id="u1", status="completed", result_payload=rejected)))

@@ -114,7 +114,7 @@ def recovery_query(params, allowed_scope):
     return query
 
 
-def reconcile(*, attempts, sessions, batch_reader):
+def reconcile(*, attempts, sessions, batch_reader, rejected_upload_proof=None):
     audits = list(attempts[:101])
     uploads = list(sessions[:3])
     if len(audits) > 100 or len(uploads) > 1:
@@ -141,23 +141,21 @@ def reconcile(*, attempts, sessions, batch_reader):
             return {"status": "waiting", "reason": "upload_processing"}
         if session.status in {"uploading", "ready"}:
             return {"status": "uncommitted_upload", "uploadId": str(session.id), "uploadStatus": session.status}
-        if not audits and _recorded_rejection(session):
+        if not audits and rejected_upload_proof is not None and rejected_upload_proof(session):
             return {"status": "rejected_upload", "uploadId": str(session.id), "uploadStatus": session.status}
         return {"status": "unknown", "reason": "session_without_publication_proof"}
     return {"status": "unknown", "reason": "no_durable_publication_proof"}
 
 
-def _recorded_rejection(session):
+def recorded_rejection(session):
     """A completed session whose owner-written final result is an explicit rejection.
 
-    finish_upload only accepts the result from the processing owner, and a
-    completed session can no longer pass lock_upload_guard, so nothing can be
-    committed through it afterwards. A commit made earlier through the guard
-    leaves an attempt with this rawUploadId, so the caller must have found no
-    attempts at all. Only domains that record result_batch_id qualify; others
-    stay unknown.
+    Opt-in only: a domain passes this (plus its own attempt check) to reconcile
+    as rejected_upload_proof. finish_upload only accepts the result from the
+    processing owner, and a completed session can no longer pass
+    lock_upload_guard, so nothing can be committed through it afterwards.
     """
-    payload = session.result_payload
+    payload = getattr(session, "result_payload", None)
     return (session.status == "completed" and getattr(session, "result_batch_id", None) == ""
             and isinstance(payload, dict) and payload.get("ok") is False and payload.get("status") == "rejected"
             and not payload.get("batch"))
