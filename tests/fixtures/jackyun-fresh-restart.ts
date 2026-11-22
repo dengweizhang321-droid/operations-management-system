@@ -8,17 +8,18 @@ import { runJackyunExportFirstAction } from "../../tools/jackyun-export-first-pi
 import { appendRecoveryControl, controlDigest, readRecoveryControl } from "../../lib/jackyun/recovery-control";
 import { inspectFreshRestart, type FreshRestartTarget } from "../../lib/jackyun/fresh-restart";
 import { jackyunModuleOrder } from "../../lib/jackyun/post-download";
+import { jackyunDateContext } from "../../lib/jackyun/run-contract";
 import type { HumanRetryAuthority } from "../../lib/jackyun/human-retry";
 
-export async function freshRestartFixture(t: { after: (callback: () => void) => void }, options: Parameters<typeof unifiedFixture>[1] = {}) {
+export async function freshRestartFixture(t: { after: (callback: () => void) => void }, options: Parameters<typeof unifiedFixture>[1] = {}, rejectionStatus: 400 | 422 = 400) {
   const root = await mkdtemp(path.join(tmpdir(), "jackyun-fresh-")), f = await unifiedFixture(root, options);
   const originalFetch = globalThis.fetch;
-  let reject = true, mode: "ready" | "uploading" | "processing" | "unknown" | "scope" = "ready", posts = 0;
+  let reject = true, mode: "ready" | "uploading" | "processing" | "unknown" | "scope" | "rejected_upload" | "rejected_ready" = "ready", posts = 0;
   const request: typeof fetch = async (input, init) => {
     const url = new URL(String(input));
     if (init?.method === "POST") posts++;
     if (reject && url.pathname === "/api/imports/inventory/chunks" && init?.method === "POST" && JSON.parse(String(init.body)).action === "complete") {
-      return Response.json({ ok: false, status: "rejected", message: "synthetic controlled warehouse rejection" }, { status: 400 });
+      return Response.json({ ok: false, status: "rejected", message: "synthetic controlled warehouse rejection" }, { status: rejectionStatus });
     }
     const response = await f.request(input, init);
     if (url.pathname === "/api/imports/recovery" && url.searchParams.get("recovery") === "result") {
@@ -26,6 +27,9 @@ export async function freshRestartFixture(t: { after: (callback: () => void) => 
       if (url.searchParams.get("module") === "inventory") {
         if (mode === "unknown") return Response.json({ ...result, status: "unknown" });
         if (mode === "scope") return Response.json({ ...result, scope: { dataset: "stock", snapshotDate: "2020-01-01" } });
+        // Owner finished the session with the explicit rejection (real HTTP422 quality-gate path).
+        if (mode === "rejected_upload") return Response.json({ ...result, status: "rejected_upload", uploadStatus: "completed" });
+        if (mode === "rejected_ready") return Response.json({ ...result, status: "rejected_upload", uploadStatus: "ready" });
         return Response.json({ ...result, uploadStatus: mode });
       }
       return Response.json(result);
@@ -39,7 +43,7 @@ export async function freshRestartFixture(t: { after: (callback: () => void) => 
   await assert.rejects(run("import"), /synthetic controlled warehouse rejection/);
   const pipeline = path.join(root, "outputs/jackyun-export-first"), source = path.join(root, "outputs/jackyun-import-runs/n8n-export-first-9000");
   const plan = JSON.parse(await readFile(path.join(pipeline, "n8n-export-first-9000.json"), "utf8"));
-  const controller = { version: 2, runId: plan.runId, transport: plan.exportTransport, runDate: plan.runDate, asOfDate: plan.asOfDate,
+  const controller = { ...jackyunDateContext(plan), version: 2, runId: plan.runId, transport: plan.exportTransport, runDate: plan.runDate, asOfDate: plan.asOfDate,
     salesStartDate: plan.salesStartDate, templateSha256: "c".repeat(64), modules: {} as Record<string, unknown> };
   for (const m of jackyunModuleOrder) {
     const file = path.join(root, "outputs/jackyun-browser-events", plan.runId, `${String(jackyunModuleOrder.indexOf(m) + 1).padStart(2, "0")}-${m}.json`);

@@ -5,13 +5,33 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { freshRestartFixture } from "./fixtures/jackyun-fresh-restart";
-import { assertNoFreshRestart, validFreshRestartTarget } from "../lib/jackyun/fresh-restart";
+import { assertNoFreshRestart, isProvenUncommittedInventoryUpload, isRecordedInventoryRejection, validFreshRestartTarget } from "../lib/jackyun/fresh-restart";
 import { jackyunModuleOrder } from "../lib/jackyun/post-download";
 import { readHumanRetryAuthority, claimHumanRetryAuthority } from "../lib/jackyun/human-retry";
 import { reserveJackyunFailureRetry } from "../lib/jackyun/retry-budget";
 import { reserveRetryDispatch } from "../lib/jackyun/retry-dispatch-reservation";
 
 const fixture = freshRestartFixture;
+
+test("fresh restart accepts only recorded HTTP400/422 inventory rejections", () => {
+  assert.equal(isRecordedInventoryRejection({ httpStatus: 400, status: "rejected", errorCount: 1 }), true);
+  // Django inventory data-quality gate (e.g. IMPLAUSIBLE_INVENTORY_QUANTITY) rejects with 422 through the same reject audit.
+  assert.equal(isRecordedInventoryRejection({ httpStatus: 422, status: "rejected", errorCount: 1 }), true);
+  for (const details of [
+    { httpStatus: 422, status: "failed" }, { httpStatus: 500, status: "rejected" }, { httpStatus: 409, status: "rejected" },
+    { httpStatus: "422", status: "rejected" }, { status: "rejected" }, { httpStatus: 422 }, null, undefined, [], "rejected",
+  ]) assert.equal(isRecordedInventoryRejection(details), false, JSON.stringify(details));
+});
+
+test("fresh restart accepts only a ready upload or an owner-recorded rejected upload as uncommitted", () => {
+  assert.equal(isProvenUncommittedInventoryUpload({ status: "uncommitted_upload", uploadStatus: "ready" }), true);
+  assert.equal(isProvenUncommittedInventoryUpload({ status: "rejected_upload", uploadStatus: "completed" }), true);
+  for (const result of [
+    { status: "uncommitted_upload", uploadStatus: "uploading" }, { status: "uncommitted_upload", uploadStatus: "processing" },
+    { status: "uncommitted_upload", uploadStatus: "completed" }, { status: "rejected_upload", uploadStatus: "ready" },
+    { status: "rejected_upload" }, { status: "unknown", uploadStatus: "completed" }, { status: "waiting" }, { status: "committed_current" }, {},
+  ]) assert.equal(isProvenUncommittedInventoryUpload(result), false, JSON.stringify(result));
+});
 
 test("fresh full A-E exports all five files and preserves predecessor facts and evidence", async t => {
   const x = await fixture(t), { f, pipeline, source } = x;
@@ -57,6 +77,16 @@ test("fresh proof rejects unknown, processing, scope, changing files, live owner
   assert.equal(x.posts(), beforePosts, "all proof checks use GET only");
   assert.equal(validFreshRestartTarget({ ...x.target, injection: true }), false);
   assert.equal(validFreshRestartTarget({ ...x.target, failedExecutionId: "1" }), false);
+});
+
+test("fresh proof accepts an HTTP422 quality-gate rejection only with an owner-recorded rejected upload", async t => {
+  const x = await fixture(t, {}, 422), beforePosts = x.posts();
+  const audit = JSON.parse(await readFile(path.join(x.source, "audit/inventory.json"), "utf8"));
+  assert.equal(audit.error.details.httpStatus, 422);
+  for (const mode of ["unknown", "uploading", "processing", "scope", "rejected_ready"] as const) { x.mode(mode); await assert.rejects(x.inspect()); }
+  x.mode("rejected_upload"); await x.inspect();
+  x.mode("ready"); await x.inspect();
+  assert.equal(x.posts(), beforePosts, "all proof checks use GET only");
 });
 
 test("strict fresh authority is read from persisted permission; n8n stays bare new", async () => {

@@ -1,4 +1,4 @@
-from common.import_recovery import recovery_query, reconcile, recovery_rules_digest
+from common.import_recovery import recorded_rejection, recovery_query, reconcile, recovery_rules_digest
 from .errors import InventoryApiError
 from .models import InventoryImportAttempt, InventoryImportBatch, InventoryImportScopeHead, InventoryRawUploadSession
 from .import_service import _batch_payload, _stored_content
@@ -37,4 +37,10 @@ def read_recovery(params, actor_email):
         matches = count == batch.row_count and digest == batch.content_hash
         return {**_batch_payload(batch), "ownedRowCount": count,
             "evidenceConflict": current and not matches, "currentEffective": current and matches}
-    return {**result, **reconcile(attempts=audits, sessions=sessions, batch_reader=batch_reader)}
+    def rejected_upload_proof(session):
+        # Any attempt bound to this upload, regardless of scope date, file or hash,
+        # withdraws the proof: a commit through the guarded session always records it.
+        return recorded_rejection(session) and not InventoryImportAttempt.objects.filter(
+            actor_email=actor_email, metadata__rawUploadId=str(session.id)).exists()
+    return {**result, **reconcile(attempts=audits, sessions=sessions, batch_reader=batch_reader,
+                                  rejected_upload_proof=rejected_upload_proof)}
