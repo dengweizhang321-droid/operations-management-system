@@ -8,7 +8,7 @@ import { createXlsxWorkbookBytes } from "../../lib/imports/xlsx-write";
 import { writeJsonAtomic } from "../../lib/jackyun/json-file";
 import { importRecoveryScope } from "../../lib/jackyun/publication-baseline";
 import { jackyunModuleOrder, type JackyunModule } from "../../lib/jackyun/post-download";
-import { jackyunExportFirstPolicyVersion, jackyunExportOrder } from "../../lib/jackyun/run-contract";
+import { jackyunDateContext, jackyunExportFirstPolicyVersion, jackyunExportOrder } from "../../lib/jackyun/run-contract";
 import type { ExportFirstDependencies } from "../../tools/jackyun-export-first-pipeline";
 
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
@@ -128,11 +128,11 @@ export async function unifiedFixture(root: string, options: { captureDate?: stri
         const event = path.join(options.eventRoot, options.runId, `${String(jackyunModuleOrder.indexOf(moduleKey) + 1).padStart(2, "0")}-${moduleKey}.json`);
         const serverDate = new Date(Math.floor(Date.parse(at(5)) / 1000) * 1000).toISOString();
         const observedAt = new Date(Date.parse(at(6)) + Date.parse(serverDate) - Date.parse(at(4.099))).toISOString();
-        await writeJsonAtomic(event, { schemaVersion: 2, runId: options.runId, policyVersion: jackyunExportFirstPolicyVersion, module: moduleKey,
+        await writeJsonAtomic(event, { ...jackyunDateContext(options), schemaVersion: 2, runId: options.runId, policyVersion: jackyunExportFirstPolicyVersion, module: moduleKey,
           filePath: file, navigationIntentAt: at(1), queryIntentAt: at(2), tableStableAt: at(4), exportIntentAt: at(5), downloadEventAt: at(6), expectedSourceRows: counts[moduleKey],
           fieldChecks: moduleKey === "products" ? [{ field: "模式", value: "规格模式(SKU)", verifiedAt: at(2) }]
             : moduleKey === "sales" ? [{ field: "统计时间类型", value: "发货时间", verifiedAt: at(2) }, { field: "日期区间", value: `${salesStartDate} 00:00:00 至 ${asOfDate} 23:59:59`, verifiedAt: at(2) }] : [],
-          snapshotEvidence: moduleKey === "inventory" || moduleKey === "inventory_age" ? { version: 1, module: moduleKey, runId: options.runId, source: "current_query", targetDate: captureDate,
+          snapshotEvidence: moduleKey === "inventory" || moduleKey === "inventory_age" ? { ...jackyunDateContext(options), version: 1, module: moduleKey, runId: options.runId, source: "current_query", targetDate: captureDate,
             queryIntentAt: at(2), queryRefreshSource: "module_network_request", queryRefreshCompletedAt: at(3), tableStableAt: at(4) } : undefined,
           downloadProvenance: { runId: options.runId, module: moduleKey, policyVersion: jackyunExportFirstPolicyVersion, method: "browser_event", downloadId: `synthetic-${moduleKey}`,
             originalFileName: "synthetic.xlsx", completedAt: at(6), sha256: hash(bytes), bytes: bytes.length, sourceUrlHash: "a".repeat(64) },

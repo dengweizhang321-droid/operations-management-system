@@ -18,6 +18,21 @@ export type FreshRestartTarget = { logicalExecutionId: string; failedExecutionId
 const exact = (v: object, keys: string[]) => Object.keys(v).sort().join() === [...keys].sort().join();
 const id = (v: unknown): v is string => typeof v === "string" && /^[1-9]\d{0,19}$/.test(v);
 const sha = (v: Uint8Array | string) => createHash("sha256").update(v).digest("hex");
+/** 库存导入被服务端明确拒绝：HTTP400（文件/模板校验）与 HTTP422（数据质量门禁）
+ * 都经同一 reject 审计记录且不写批次；其余状态码或非 rejected 一律不视为明确拒绝。
+ * 上传会话确实未提交仍由下方精确 Django GET 独立证明（见 isProvenUncommittedInventoryUpload）。 */
+export function isRecordedInventoryRejection(details: unknown) {
+  if (!details || typeof details !== "object" || Array.isArray(details)) return false;
+  const d = details as { httpStatus?: unknown; status?: unknown };
+  return (d.httpStatus === 400 || d.httpStatus === 422) && d.status === "rejected";
+}
+/** Django 精确回查证明原库存上传没有提交：会话仍 ready（拒绝发生在领取前），
+ * 或会话已由领取 owner 以明确 rejected 结果完成、无批次且无任何关联尝试（rejected_upload）。
+ * uncommitted_upload 的 uploading/processing 及其他 unknown 状态一律拒绝。 */
+export function isProvenUncommittedInventoryUpload(result: { status?: unknown; uploadStatus?: unknown }) {
+  return result.status === "uncommitted_upload" && result.uploadStatus === "ready"
+    || result.status === "rejected_upload" && result.uploadStatus === "completed";
+}
 export function validFreshRestartTarget(v: unknown): v is FreshRestartTarget {
   if (!v || typeof v !== "object" || Array.isArray(v) || !exact(v, ["logicalExecutionId", "failedExecutionId", "sourceExecutionId", "sourceDigest", "controlDigest", "activeDigest"])) return false;
   const t = v as FreshRestartTarget;
@@ -140,10 +155,10 @@ export async function inspectFreshRestart(root: string, target: FreshRestartTarg
     manifestModule: manifest.modules.products, handoffPath: path.join(root, "outputs/jackyun-browser-events", plan.runId, "01-products.json"), requireAtomicHandoff: true });
   const productsAudit = await bind(path.join(run, "audit/products.json")), rejected = await bind(path.join(run, "audit/inventory.json"));
   if (rejected.runId !== plan.runId || rejected.module !== "inventory" || rejected.status !== "failed" || rejected.import
-    || rejected.error?.stage !== "chunk_upload_and_import" || rejected.error?.details?.httpStatus !== 400 || rejected.error.details.status !== "rejected"
+    || rejected.error?.stage !== "chunk_upload_and_import" || !isRecordedInventoryRejection(rejected.error?.details)
     || typeof rejected.error.message !== "string" || !evidence.source.error.includes(rejected.error.message)
     || rejected.source?.sha256 !== manifest.modules.inventory.sourceSha256 || rejected.source.path !== manifest.modules.inventory.sourcePath
-    || rejected.source.sha256 !== plan.exports.inventory!.fileSha256) throw new Error("旧库存缺少与原 n8n D 一致的明确 HTTP400 拒绝审计。");
+    || rejected.source.sha256 !== plan.exports.inventory!.fileSha256) throw new Error("旧库存缺少与原 n8n D 一致的明确 HTTP400/422 拒绝审计。");
   for (const folder of ["import-checkpoints", "audit"]) {
     const names = await readdir(path.join(run, folder));
     if (names.some(n => /^(inventory_age|sales|combos)(\.|$)/.test(n))) throw new Error("后三表出现调用或审计证据，不能证明未导入。");
@@ -177,7 +192,7 @@ export async function inspectFreshRestart(root: string, target: FreshRestartTarg
         || batch.status !== "completed" || batch.sourceKey !== "products" || batch.rowCount <= 0 || batch.ownedRowCount !== batch.rowCount
         || !receipt || batch.totals?.contentHash !== receipt.contentHash || batch.totals?.rawFileHash !== receipt.rawFileHash
         || identity.rawFileHash !== manifest.modules.products.outputSha256 || receipt.inputSha256 !== identity.rawFileHash || receipt.batchId !== batch.id) throw new Error("旧货品提交批次、内容或当前所有权无法精确证明。");
-    } else if (result.status !== "uncommitted_upload" || result.uploadStatus !== "ready" || result.uploadId !== checkpoint.uploadId) throw new Error("旧库存存在未知提交或 processing，禁止从头采集。");
+    } else if (!isProvenUncommittedInventoryUpload(result) || result.uploadId !== checkpoint.uploadId) throw new Error("旧库存存在未知提交或 processing，禁止从头采集。");
     results.push(result);
   }
   return { target, activeBytes: activeRaw, files, evidence, results };

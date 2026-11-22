@@ -6,7 +6,9 @@ from django.http import QueryDict
 from django.test import TestCase
 from django.utils import timezone
 from django.db import transaction
-from common.import_recovery import lock_upload_guard
+from types import SimpleNamespace
+
+from common.import_recovery import lock_upload_guard, reconcile
 
 from inventory.errors import InventoryApiError
 from inventory.import_service import import_inventory_payload
@@ -98,3 +100,38 @@ class InventoryRecoveryTests(TestCase):
                 result = read_recovery(self.query(payload, session), "admin@example.test")
                 self.assertEqual(result["status"], "committed_superseded")
                 self.assertEqual(result["batch"]["id"], original["batch"]["id"])
+
+    def test_completed_session_with_recorded_rejection_is_reported_as_rejected_upload(self):
+        payload = stock_payload(stock_row("P1", 2))
+        token = InventoryImportScopeHead.objects.get(dataset="stock").state_token
+        _, session = self.guarded(payload, token)
+        rejected = {"ok": False, "status": "rejected", "message": "库存数据质量门禁未通过，未写入任何库存数据",
+                    "warnings": [], "errors": [{"code": "IMPLAUSIBLE_INVENTORY_QUANTITY", "message": "x"}], "errorCount": 1}
+        InventoryRawUploadSession.objects.filter(id=session.id).update(status="completed", owner_token="", result_payload=rejected, result_batch_id="")
+        result = read_recovery(self.query(payload, session), "admin@example.test")
+        self.assertEqual((result["status"], result["uploadId"], result["uploadStatus"]), ("rejected_upload", str(session.id), "completed"))
+        # Any attempt bound to this upload (whatever its outcome) withdraws the proof.
+        InventoryImportAttempt.objects.create(id="f" * 32, dataset="stock", scope_json={"dataset": "stock", "snapshotDate": payload["snapshotDate"]},
+            scope_key=InventoryImportScopeHead.objects.get(dataset="stock").scope_key, raw_file_hash=payload["file"]["rawFileHash"],
+            outcome="rejected", actor_email="admin@example.test", completed_at=timezone.now(),
+            metadata={"fileName": payload["file"]["name"], "fileSizeBytes": payload["file"]["sizeBytes"], "rawUploadId": str(session.id), "uploadFingerprint": session.fingerprint})
+        self.assertEqual(read_recovery(self.query(payload, session), "admin@example.test")["status"], "unknown")
+        self.assertEqual(InventoryImportBatch.objects.count(), 0)
+
+    def test_rejected_upload_requires_an_explicit_owner_recorded_rejection(self):
+        rejected = {"ok": False, "status": "rejected"}
+        def session(**overrides):
+            return SimpleNamespace(**{"id": "u1", "status": "completed", "result_batch_id": "", "result_payload": rejected, **overrides})
+        def status(*, attempts=(), **overrides):
+            return reconcile(attempts=list(attempts), sessions=[session(**overrides)], batch_reader=lambda _: None)["status"]
+        self.assertEqual(status(), "rejected_upload")
+        for overrides in ({"result_batch_id": "stock:abc"}, {"status": "failed"}, {"result_payload": {}},
+                          {"result_payload": {"ok": True, "status": "imported"}}, {"result_payload": {"ok": False, "status": "error"}},
+                          {"result_payload": {"ok": False, "status": "rejected", "batch": {"id": "stock:abc"}}},
+                          {"result_payload": {"ok": "false", "status": "rejected"}}, {"result_payload": None}):
+            with self.subTest(overrides=overrides):
+                self.assertEqual(status(**overrides), "unknown")
+        # Domains without result_batch_id (e.g. ERP reference sessions) never qualify.
+        erp = SimpleNamespace(id="u1", status="completed", result_payload=rejected)
+        self.assertEqual(reconcile(attempts=[], sessions=[erp], batch_reader=lambda _: None)["status"], "unknown")
+        self.assertEqual(status(attempts=[SimpleNamespace(outcome="rejected", batch_id="")]), "unknown")
