@@ -6,10 +6,29 @@ import { readJsonDurableOr } from "./json-file";
 import { windowsPowerShellEnvironment } from "./windows-dpapi";
 const run = promisify(execFile);
 
+// The census treats every descendant of this helper as a leftover child, so a
+// second concurrent census would see the first one's PowerShell probe (and its
+// conhost) and fail. GET close-target and POST close share one helper process,
+// so all censuses are serialized here: at most one probe exists at a time and
+// each probe already excludes itself. Keyed on globalThis so a duplicate module
+// instance in the same process still shares the queue.
+const censusQueueKey = "__teruisiJackyunCloseResourceCensus";
+type CensusQueueHost = typeof globalThis & { [censusQueueKey]?: Promise<void> };
+function serializeCensus<T>(task: () => Promise<T>): Promise<T> {
+  const host = globalThis as CensusQueueHost;
+  const result = (host[censusQueueKey] ?? Promise.resolve()).then(task);
+  host[censusQueueKey] = result.then(() => undefined, () => undefined);
+  return result;
+}
+
 /** Conservative absence proof, never a process termination primitive. All
  * descendants of the owner/current helper and the dedicated profile must be
  * absent. Unknown inspection is blocked, not interpreted as absence. */
-export async function assertJackyunCloseResourcesIdle(root: string, ownerPid?: number) {
+export function assertJackyunCloseResourcesIdle(root: string, ownerPid?: number) {
+  return serializeCensus(() => inspectJackyunCloseResources(root, ownerPid));
+}
+
+async function inspectJackyunCloseResources(root: string, ownerPid?: number) {
   if (process.platform !== "win32") throw new Error("当前主机不支持吉客云资源退出核验。");
   const config = await readJsonDurableOr<{ profileDirectory: string; debuggingPort: number } | null>(path.join(root, "config/jackyun-login.json"), null);
   if (!config || !path.isAbsolute(config.profileDirectory) || !Number.isInteger(config.debuggingPort) || config.debuggingPort < 1 || config.debuggingPort > 65535) throw new Error("专用浏览器配置无法核实，不能闭合。");

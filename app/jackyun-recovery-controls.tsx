@@ -37,11 +37,11 @@ export function JackyunRecoveryControls() {
     <h3>完整恢复与新采集</h3>
     {target?.logicalExecutionId && <p>重试运行 {target.logicalExecutionId}（执行尝试 {target.failedExecutionId}）。库存采集日 {target.snapshotDate}；销售 {target.salesStartDate} 至 {target.salesEndDate}。</p>}
     <p>完整重试会先核验原任务、文件及已导入批次。新采集使用新的实际采集日和销售范围。</p>
-    <div className="report-actions">
-      <button type="button" onClick={() => void submit("retry")} disabled={busy || !target || !["failed", "completed"].includes(target.state)}>{busy ? "正在协调" : target?.state === "waiting" ? "等待原运行" : target?.state === "completed" ? "完整复验已完成运行" : "完整重试原运行"}</button>
-      <button type="button" onClick={() => void submit("new")} disabled={busy || !target?.newCollectionAllowed}>新采集</button>
-      <button type="button" onClick={() => void submit("restart")} disabled={busy || !target?.freshRestartAllowed}>五表从头重新采集</button>
-      <button type="button" onClick={() => void refresh()} disabled={busy}>刷新状态</button>
+    <div className="jackyun-recovery-actions">
+      <button type="button" className="secondary-button" onClick={() => void submit("retry")} disabled={busy || !target || !["failed", "completed"].includes(target.state)}>{busy ? "正在协调" : target?.state === "waiting" ? "等待原运行" : target?.state === "completed" ? "完整复验已完成运行" : "完整重试原运行"}</button>
+      <button type="button" className="secondary-button" onClick={() => void submit("new")} disabled={busy || !target?.newCollectionAllowed}>新采集</button>
+      <button type="button" className="secondary-button" onClick={() => void submit("restart")} disabled={busy || !target?.freshRestartAllowed}>五表从头重新采集</button>
+      <button type="button" className="text-button" onClick={() => void refresh()} disabled={busy}>刷新状态</button>
     </div>
     {message && <p role="status">{message}</p>}
     {target?.freshRestartReason && <p role="status">{target.freshRestartReason}</p>}

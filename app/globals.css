@@ -1954,6 +1954,9 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
   color: #fff;
   background: #f3684e;
 }
+.jackyun-recovery-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+.jackyun-recovery-actions .secondary-button:not(:disabled):hover { border-color: var(--color-brand-border); color: var(--color-brand); }
+.jackyun-recovery-actions button:disabled { cursor: not-allowed; opacity: .48; }
 .n8n-helper-banner {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

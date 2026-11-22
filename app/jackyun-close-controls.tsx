@@ -34,7 +34,9 @@ export function JackyunCloseControls({ currentUser }: { currentUser: CurrentUser
   useEffect(() => {
     ++epoch.current;
     pending.current = null; submitting.current = false; setBusy(false); setTarget(null); setMessage(""); void refresh();
-    const update = () => { if (!document.hidden) void refresh(); };
+    // Own submit announces the pending request to other instances; it refreshes
+    // itself after the POST settles instead of probing concurrently with it.
+    const update = () => { if (!document.hidden && !submitting.current) void refresh(); };
     const timer = setInterval(update, 30000);
     window.addEventListener(eventName, update); window.addEventListener("storage", update);
     return () => { ++epoch.current; ++generation.current; clearInterval(timer); window.removeEventListener(eventName, update); window.removeEventListener("storage", update); };
