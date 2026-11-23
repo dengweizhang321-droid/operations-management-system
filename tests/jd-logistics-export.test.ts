@@ -1,18 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:net";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { EventEmitter } from "node:events";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, writeFile, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { assertJhExportRequest, assertLogisticsFullScope, awaitJhLogisticsTask, downloadJhLogisticsFile,
-  exactTaskCandidates, exportJdLogistics, logisticsDebugPortClosed, logisticsExportIdentity } from "../tools/jd-logistics-export";
+  exactTaskCandidates, exportFlowSource, exportJdLogistics, logisticsDebugPortClosed, logisticsExportIdentity } from "../tools/jd-logistics-export";
+import { JD_FLOW_CSV_HEADERS, JD_LOGISTICS_MAX_FILE_BYTES } from "../lib/inventory/jd-logistics-workbook";
 import type { JdLogisticsExportOptions } from "../lib/jd/logistics-policy";
 import { logisticsContentHash } from "../lib/jd/logistics-manifest";
 import { jhLogisticsDownloadUrl, legacyLogisticsTask, parseJhLogisticsTaskPage, parseProductLogisticsTaskPage,
   productLogisticsExportTaskId, productLogisticsQueryTotal, selectJhLogisticsTask, selectProductLogisticsTask, type JhLogisticsTaskPage } from "../lib/jd/logistics-source-tasks";
 import { productLogisticsDownloadAck, productLogisticsDownloadAttachment } from "../lib/jd/logistics-source-tasks";
 import { assertFlowLogisticsRequest, flowLogisticsAttachment, flowLogisticsQueryTotal, flowLogisticsRequest, jhLogisticsQueryRequest, jhLogisticsQueryTotal } from "../lib/jd/logistics-source-tasks";
-import type { Page } from "playwright-core";
+import type { BrowserContext, Page, Response } from "playwright-core";
 
 test("content fingerprints preserve microseconds and use Django's exact six-digit fractional normalization", () => {
   const base = { goodsCode: "g", businessTime: "2026-10-15T12:00:00.123+08:00" };
@@ -208,6 +211,107 @@ test("enabled products query and full-scope UI agree on the complete enabled rel
   assert.equal(typeof assertLogisticsFullScope([{ label: "商品状态", values: ["启用"], checked: false }, { label: "商品", values: [""], checked: false }], options), "string");
   assert.throws(() => assertLogisticsFullScope([{ label: "商品状态", values: ["全部"], checked: false }], options), /ENABLED_PRODUCT_SCOPE_MISMATCH/);
 });
+
+const flowAttachment = "https://s3-ipv6.cn-north-1.jdcloud-oss.com/eclp-stock-back-oss/export/pub/stock_flow_synthetic.csv";
+type FlowFixtureMode = "blocked" | "popup" | "duplicate" | "mismatch" | "late-mismatch" | "failure" | "timeout" | "redirect" | "changed-url" | "oversize" | "row-count";
+async function flowExportFixture(mode: FlowFixtureMode) {
+  const workspace = await mkdtemp(path.join(tmpdir(), "jd-flow-direct-")), root = path.join(workspace, "export");
+  await mkdir(root);
+  const options: JdLogisticsExportOptions = { ...jhOptions(), root: workspace, downloadDirectory: root, sourceKind: "flow",
+    businessUnitCode: "EBU4418046540089", rangeStart: "2026-11-17", rangeEnd: "2026-11-18" };
+  const values: Record<string, string> = { 序号: "1", 业务发生时间: "2026-11-17 23:43:20", 事业部编码: options.businessUnitCode,
+    事业部名称: "合成事业部", 仓库编码: "WH001", 仓库名称: "合成仓", 事业部商品编号: "SKU-1", 事业部商品名称: "合成商品",
+    京东单据编码: "JD-DOC-1", 业务类型: "销售出库", 实际原始库存: "10", 实际库存加减数量: "-1", 实际库存结存: "9",
+    可用原始库存: "10", 可用库存加减数量: "-1", 可用库存结存: "9" };
+  const bytes = Buffer.from([JD_FLOW_CSV_HEADERS.join(","), JD_FLOW_CSV_HEADERS.map(header => `"${values[header] ?? ""}"`).join(",")].join("\r\n"));
+  const main = new EventEmitter(), context = new EventEmitter(), popups: EventEmitter[] = [];
+  let submissions = 0, nativeSaves = 0, disposals = 0;
+  const gets: Array<{ url: string; options: Record<string, unknown> }> = [];
+  const total = mode === "row-count" ? 2 : 1;
+  const download = (url: string) => ({ url: () => url, saveAs: async () => { nativeSaves++; } });
+  const popup = (url: string) => {
+    const candidate = new EventEmitter(); popups.push(candidate);
+    context.emit("page", candidate); main.emit("popup", candidate); candidate.emit("download", download(url));
+  };
+  const controls = [{ label: "时间", values: [options.rangeStart, "2026-11-17"], checked: false }];
+  const locator = (selector: string) => {
+    const control = { count: async () => 1, isEnabled: async () => true, waitFor: async () => undefined,
+      click: async () => undefined, innerText: async () => selector.includes("header") ? "2026年11月" : `共 ${total} 条 ${options.businessUnitCode}`,
+      inputValue: async () => "2026-11-17", evaluateAll: async () => selector === ".el-form-item:visible" ? controls : [options.businessUnitCode],
+      first: () => control, filter: () => control, locator: (child: string) => locator(child) };
+    return control;
+  };
+  const page = Object.assign(main, { locator, getByPlaceholder: () => locator("date"), waitForTimeout: async () => undefined,
+    waitForResponse: (predicate: (response: Response) => boolean) => new Promise<Response>(resolve => {
+      const observe = (response: Response) => { if (predicate(response)) { main.off("response", observe); resolve(response); } };
+      main.on("response", observe);
+    }), getByRole: (_role: string, { name }: { name: string }) => {
+      const button = locator("button"); button.click = async () => {
+        const exporting = name === "导出";
+        if (exporting) submissions++;
+        const request = { url: () => `https://api.jdl.com/bsc/batchStock/${exporting ? "exportStockFlow" : "queryStockFlowList"}`,
+          method: () => "POST", postDataJSON: () => flowLogisticsRequest(options) };
+        main.emit("request", request);
+        if (exporting && ["popup", "duplicate", "mismatch"].includes(mode)) popup(mode === "mismatch" ? `${flowAttachment}?other=1` : flowAttachment);
+        const payload = exporting ? { success: true, data: { code: 200, success: true, type: 1, msg: flowAttachment } }
+          : { success: true, data: { code: 200, success: true, total, stockFlowDataList: Array.from({ length: total }, () => ({})) } };
+        main.emit("response", { url: request.url, request: () => request, status: () => 200, text: async () => JSON.stringify(payload) });
+      }; return button;
+    } }) as unknown as Page;
+  const browserContext = Object.assign(context, { request: { get: async (url: string, requestOptions: Record<string, unknown>) => {
+    gets.push({ url, options: requestOptions });
+    // The real request API must be told not to follow redirects. This fake
+    // simulates its redirect behavior and records every resulting request.
+    if (mode === "redirect" && requestOptions.maxRedirects !== 0) gets.push({ url: "https://evil.invalid/redirect.csv", options: requestOptions });
+    if (mode === "duplicate") { popup(flowAttachment); main.emit("download", download(flowAttachment)); }
+    if (mode === "failure" || mode === "timeout") throw new Error(mode === "timeout" ? "Timeout 45000ms exceeded" : "synthetic connection reset");
+    return { status: () => mode === "redirect" ? 302 : 200,
+      url: () => mode === "changed-url" ? "https://evil.invalid/redirect.csv" : url,
+      headers: () => ({ "content-length": String(mode === "oversize" ? JD_LOGISTICS_MAX_FILE_BYTES + 1 : bytes.length),
+        ...(mode === "redirect" ? { location: "https://evil.invalid/redirect.csv" } : {}) }),
+      body: async () => { if (mode === "late-mismatch") popup(`${flowAttachment}?other=1`); return bytes; },
+      dispose: async () => { disposals++; } };
+  } } }) as unknown as BrowserContext;
+  const manifestPath = path.join(root, "export-manifest.json");
+  return { workspace, root, options, bytes, gets, manifestPath, state: () => ({ submissions, nativeSaves, disposals }),
+    listeners: () => [main, context, ...popups].flatMap(emitter => emitter.eventNames().map(name => [name, emitter.listenerCount(name)])),
+    run: () => exportFlowSource(page, browserContext, page, options, manifestPath, logisticsExportIdentity(options), new Set()) };
+}
+
+for (const mode of ["blocked", "popup", "duplicate"] as const) {
+  test(`flow ${mode}: exact attachment GET succeeds once with one saved CSV and verified row count`, async () => {
+    const fixture = await flowExportFixture(mode);
+    try {
+      const { manifest, result } = await fixture.run();
+      assert.equal(manifest.expectedRowCount, 1); assert.equal(manifest.byteSize, fixture.bytes.length);
+      assert.equal(manifest.rawFileHash, createHash("sha256").update(fixture.bytes).digest("hex"));
+      assert.equal(result.filePath, path.join(fixture.root, "source.csv"));
+      assert.deepEqual(await readFile(result.filePath), fixture.bytes);
+      assert.deepEqual((await readdir(fixture.root)).sort(), ["export-manifest.json", "source.csv"]);
+      assert.deepEqual(fixture.gets, [{ url: flowAttachment, options: { timeout: 45000, maxRedirects: 0, maxRetries: 0 } }]);
+      assert.deepEqual(fixture.state(), { submissions: 1, nativeSaves: 0, disposals: 1 });
+      assert.deepEqual(fixture.listeners(), []);
+    } finally { await rm(fixture.workspace, { recursive: true, force: true }); }
+  });
+}
+for (const mode of ["mismatch", "late-mismatch", "failure", "timeout", "redirect", "changed-url", "oversize", "row-count"] as const) {
+  test(`flow ${mode}: fails closed at submitted with no second export submission`, async () => {
+    const fixture = await flowExportFixture(mode);
+    try {
+      await assert.rejects(fixture.run(), mode === "row-count" ? /JD_LOGISTICS_EXPORT_ROW_COUNT_NOT_CONFIRMED/ : /JD_LOGISTICS_FLOW_ATTACHMENT_DOWNLOAD_MISMATCH/);
+      const manifest = JSON.parse(await readFile(fixture.manifestPath, "utf8"));
+      assert.equal(manifest.stage, "submitted"); assert.ok(manifest.requestEvidence.attachmentHash); assert.ok(manifest.taskIdentity);
+      assert.equal(manifest.result, undefined); assert.equal(manifest.rawFileHash, undefined);
+      assert.equal(fixture.state().submissions, 1); assert.equal(fixture.state().nativeSaves, 0);
+      assert.ok(fixture.gets.length <= 1); assert.ok(fixture.gets.every(request => request.url === flowAttachment));
+      if (mode !== "row-count") assert.deepEqual(await readdir(fixture.root), ["export-manifest.json"]);
+      assert.deepEqual(fixture.listeners(), []);
+      // The public entry refuses the submitted manifest before browser launch.
+      await assert.rejects(exportJdLogistics(fixture.options), /JD_LOGISTICS_EXPORT_UNRESOLVED_NO_RESUBMIT/);
+      assert.equal(fixture.state().submissions, 1);
+    } finally { await rm(fixture.workspace, { recursive: true, force: true }); }
+  });
+}
 test("a source4 native download is bound through both fresh task RPCs and its exact attachment URL", () => {
   const taskId = "4418061014417", path = "report/shop_goods_task_list_report-synthetic-20261015.csv";
   assert.equal(typeof productLogisticsDownloadAck({ code: 0, success: true, data: 4418061014417 }, [{ taskId }], taskId), "string");

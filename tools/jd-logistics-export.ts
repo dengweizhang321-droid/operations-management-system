@@ -1,6 +1,6 @@
 import { collectionDateContext } from "../lib/inventory/workflow-date-context";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { connect } from "node:net";
 import type { Browser, BrowserContext, Download, Frame, Locator, Page, Response } from "playwright-core";
@@ -496,6 +496,44 @@ export function productDownloadWatch(page: Page, context: BrowserContext) {
       return [...files][0];
     }, assertUnique: () => { if (files.size !== 1) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_AMBIGUOUS"); } };
 }
+function flowDownloadWatch(page: Page, context: BrowserContext) {
+  const files = new Set<Download>(), pages = new Set<Page>(); let closed = false, overflow = false;
+  const record = (file: Download) => {
+    if (closed) return;
+    if (files.size >= 32) overflow = true; else files.add(file);
+  };
+  const attach = (candidate: Page) => {
+    if (!closed && !pages.has(candidate)) { pages.add(candidate); candidate.on("download", record); }
+  };
+  // This is the dedicated logistics context. Attach synchronously, before a
+  // popup can start downloading; awaiting opener() can miss that first event.
+  attach(page); page.on("popup", attach); context.on("page", attach);
+  const assertAttachment = (attachment: string) => {
+    if (overflow) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_AMBIGUOUS");
+    if ([...files].some(file => file.url() !== attachment)) fail("JD_LOGISTICS_FLOW_ATTACHMENT_DOWNLOAD_MISMATCH");
+  };
+  return { assertAttachment, close: () => {
+    closed = true; page.off("popup", attach); context.off("page", attach);
+    for (const candidate of pages) candidate.off("download", record);
+  }, save: async (attachment: string, filePath: string) => {
+    assertAttachment(attachment);
+    try {
+      // Use this context's cookies, but never replay the export POST or follow
+      // redirects (even to another path on the same origin).
+      const response = await context.request.get(attachment, { timeout: 45000, maxRedirects: 0, maxRetries: 0 });
+      try {
+        if (response.status() !== 200 || response.url() !== attachment) fail("JD_LOGISTICS_FLOW_ATTACHMENT_DOWNLOAD_MISMATCH");
+        const length = response.headers()["content-length"];
+        if (length !== undefined && (!/^\d+$/.test(length) || Number(length) > JD_LOGISTICS_MAX_FILE_BYTES)) fail("JD_LOGISTICS_FLOW_ATTACHMENT_DOWNLOAD_MISMATCH");
+        const bytes = await response.body();
+        if (!bytes.length || bytes.length > JD_LOGISTICS_MAX_FILE_BYTES) fail("JD_LOGISTICS_FLOW_ATTACHMENT_DOWNLOAD_MISMATCH");
+        assertAttachment(attachment);
+        await writeFile(filePath, bytes);
+        assertAttachment(attachment);
+      } finally { await response.dispose(); }
+    } catch { fail("JD_LOGISTICS_FLOW_ATTACHMENT_DOWNLOAD_MISMATCH"); }
+  } };
+}
 function allowedProductAttachment(url: string) {
   try {
     const parsed = new URL(url);
@@ -638,7 +676,7 @@ async function exportEnabledProducts(page: Page, context: BrowserContext, surfac
     return { manifest, result };
   } finally { page.off("request", record); tasks.close(); downloads.close(); attachmentProof.close(); }
 }
-async function exportFlowSource(page: Page, context: BrowserContext, surface: Surface, options: JdLogisticsExportOptions, manifestPath: string, identityHash: string, observedCodes: Set<string>) {
+export async function exportFlowSource(page: Page, context: BrowserContext, surface: Surface, options: JdLogisticsExportOptions, manifestPath: string, identityHash: string, observedCodes: Set<string>) {
   await visibleRangeDates(surface, options.rangeStart, logisticsDayAfter(options.rangeEnd, -1), "起始时间");
   if (await surface.getByPlaceholder("起始时间", { exact: true }).inputValue() !== options.rangeStart
     || await surface.getByPlaceholder("结束时间", { exact: true }).inputValue() !== logisticsDayAfter(options.rangeEnd, -1)) fail("JD_LOGISTICS_DATE_READBACK_FAILED");
@@ -654,7 +692,7 @@ async function exportFlowSource(page: Page, context: BrowserContext, surface: Su
     operationId: options.operationId, baseline: [], observedBusinessUnitCode, expectedRowCount, fullScopeHash, directRequestId: randomUUID(),
     queryEvidence: { requestHash: logisticsHash(queryResponse.request().postDataJSON()), total: expectedRowCount, observedAt: new Date().toISOString() } };
   await writeJsonDurable(manifestPath, manifest); await options.assertOwner();
-  const downloads = productDownloadWatch(page, context), requests: Array<{ request: ReturnType<Response["request"]>; at: string }> = [];
+  const downloads = flowDownloadWatch(page, context), requests: Array<{ request: ReturnType<Response["request"]>; at: string }> = [];
   const record = (request: ReturnType<Response["request"]>) => { if (request.url() === flowExportEndpoint && request.method() === "POST") requests.push({ request, at: new Date().toISOString() }); };
   page.on("request", record);
   const pending = page.waitForResponse(response => response.url() === flowExportEndpoint && response.request().method() === "POST", { timeout: 30000 }); void pending.catch(() => undefined);
@@ -668,12 +706,11 @@ async function exportFlowSource(page: Page, context: BrowserContext, surface: Su
     manifest.requestEvidence = { observedBusinessUnitCode, requestedAt: collectedAt, requestHash, attachmentHash: logisticsHash(attachment) };
     manifest.taskIdentity = `direct:${logisticsHash({ requestId: manifest.directRequestId, requestHash, attachmentHash: manifest.requestEvidence.attachmentHash })}`;
     manifest.stage = "submitted"; await writeJsonDurable(manifestPath, manifest);
-    const file = await downloads.take();
-    if (new URL(file.url()).href !== attachment || await file.failure()) fail("JD_LOGISTICS_FLOW_ATTACHMENT_DOWNLOAD_MISMATCH");
-    const filePath = path.join(options.downloadDirectory, "source.csv"); await file.saveAs(filePath); downloads.assertUnique();
+    const filePath = path.join(options.downloadDirectory, "source.csv"); await downloads.save(attachment, filePath);
     const bytes = new Uint8Array(await readFile(filePath));
     const rows = parseJdLogisticsSourceFile(bytes, "flow", options.businessUnitCode, { ...collectionDateContext(options), collectedAt });
     if (rows.length !== expectedRowCount) fail("JD_LOGISTICS_EXPORT_ROW_COUNT_NOT_CONFIRMED");
+    downloads.assertAttachment(attachment);
     const result: JdLogisticsExportResult = { filePath, taskIdentity: manifest.taskIdentity, complete: true, browserClosed: true, collectedAt,
       identityEvidence: { observedBusinessUnitCode, observedAt: collectedAt, sourceUrl: jdLogisticsSourceUrls.flow, storeKey: options.store.storeKey },
       scope: { sourceKind: "flow", departmentId: options.departmentId, businessUnitCode: options.businessUnitCode, rangeStart: options.rangeStart, rangeEnd: options.rangeEnd, warehouseCode: options.warehouseCode }, contractVersion: options.contractVersion };
