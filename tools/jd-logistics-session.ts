@@ -1,8 +1,9 @@
 import type { Frame, Page } from "playwright-core";
 import type { JdStore } from "../lib/jd/store-registry";
 import { jdLogisticsSourceUrls } from "../lib/jd/logistics-policy";
+import { jdCustomerServiceWorkflow } from "../lib/jd/customer-service-workflow";
 import type { JdLogisticsSource } from "../lib/inventory/jd-logistics-contract";
-import { autoLoginJdWithWindowsDpapiCredential, inspectJdLoginPageState } from "./jd-saved-login";
+import { autoLoginJdWithWindowsDpapiCredential, inspectJdLoginPageState, waitForJdSessionSurface } from "./jd-saved-login";
 import { readJdRuntimeCredential } from "./jd-secure-credential";
 
 const businessFrames: Record<JdLogisticsSource, RegExp> = {
@@ -29,19 +30,45 @@ export function isJdLogisticsLoginOrigin(url: string) {
 export function createJdLogisticsSessionGuard(
   store: Pick<JdStore, "storeKey" | "enabled" | "loginMode">,
   assertOwner: () => Promise<void>,
-  dependencies = { login: autoLoginJdWithWindowsDpapiCredential, inspect: inspectJdLoginPageState, load: readJdRuntimeCredential },
+  dependencies: {
+    login: typeof autoLoginJdWithWindowsDpapiCredential;
+    inspect: typeof inspectJdLoginPageState;
+    load: typeof readJdRuntimeCredential;
+    surface?: typeof waitForJdSessionSurface;
+  } = { login: autoLoginJdWithWindowsDpapiCredential, inspect: inspectJdLoginPageState, load: readJdRuntimeCredential },
 ) {
   let attempted = false;
+  let merchantAuthentication: "existing_session" | "windows_dpapi_credentials" | undefined;
   return async (page: Page, kind: JdLogisticsSource): Promise<Frame> => {
     await assertOwner();
-    const expectedPortal = origin(jdLogisticsSourceUrls[kind]);
+    let merchantPhase = !merchantAuthentication;
+    const merchantUrl = jdCustomerServiceWorkflow.entryUrl;
+    const targetUrl = () => merchantPhase ? merchantUrl : jdLogisticsSourceUrls[kind];
+    // Browser reads can reject when the page closes during prelogin. Keep
+    // those failures inside the same pre-business code boundary. Ownership
+    // checks stay outside this wrapper and retain their own failure.
+    const browserStep = async <T>(action: () => T | Promise<T>): Promise<T> => {
+      try { return await action(); }
+      catch (error) {
+        if (error instanceof Error && /^JD_LOGISTICS_[A-Z_]+$/.test(error.message)) throw error;
+        return fail(attempted ? "LOGIN_NOT_COMPLETED_MANUAL_ACTION" : "LOGIN_FORM_NOT_READY_MANUAL_ACTION");
+      }
+    };
+    const navigate = async () => {
+      await assertOwner();
+      await browserStep(() => page.goto(targetUrl(), { waitUntil: "domcontentloaded", timeout: 60000 }));
+    };
+    // The guard owns navigation so even the first logistics request follows
+    // merchant authentication. JH cold returns reuse it without another login.
+    await navigate();
     let restoredTarget = false;
     for (let attempt = 0; attempt < 100; attempt++) {
-      const state = await dependencies.inspect(page);
+      const expectedPortal = origin(targetUrl());
+      const state = await browserStep(() => dependencies.inspect(page));
       if (state.challengePresent) fail("LOGIN_CHALLENGE_MANUAL_ACTION");
       if (state.credentialRejected) fail("LOGIN_CREDENTIAL_REJECTED_MANUAL_ACTION");
       if (state.temporarilyLocked) fail("LOGIN_LOCKED_MANUAL_ACTION");
-      const frames = page.frames();
+      const frames = await browserStep(() => page.frames());
       // Any passport frame means the page is a login surface, but the real login page also carries
       // hidden passport frames (e.g. the mobile login). Only visible ones are login controls.
       const passports = frames.filter(frame => isJdLogisticsLoginOrigin(frame.url()));
@@ -57,11 +84,11 @@ export function createJdLogisticsSessionGuard(
           attempted = true; // Includes missing/rejected/unknown submission: never resubmit.
           const authorize = async (frame: Frame) => {
             await assertOwner();
-            const current = await dependencies.inspect(page);
+            const current = await browserStep(() => dependencies.inspect(page));
             if (current.challengePresent) fail("LOGIN_CHALLENGE_MANUAL_ACTION");
             if (current.credentialRejected) fail("LOGIN_CREDENTIAL_REJECTED_MANUAL_ACTION");
             if (current.temporarilyLocked) fail("LOGIN_LOCKED_MANUAL_ACTION");
-            if (frame !== selected || !isJdLogisticsLoginOrigin(frame.url()) || !page.frames().includes(frame)
+            if (frame !== selected || !isJdLogisticsLoginOrigin(frame.url()) || !(await browserStep(() => page.frames())).includes(frame)
               || ![expectedPortal, ...loginOrigins].includes(origin(page.url()))) fail("LOGIN_ORIGIN_REJECTED");
           };
           let result;
@@ -81,21 +108,36 @@ export function createJdLogisticsSessionGuard(
           }
         }
       } else {
+        if (merchantPhase && page.url() === merchantUrl
+          && await browserStep(() => (dependencies.surface ?? waitForJdSessionSurface)(page, 0)) === "authenticated") {
+          merchantAuthentication = attempted ? "windows_dpapi_credentials" : "existing_session";
+          merchantPhase = false;
+          restoredTarget = false;
+          await navigate();
+          attempt = -1; // Each surface retains the original bounded wait.
+          continue;
+        }
         const text = await page.locator("body").innerText({ timeout: 1000 }).catch(() => "");
+        // Re-inspect an allowed passport redirect that arrived during the
+        // preceding asynchronous frame/body reads, before any credential action.
+        if (merchantPhase && isJdLogisticsLoginOrigin(page.url())) {
+          await browserStep(() => page.waitForTimeout(400));
+          continue;
+        }
         if (/验证码|扫码登录|短信验证|安全验证|密码登录/.test(text)) fail("LOGIN_REQUIRED");
         if (origin(page.url()) !== expectedPortal) fail("LOGIN_ORIGIN_REJECTED");
-        if (businesses.length === 1 && await businesses[0].locator("body").isVisible().catch(() => false)) {
+        if (!merchantPhase && businesses.length === 1 && await businesses[0].locator("body").isVisible().catch(() => false)) {
           // Existing precise department identity verification still follows.
           await assertOwner();
           return businesses[0];
         }
-        if (attempted && !restoredTarget && text.trim() && page.url() !== jdLogisticsSourceUrls[kind]) {
-          await assertOwner(); restoredTarget = true;
-          await page.goto(jdLogisticsSourceUrls[kind], { waitUntil: "domcontentloaded", timeout: 60000 });
+        if (attempted && !restoredTarget && text.trim() && page.url() !== targetUrl()) {
+          restoredTarget = true;
+          await navigate();
         }
       }
-      await page.waitForTimeout(400);
+      await browserStep(() => page.waitForTimeout(400));
     }
-    return fail(attempted ? "LOGIN_NOT_COMPLETED_MANUAL_ACTION" : "BUSINESS_FRAME_NOT_READY");
+    return fail(attempted ? "LOGIN_NOT_COMPLETED_MANUAL_ACTION" : merchantPhase ? "LOGIN_FORM_NOT_READY_MANUAL_ACTION" : "BUSINESS_FRAME_NOT_READY");
   };
 }

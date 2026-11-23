@@ -4,32 +4,49 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { chromium, type Frame, type Page } from "playwright-core";
 import { createJdLogisticsSessionGuard, isJdLogisticsLoginOrigin } from "../tools/jd-logistics-session";
-import { autoLoginJdWithWindowsDpapiCredential, inspectJdLoginPageState } from "../tools/jd-saved-login";
+import { autoLoginJdWithWindowsDpapiCredential, inspectJdLoginPageState, type JdSessionSurface } from "../tools/jd-saved-login";
 import { jdLogisticsSourceUrls } from "../lib/jd/logistics-policy";
+import { jdCustomerServiceWorkflow } from "../lib/jd/customer-service-workflow";
 
 const store = { storeKey: "fixture-equipment", enabled: true, loginMode: "windows_dpapi_credentials" as const };
 const businessUrl = "https://scsw.jdl.com/stockBusiness/warehouseInventoryRunningQueryNew";
 const passport = "https://passport.jd.com/new/login.aspx";
 const clean = { challengePresent: false, credentialRejected: false, temporarilyLocked: false };
+const merchantUrl = jdCustomerServiceWorkflow.entryUrl;
 function fixture() {
   let url: string = jdLogisticsSourceUrls.flow, frames: Frame[] = [], samples = 0;
+  let logisticsUrl = url, logisticsFrames = frames, merchantLocation: string = merchantUrl, merchantFrames: Frame[] = [];
+  let merchantSurface: JdSessionSurface = "authenticated", merchantPhase = false;
+  const navigations: string[] = [];
   const frame = (url: string) => ({ url: () => url, locator: () => ({ isVisible: async () => true }) }) as unknown as Frame;
   const business = frame(businessUrl), login = frame(passport);
   const page = { url: () => url, frames: () => frames, locator: () => ({ innerText: async () => "" }),
-    waitForTimeout: async () => { samples++; }, goto: async (value: string) => { url = value; },
+    waitForTimeout: async () => { samples++; }, goto: async (value: string) => {
+      navigations.push(value); merchantPhase = value === merchantUrl;
+      url = merchantPhase ? merchantLocation : logisticsUrl;
+      frames = merchantPhase ? merchantFrames : logisticsFrames;
+    },
   } as unknown as Page;
-  let calls = 0, reads = 0, ownership = 0;
+  let calls = 0, reads = 0, ownership = 0, submissions = 0;
   const deps = { inspect: async () => clean,
+    surface: async (): Promise<JdSessionSurface> => merchantSurface,
     login: (async (p, key, load, _wait, authorize) => {
       calls++; assert.equal(p, page); assert.equal(key, store.storeKey);
       await authorize!(login); const secret = await load!(key); secret.username = ""; secret.password = "";
-      url = jdLogisticsSourceUrls.flow; frames = [business];
+      submissions++;
+      if (merchantPhase) { url = merchantUrl; frames = []; merchantSurface = "authenticated"; }
+      else { url = jdLogisticsSourceUrls.flow; frames = [business]; }
       return { attempted: true, submitted: true, reason: "submitted" as const };
     }) as typeof autoLoginJdWithWindowsDpapiCredential,
     load: async () => { reads++; return { username: "synthetic", password: "synthetic" }; },
   };
-  return { page, business, login, deps, set: (u: string, f: Frame[]) => { url = u; frames = f; },
-    own: async () => { ownership++; }, stats: () => ({ samples, calls, reads, ownership }) };
+  return { page, business, login, deps,
+    set: (u: string, f: Frame[]) => { url = logisticsUrl = u; frames = logisticsFrames = f; },
+    setCurrent: (u: string, f: Frame[]) => { url = u; frames = f; },
+    setMerchant: (u: string, f: Frame[], surface: JdSessionSurface) => {
+      merchantLocation = u; merchantFrames = f; merchantSurface = surface;
+    },
+    own: async () => { ownership++; }, stats: () => ({ samples, calls, reads, ownership, submissions, navigations }) };
 }
 
 test("logistics login only trusts exact HTTPS JD passport origins", () => {
@@ -42,7 +59,125 @@ test("logistics login only trusts exact HTTPS JD passport origins", () => {
 test("existing logistics session requires its business frame and produces zero credential actions", async () => {
   const f = fixture(); f.set(jdLogisticsSourceUrls.flow, [f.business]);
   assert.equal(await createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), f.business);
-  assert.equal(f.stats().calls, 0); assert.equal(f.stats().reads, 0); assert.equal(f.stats().ownership, 2);
+  assert.equal(f.stats().calls, 0); assert.equal(f.stats().reads, 0); assert.equal(f.stats().ownership, 4);
+  assert.deepEqual(f.stats().navigations, [merchantUrl, jdLogisticsSourceUrls.flow]);
+});
+
+test("expired merchant session submits once on passport before the first logistics navigation and reuses authentication", async () => {
+  const f = fixture(); f.setMerchant(passport, [f.login], "login"); f.set(jdLogisticsSourceUrls.flow, [f.business]);
+  const guard = createJdLogisticsSessionGuard(store, f.own, f.deps);
+  const original = f.deps.login;
+  f.deps.login = async (...args) => {
+    assert.deepEqual(f.stats().navigations, [merchantUrl]);
+    return original(...args);
+  };
+  assert.equal(await guard(f.page, "flow"), f.business);
+  assert.equal(await guard(f.page, "flow"), f.business);
+  assert.equal(f.stats().submissions, 1); assert.equal(f.stats().reads, 1);
+  assert.deepEqual(f.stats().navigations, [merchantUrl, jdLogisticsSourceUrls.flow, jdLogisticsSourceUrls.flow]);
+});
+
+test("merchant prelogin challenge, rejection and lock stop before any login invocation", async () => {
+  for (const [key, code] of [["challengePresent", "CHALLENGE"], ["credentialRejected", "CREDENTIAL_REJECTED"], ["temporarilyLocked", "LOCKED"]] as const) {
+    const f = fixture(); f.setMerchant(passport, [f.login], "login");
+    f.deps.inspect = async () => ({ ...clean, [key]: true });
+    await assert.rejects(createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), new RegExp(`^Error: JD_LOGISTICS_LOGIN_${code}_MANUAL_ACTION$`));
+    assert.equal(f.stats().calls, 0); assert.equal(f.stats().submissions, 0); assert.equal(f.stats().reads, 0);
+    assert.deepEqual(f.stats().navigations, [merchantUrl]);
+  }
+});
+
+test("merchant prelogin challenge, rejection and lock after submission retain the existing manual codes", async () => {
+  for (const [key, code] of [["challengePresent", "CHALLENGE"], ["credentialRejected", "CREDENTIAL_REJECTED"], ["temporarilyLocked", "LOCKED"]] as const) {
+    const f = fixture(); f.setMerchant(passport, [f.login], "login");
+    f.deps.inspect = async () => ({ ...clean, [key]: f.stats().submissions === 1 });
+    await assert.rejects(createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), new RegExp(`^Error: JD_LOGISTICS_LOGIN_${code}_MANUAL_ACTION$`));
+    assert.equal(f.stats().submissions, 1); assert.equal(f.stats().reads, 1);
+    assert.deepEqual(f.stats().navigations, [merchantUrl]);
+  }
+});
+
+test("merchant prelogin consumes the sole attempt even if logistics still presents passport", async () => {
+  const f = fixture(); f.setMerchant(passport, [f.login], "login"); f.set(passport, [f.login]);
+  await assert.rejects(createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), /^Error: JD_LOGISTICS_LOGIN_NOT_COMPLETED_MANUAL_ACTION$/);
+  assert.equal(f.stats().submissions, 1); assert.equal(f.stats().calls, 1); assert.equal(f.stats().reads, 1);
+});
+
+test("non-whitelisted logistics QR login still fails without credential actions after merchant authentication", async () => {
+  const f = fixture(); f.set("https://wl.jdl.com/login", []);
+  f.page.locator = (() => ({ innerText: async () => f.page.url() === merchantUrl ? "" : "扫码登录" })) as unknown as Page["locator"];
+  await assert.rejects(createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), /^Error: JD_LOGISTICS_LOGIN_REQUIRED$/);
+  assert.equal(f.stats().calls, 0); assert.equal(f.stats().reads, 0);
+});
+
+test("owner revoked during merchant prelogin stops before loading or submitting credentials", async () => {
+  const f = fixture(); f.setMerchant(passport, [f.login], "login"); let revoked = false;
+  f.deps.inspect = async () => { revoked = true; return clean; };
+  await assert.rejects(createJdLogisticsSessionGuard(store, async () => {
+    if (revoked) throw new Error("JD_LOGISTICS_OWNER_REVOKED");
+  }, f.deps)(f.page, "flow"), /^Error: JD_LOGISTICS_OWNER_REVOKED$/);
+  assert.equal(f.stats().reads, 0); assert.equal(f.stats().submissions, 0);
+  assert.deepEqual(f.stats().navigations, [merchantUrl]);
+});
+
+test("merchant prelogin missing credentials, unready forms and unknown submissions use existing sanitized codes", async () => {
+  for (const scenario of ["credential", "form", "unknown", "incomplete", "pending", "navigation"] as const) {
+    const f = fixture(); f.setMerchant(passport, [f.login], "login");
+    if (scenario === "credential") f.deps.load = async () => { throw new Error("private credential detail"); };
+    if (scenario === "form") f.deps.login = async () => ({ attempted: false, submitted: false, reason: "login_form_missing" });
+    if (scenario === "unknown") f.deps.login = async () => { throw new Error("private submission detail"); };
+    if (scenario === "incomplete") f.deps.login = async () => ({ attempted: true, submitted: true, reason: "submitted" });
+    if (scenario === "pending") f.setMerchant(merchantUrl, [], "pending");
+    if (scenario === "navigation") f.page.goto = async () => { throw new Error("private navigation detail"); };
+    const suffix = scenario === "credential" ? "CREDENTIAL_UNAVAILABLE" : scenario === "unknown" ? "SUBMISSION_UNKNOWN"
+      : scenario === "incomplete" ? "NOT_COMPLETED" : "FORM_NOT_READY";
+    await assert.rejects(createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), new RegExp(`^Error: JD_LOGISTICS_LOGIN_${suffix}_MANUAL_ACTION$`));
+    assert.ok(f.stats().calls <= 1); assert.deepEqual(f.stats().navigations, scenario === "navigation" ? [] : [merchantUrl]);
+  }
+});
+
+test("merchant prelogin read and wait failures remain sanitized before and after a credential attempt", async () => {
+  for (const submitted of [false, true]) {
+    for (const action of ["inspect", "surface", "wait"] as const) {
+      const f = fixture();
+      f.setMerchant(submitted ? passport : merchantUrl, submitted ? [f.login] : [], submitted ? "login" : "pending");
+      const failRead = async (): Promise<never> => { throw new Error("private browser failure must not escape"); };
+      if (action === "inspect") f.deps.inspect = async () => {
+        if (!submitted || f.stats().submissions) return failRead();
+        return clean;
+      };
+      if (action === "surface") f.deps.surface = failRead;
+      if (action === "wait") f.page.waitForTimeout = async () => {
+        if (!submitted || f.stats().submissions) return failRead();
+      };
+      if (submitted && action === "wait") f.deps.surface = async () => "pending";
+      const code = submitted ? "NOT_COMPLETED" : "FORM_NOT_READY";
+      await assert.rejects(createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"),
+        new RegExp("^Error: JD_LOGISTICS_LOGIN_" + code + "_MANUAL_ACTION$"));
+      assert.equal(f.stats().submissions, submitted ? 1 : 0);
+      assert.deepEqual(f.stats().navigations, [merchantUrl]);
+    }
+  }
+});
+
+test("merchant redirect changing during surface inspection is re-inspected before any credential action", async () => {
+  const f = fixture(); f.setMerchant(merchantUrl, [], "pending"); f.set(jdLogisticsSourceUrls.flow, [f.business]);
+  let samples = 0;
+  f.deps.surface = async () => {
+    if (++samples === 1) { f.setCurrent(passport, [f.login]); return "pending"; }
+    return "authenticated";
+  };
+  assert.equal(await createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), f.business);
+  assert.equal(f.stats().submissions, 1); assert.equal(f.stats().reads, 1);
+  assert.deepEqual(f.stats().navigations, [merchantUrl, jdLogisticsSourceUrls.flow]);
+});
+
+test("disabled or manual merchant accounts cannot use DPAPI", async () => {
+  for (const account of [{ ...store, enabled: false }, { ...store, loginMode: "manual" as const }]) {
+    const f = fixture(); f.setMerchant(passport, [f.login], "login");
+    await assert.rejects(createJdLogisticsSessionGuard(account, f.own, f.deps)(f.page, "flow"), /^Error: JD_LOGISTICS_LOGIN_REQUIRED$/);
+    assert.equal(f.stats().calls, 0); assert.equal(f.stats().reads, 0);
+  }
 });
 
 test("a delayed login redirect is handled once before a logistics frame can be accepted", async () => {
@@ -174,6 +309,7 @@ test("production exporter uses the guard for initial and JH cold-return navigati
   const source = await readFile(new URL("../tools/jd-logistics-export.ts", import.meta.url), "utf8");
   assert.ok(source.indexOf("createJdLogisticsSessionGuard(options.store, options.assertOwner)") < source.indexOf("const business = await navigate()"));
   assert.match(source, /return session\(page, options.sourceKind\)/);
+  assert.match(source, /const navigate = async \(\) => \{ return session\(page, options.sourceKind\); \};/);
   assert.ok(source.indexOf("const business = await navigate()") < source.indexOf("await identity(business, observedCodes"));
 });
 
@@ -181,14 +317,19 @@ const chrome = process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Applic
 test("real DOM login uses synthetic credentials once, clears them and reaches exact logistics frame", { skip: !existsSync(chrome), timeout: 20000 }, async t => {
   const browser = await chromium.launch({ executablePath: chrome, headless: true }); t.after(() => browser.close());
   const context = await browser.newContext({ serviceWorkers: "block" });
+  let merchantVisits = 0;
   await context.route("**/*", route => {
     const url = route.request().url();
-    if (url === passport) return route.fulfill({ contentType: "text/html; charset=utf-8", body: `<input id="loginname"><input id="nloginpwd" type="password"><button id="loginsubmit" onclick="location.href='${jdLogisticsSourceUrls.flow}'">登录</button>` });
+    if (url.split("#")[0] === merchantUrl.split("#")[0]) {
+      if (++merchantVisits === 1) return route.fulfill({ contentType: "text/html", body: `<script>setTimeout(() => { location.href = "${passport}"; }, 50)</script>` });
+      return route.fulfill({ contentType: "text/html; charset=utf-8", body: "聊天记录 列表视图 消息视图 查询 重置" });
+    }
+    if (url.split("#")[0] === passport) return route.fulfill({ contentType: "text/html; charset=utf-8", body: `<input id="loginname"><input id="nloginpwd" type="password"><button id="loginsubmit" onclick="location.href='${merchantUrl}'">登录</button>` });
     if (url === jdLogisticsSourceUrls.flow) return route.fulfill({ contentType: "text/html", body: `<iframe src="${businessUrl}"></iframe>` });
     if (url === businessUrl) return route.fulfill({ contentType: "text/html", body: "仓库库存流水 EBU4418046540089" });
     return route.abort();
   });
-  const page = await context.newPage(); await page.goto(passport);
+  const page = await context.newPage();
   let reads = 0, writes = 0;
   const credential = { username: "fixture-user", password: "fixture-password" };
   const result = await createJdLogisticsSessionGuard(store, async () => { writes++; }, {

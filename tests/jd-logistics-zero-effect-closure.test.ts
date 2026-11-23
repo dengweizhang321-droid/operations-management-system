@@ -236,7 +236,7 @@ test("pin: pre-business failure codes are raised only inside the session guard, 
   const guard = sessionText.slice(sessionText.indexOf("export function createJdLogisticsSessionGuard("));
   const expectedCounts: Record<string, number> = { LOGIN_REQUIRED: 2, LOGIN_CHALLENGE_MANUAL_ACTION: 3, LOGIN_CREDENTIAL_REJECTED_MANUAL_ACTION: 2, LOGIN_LOCKED_MANUAL_ACTION: 2,
     LOGIN_CONTROL_AMBIGUOUS: 2, BUSINESS_FRAME_AMBIGUOUS: 1, LOGIN_ORIGIN_REJECTED: 2, LOGIN_STORE_MISMATCH: 1, LOGIN_CREDENTIAL_UNAVAILABLE_MANUAL_ACTION: 1,
-    LOGIN_SUBMISSION_UNKNOWN_MANUAL_ACTION: 1, LOGIN_FORM_NOT_READY_MANUAL_ACTION: 1, LOGIN_NOT_COMPLETED_MANUAL_ACTION: 1, BUSINESS_FRAME_NOT_READY: 1 };
+    LOGIN_SUBMISSION_UNKNOWN_MANUAL_ACTION: 1, LOGIN_FORM_NOT_READY_MANUAL_ACTION: 3, LOGIN_NOT_COMPLETED_MANUAL_ACTION: 2, BUSINESS_FRAME_NOT_READY: 1 };
   assert.deepEqual(Object.keys(expectedCounts).sort(), [...JD_LOGISTICS_PRE_BUSINESS_THROW_SUFFIXES].sort());
   // Every quoted occurrence of a code (bare suffix passed to fail() or full code string) outside the
   // guard must be a known historical/data reference, never a new raise point.
@@ -266,7 +266,13 @@ test("pin: exporter calls the session guard only before its first export manifes
   const text = await readFile(path.join(repoRoot, "tools", "jd-logistics-export.ts"), "utf8");
   assert.equal((text.match(/createJdLogisticsSessionGuard\(/g) ?? []).length, 1, "exactly one construction");
   assert.equal((text.match(/\bsession\(page/g) ?? []).length, 1, "the guard is invoked from exactly one place");
-  assert.ok(text.includes("const navigate = async () => { await page.goto(jdLogisticsSourceUrls[options.sourceKind], { waitUntil: \"domcontentloaded\", timeout: 60000 }); return session(page, options.sourceKind); };"));
+  assert.ok(text.includes("const navigate = async () => { return session(page, options.sourceKind); };"));
+  // Navigation is inside the guard, after merchant authentication; no caller
+  // may reach logistics first or bypass the pre-business failure boundary.
+  const session = await readFile(path.join(repoRoot, "tools", "jd-logistics-session.ts"), "utf8");
+  assert.ok(session.includes("await navigate();"));
+  assert.ok(session.indexOf('merchantAuthentication = attempted ? "windows_dpapi_credentials" : "existing_session"')
+    < session.indexOf("merchantPhase = false;"));
   const exportFn = text.slice(text.indexOf("export async function exportJdLogistics("));
   assert.ok(exportFn.indexOf("const business = await navigate();") > 0);
   assert.ok(exportFn.indexOf("const business = await navigate();") < exportFn.indexOf("exportJhSource(page"), "first navigate precedes every source exporter");

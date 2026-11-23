@@ -726,7 +726,7 @@ export async function exportJdLogistics(options: JdLogisticsExportOptions): Prom
         try { const data = request.postDataJSON(); if (typeof data?.deptNo === "string") observedCodes.add(data.deptNo); } catch { /* non-business request is not identity evidence */ }
       });
       const session = createJdLogisticsSessionGuard(options.store, options.assertOwner);
-      const navigate = async () => { await page.goto(jdLogisticsSourceUrls[options.sourceKind], { waitUntil: "domcontentloaded", timeout: 60000 }); return session(page, options.sourceKind); };
+      const navigate = async () => { return session(page, options.sourceKind); };
       const business = await navigate();
       await identity(business, observedCodes, options.businessUnitCode);
       if (options.sourceKind === "realtime_inventory" || options.sourceKind === "inventory_snapshot") {
