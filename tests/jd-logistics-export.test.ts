@@ -7,7 +7,7 @@ import { mkdir, mkdtemp, writeFile, readFile, readdir, rm } from "node:fs/promis
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { assertJhExportRequest, assertLogisticsFullScope, awaitJhLogisticsTask, downloadJhLogisticsFile,
-  exactTaskCandidates, exportFlowSource, exportJdLogistics, logisticsDebugPortClosed, logisticsExportIdentity } from "../tools/jd-logistics-export";
+  exactTaskCandidates, exportFlowSource, exportJdLogistics, logisticsDebugPortClosed, logisticsExportIdentity, settleLogisticsExportSubmission } from "../tools/jd-logistics-export";
 import { JD_FLOW_CSV_HEADERS, JD_LOGISTICS_MAX_FILE_BYTES } from "../lib/inventory/jd-logistics-workbook";
 import type { JdLogisticsExportOptions } from "../lib/jd/logistics-policy";
 import { logisticsContentHash } from "../lib/jd/logistics-manifest";
@@ -16,6 +16,7 @@ import { jhLogisticsDownloadUrl, legacyLogisticsTask, parseJhLogisticsTaskPage, 
 import { productLogisticsDownloadAck, productLogisticsDownloadAttachment } from "../lib/jd/logistics-source-tasks";
 import { assertFlowLogisticsRequest, flowLogisticsAttachment, flowLogisticsQueryTotal, flowLogisticsRequest, jhLogisticsQueryRequest, jhLogisticsQueryTotal } from "../lib/jd/logistics-source-tasks";
 import type { BrowserContext, Page, Response } from "playwright-core";
+import { JD_LOGISTICS_PRE_BUSINESS_FAILURE_CODES } from "../tools/jd-logistics-zero-effect-closure";
 
 test("content fingerprints preserve microseconds and use Django's exact six-digit fractional normalization", () => {
   const base = { goodsCode: "g", businessTime: "2026-10-15T12:00:00.123+08:00" };
@@ -322,4 +323,33 @@ test("a source4 native download is bound through both fresh task RPCs and its ex
   assert.throws(() => productLogisticsDownloadAttachment(response, [{ downloadUrl: path, id: "4418061014416" }], taskId), /TASK_MISMATCH/);
   assert.throws(() => productLogisticsDownloadAttachment({ ...response, data: response.data.replace("report/shop_goods_task_list_report-synthetic", "report/shop_goods_task_list_report-old") }, request, taskId), /URL_UNPROVEN/);
   assert.throws(() => productLogisticsDownloadAttachment({ ...response, data: response.data.replace("s3.cn-north-1.jdcloud-oss.com", "evil.invalid") }, request, taskId), /URL_REJECTED/);
+});
+
+test("export submission classifies raw click/response errors by whether the export request was observed", async () => {
+  const playwrightTimeout = () => Object.assign(new Error("page.waitForResponse: Timeout 30000ms exceeded."), { name: "TimeoutError" });
+  const rejected = () => { const pending = Promise.reject(playwrightTimeout()); void pending.catch(() => undefined); return pending; };
+  const neverSettles = new Promise<never>(() => undefined);
+  let clicks = 0;
+  const click = (sent: boolean, error?: Error) => async () => { clicks++; if (error) throw error; if (sent) requests++; };
+  let requests = 0;
+  const count = () => requests;
+  // 11963/11941 shape: the click returns, no export request leaves the browser, the response wait times out.
+  requests = 0; await assert.rejects(settleLogisticsExportSubmission(click(false), rejected(), count), /^Error: JD_LOGISTICS_EXPORT_REQUEST_NOT_OBSERVED$/);
+  requests = 0; await assert.rejects(settleLogisticsExportSubmission(click(true), rejected(), count), /^Error: JD_LOGISTICS_EXPORT_RESPONSE_NOT_RECEIVED$/);
+  // A failed click never waits for the (possibly never settling) response.
+  requests = 0; await assert.rejects(settleLogisticsExportSubmission(click(false, playwrightTimeout()), neverSettles, count), /^Error: JD_LOGISTICS_EXPORT_CONTROL_FAILED_NO_REQUEST$/);
+  requests = 1; await assert.rejects(settleLogisticsExportSubmission(click(false, playwrightTimeout()), neverSettles, count), /^Error: JD_LOGISTICS_EXPORT_CONTROL_FAILED_AFTER_REQUEST$/);
+  // Existing specific codes pass through unchanged (control ambiguity, owner loss).
+  requests = 0; await assert.rejects(settleLogisticsExportSubmission(click(false, new Error("JD_LOGISTICS_CONTROL_AMBIGUOUS")), neverSettles, count), /^Error: JD_LOGISTICS_CONTROL_AMBIGUOUS$/);
+  requests = 1; await assert.rejects(settleLogisticsExportSubmission(click(false), Promise.reject(new Error("JD_LOGISTICS_EXECUTION_OWNER_MISMATCH")), count), /^Error: JD_LOGISTICS_EXECUTION_OWNER_MISMATCH$/);
+  // Success returns the observed response; each call clicks exactly once and never retries.
+  requests = 0; const response = { ok: true };
+  assert.equal(await settleLogisticsExportSubmission(click(true), Promise.resolve(response), count), response);
+  assert.equal(clicks, 7);
+  for (const code of ["JD_LOGISTICS_EXPORT_REQUEST_NOT_OBSERVED", "JD_LOGISTICS_EXPORT_RESPONSE_NOT_RECEIVED",
+    "JD_LOGISTICS_EXPORT_CONTROL_FAILED_NO_REQUEST", "JD_LOGISTICS_EXPORT_CONTROL_FAILED_AFTER_REQUEST"]) {
+    assert.match(code, /^JD_LOGISTICS_[A-Z_]+$/);
+    // Never a zero-effect auto-closure code: these all stay with a human.
+    assert.equal(JD_LOGISTICS_PRE_BUSINESS_FAILURE_CODES.includes(code), false);
+  }
 });
