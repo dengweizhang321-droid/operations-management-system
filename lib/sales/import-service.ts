@@ -1,6 +1,7 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import {
   DjangoSalesServiceResponseError,
+  SALES_STAGED_COMPLETE_TIMEOUT_MS,
   SALES_STAGED_IMPORTS_PATH,
   requestDjangoSalesService,
 } from "@/lib/django/sales-writer";
@@ -486,7 +487,7 @@ export async function importSalesLedgerBytes(input: {
         sessionId: session.id,
         ...(input.rawUploadOwnerToken ? { rawUploadOwnerToken: input.rawUploadOwnerToken } : {}),
       },
-    });
+    }, { timeoutMs: SALES_STAGED_COMPLETE_TIMEOUT_MS });
     return {
       ...completed.data,
       warnings: sanitizeSalesIssues(completed.data.warnings ?? []),

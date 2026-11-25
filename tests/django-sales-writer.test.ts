@@ -7,6 +7,7 @@ import {
   DjangoSalesServiceResponseError,
   SALES_IMPORTS_PATH,
   SALES_RAW_UPLOADS_PATH,
+  SALES_STAGED_COMPLETE_TIMEOUT_MS,
   SALES_STAGED_IMPORTS_PATH,
   requestDjangoSalesService,
   type DjangoSalesServiceConfig,
@@ -215,6 +216,62 @@ test("writer configuration and request sizes fail closed before fetch", async ()
     (error: unknown) => error instanceof PublicApiError
       && error.status === 413
       && error.code === "payload_too_large",
+  );
+  assert.equal(fetched, false);
+});
+
+function delayedFetch(delayMs: number): typeof fetch {
+  return (async (_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((resolve, reject) => {
+    const timer = setTimeout(() => resolve(jsonResponse({ ok: true })), delayMs);
+    init?.signal?.addEventListener("abort", () => {
+      clearTimeout(timer);
+      reject(init.signal?.reason ?? new Error("aborted"));
+    }, { once: true });
+  })) as typeof fetch;
+}
+
+const completeRequest = {
+  method: "POST" as const,
+  path: SALES_STAGED_IMPORTS_PATH,
+  payload: { action: "complete", sessionId: "session-1" },
+  service: "writer" as const,
+};
+
+test("per-request timeout extends a slow staged complete beyond the default budget", async () => {
+  await assert.rejects(
+    requestDjangoSalesService(principal, completeRequest, {
+      config: { ...config, timeoutMs: 20 },
+      fetchImpl: delayedFetch(150),
+    }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+  );
+  const result = await requestDjangoSalesService<{ ok: boolean }>(principal, completeRequest, {
+    config: { ...config, timeoutMs: 20 },
+    fetchImpl: delayedFetch(150),
+    timeoutMs: 2_000,
+  });
+  assert.equal(result.data.ok, true);
+});
+
+test("per-request timeout never shortens a larger configured timeout and stays bounded", async () => {
+  const result = await requestDjangoSalesService<{ ok: boolean }>(principal, completeRequest, {
+    config: { ...config, timeoutMs: 2_000 },
+    fetchImpl: delayedFetch(150),
+    timeoutMs: 20,
+  });
+  assert.equal(result.data.ok, true);
+  assert.ok(SALES_STAGED_COMPLETE_TIMEOUT_MS > 30_000 && SALES_STAGED_COMPLETE_TIMEOUT_MS < 10 * 60_000);
+  let fetched = false;
+  await assert.rejects(
+    requestDjangoSalesService(principal, completeRequest, {
+      config,
+      timeoutMs: 16 * 60_000,
+      fetchImpl: async () => {
+        fetched = true;
+        return jsonResponse({ ok: true });
+      },
+    }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
   );
   assert.equal(fetched, false);
 });
