@@ -24,6 +24,13 @@ const WRITER_ONLY_SALES_PATHS = new Set([
 const encoder = new TextEncoder();
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_TIMEOUT_MS = 15 * 60_000;
+/**
+ * The staged complete call publishes the whole normalized ledger in one Django
+ * transaction, which can outlast the default per-request budget on rolling
+ * multi-week periods. Stay below the 10-minute caller budget used by the
+ * import runners so the Worker still answers before its client gives up.
+ */
+export const SALES_STAGED_COMPLETE_TIMEOUT_MS = 9 * 60_000;
 const DEFAULT_MAX_REQUEST_BYTES = 8 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 16 * 1024 * 1024;
 const DEFAULT_MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
@@ -46,6 +53,8 @@ export type DjangoSalesServiceOptions = {
   now?: () => number;
   requestId?: () => string;
   signal?: AbortSignal;
+  /** Minimum timeout for this request; a larger configured timeout still wins. */
+  timeoutMs?: number;
 };
 
 export type DjangoSalesServiceResult<T> = {
@@ -199,6 +208,9 @@ export async function requestDjangoSalesService<T>(
   if (input.method === "GET" && input.payload !== undefined) throw unavailable();
   if (input.method !== "GET" && input.payload === undefined) throw unavailable();
   const config = normalizedConfig(options.config ?? await loadConfig());
+  const timeoutMs = options.timeoutMs === undefined
+    ? config.timeoutMs
+    : Math.max(config.timeoutMs, boundedInteger(options.timeoutMs, DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS));
   const rawQuery = input.query?.toString() ?? "";
   const body = input.payload === undefined ? undefined : encoder.encode(JSON.stringify(input.payload));
   if (body && body.byteLength > config.maxRequestBytes) {
@@ -228,7 +240,7 @@ export async function requestDjangoSalesService<T>(
         body,
         cache: "no-store",
       },
-      timeoutMs: config.timeoutMs,
+      timeoutMs,
       maxBytes: config.maxResponseBytes,
       fetcher: options.fetchImpl,
       signal: options.signal,
