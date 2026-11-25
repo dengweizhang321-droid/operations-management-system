@@ -49,6 +49,24 @@ const productAttachmentEndpoint = "https://api.jdl.com/exportTaskApi/getExportDo
 const flowQueryEndpoint = "https://api.jdl.com/bsc/batchStock/queryStockFlowList";
 const flowExportEndpoint = "https://api.jdl.com/bsc/batchStock/exportStockFlow";
 function fail(code: string): never { throw new Error(code); }
+const logisticsCode = (error: unknown) => error instanceof Error && /^JD_LOGISTICS_[A-Z_]+$/.test(error.message);
+/** Settles the single export click and its observed response. A raw Playwright
+ * error here (click actionability or the 30 s response wait) used to reach the
+ * pipeline as the generic PIPELINE_FAILED_MANUAL_ACTION, which hid whether this
+ * browser ever sent the export request. Classify it by the request observer
+ * instead; nothing is retried or resubmitted, and every code stays manual. */
+export async function settleLogisticsExportSubmission<T>(click: () => Promise<void>, response: Promise<T>, requestCount: () => number): Promise<T> {
+  try { await click(); }
+  catch (error) {
+    if (logisticsCode(error)) throw error;
+    fail(requestCount() ? "JD_LOGISTICS_EXPORT_CONTROL_FAILED_AFTER_REQUEST" : "JD_LOGISTICS_EXPORT_CONTROL_FAILED_NO_REQUEST");
+  }
+  try { return await response; }
+  catch (error) {
+    if (logisticsCode(error)) throw error;
+    return fail(requestCount() ? "JD_LOGISTICS_EXPORT_RESPONSE_NOT_RECEIVED" : "JD_LOGISTICS_EXPORT_REQUEST_NOT_OBSERVED");
+  }
+}
 export async function logisticsDebugPortClosed(port: number): Promise<boolean> {
   return new Promise(resolve => {
     const socket = connect({ host: "127.0.0.1", port });
@@ -389,8 +407,7 @@ async function observedJhExport(page: Page, surface: Surface, options: JdLogisti
   const pending = page.waitForResponse(response => response.url() === endpoint && response.request().method() === "POST", { timeout: 30000 });
   void pending.catch(() => undefined);
   try {
-    await clickExport(surface, options);
-    const response = await pending;
+    const response = await settleLogisticsExportSubmission(() => clickExport(surface, options), pending, () => requests.length);
     if (requests.length !== 1 || requests[0].request !== response.request() || response.status() !== 200) fail("JD_LOGISTICS_EXPORT_SUBMISSION_UNPROVEN");
     const requestHash = assertJhExportRequest(response.request().postDataJSON(), options);
     const raw = await response.text(); if (Buffer.byteLength(raw) > 64 * 1024) fail("JD_LOGISTICS_EXPORT_SUBMISSION_UNPROVEN");
@@ -645,7 +662,7 @@ async function exportEnabledProducts(page: Page, context: BrowserContext, surfac
   const responsePending = page.waitForResponse(response => response.url() === productExportEndpoint && response.request().method() === "POST", { timeout: 30000 }); void responsePending.catch(() => undefined);
   try {
     manifest.stage = "submitting"; manifest.submittedAt = new Date().toISOString(); await writeJsonDurable(manifestPath, manifest);
-    await clickExport(surface, options); const response = await responsePending;
+    const response = await settleLogisticsExportSubmission(() => clickExport(surface, options), responsePending, () => requests.length);
     if (requests.length !== 1 || requests[0].request !== response.request() || response.status() !== 200) fail("JD_LOGISTICS_PRODUCTS_SUBMISSION_UNPROVEN");
     const raw = await response.text(); if (Buffer.byteLength(raw) > 64 * 1024) fail("JD_LOGISTICS_PRODUCTS_SUBMISSION_UNPROVEN");
     const taskId = productLogisticsExportTaskId(JSON.parse(raw), response.request().postDataJSON(), options.businessUnitCode);
@@ -698,7 +715,8 @@ export async function exportFlowSource(page: Page, context: BrowserContext, surf
   const pending = page.waitForResponse(response => response.url() === flowExportEndpoint && response.request().method() === "POST", { timeout: 30000 }); void pending.catch(() => undefined);
   try {
     manifest.stage = "submitting"; manifest.submittedAt = new Date().toISOString(); await writeJsonDurable(manifestPath, manifest);
-    await options.assertOwner(); await (await uniqueButton(surface, "导出")).click(); const response = await pending;
+    const response = await settleLogisticsExportSubmission(async () => { await options.assertOwner(); await (await uniqueButton(surface, "导出")).click(); },
+      pending, () => requests.length);
     if (response.status() !== 200 || requests.length !== 1 || response.request() !== requests[0].request) fail("JD_LOGISTICS_FLOW_SUBMISSION_UNPROVEN");
     const raw = await response.text(); if (Buffer.byteLength(raw) > 64 * 1024) fail("JD_LOGISTICS_FLOW_SUBMISSION_UNPROVEN");
     const attachment = flowLogisticsAttachment(JSON.parse(raw), response.request().postDataJSON(), options);
