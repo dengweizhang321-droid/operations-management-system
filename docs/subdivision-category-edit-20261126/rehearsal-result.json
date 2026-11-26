@@ -1,0 +1,40 @@
+{
+  "version": "teruisi-sales-subdivision-edits-pg-rehearsal-v1",
+  "status": "passed",
+  "generations": [
+    162,
+    163
+  ],
+  "checks": [
+    "committed163-not-replayed",
+    "exact162-parent",
+    "exact163-catalog-owner-only",
+    "exact163-catalog-provisioned-acl",
+    "excess-grant-rejected",
+    "missing-table-rejected-and-rolled-back",
+    "new-tables-empty",
+    "old-rows-and-ACL-preserved",
+    "reader-writer-privileges-enforced",
+    "step-applied-by-real-gate"
+  ],
+  "productionTouched": false,
+  "fullBackupOrRestorePerformed": false,
+  "database": {
+    "name": "teruisi_sales_subdivision_edits_rehearsal",
+    "user": "sub163_fixture",
+    "port": 55542,
+    "serverVersionNumber": 170011
+  },
+  "applyStepsSeconds": 2.548,
+  "totalSeconds": 44.05,
+  "syntheticSalesRows": 300,
+  "migrationSha256": "c99f521b7ef5075407d22ab8254d71d7a23011bc6064b8371c33b53b1de0bdca",
+  "catalogSha256": "b5b1d944fc86321be43d97f9e52e2fa340581e6d4969be3935cdd3f3141cf3c4",
+  "cleanup": {
+    "started": true,
+    "stopped": true,
+    "privateDataRemoved": true,
+    "passwordFileRemoved": true,
+    "childExitZero": true
+  }
+}

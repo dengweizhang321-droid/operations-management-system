@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {publishPreparedMain,piWorkspaceImage,piBusinessImage,piNativeImage,releaseLeaseTtlMs} from '../tools/publish-prepared-main.mjs';
-import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema,workflowAutomationSchema,aiTaskFeedbackCandidatesSchema,aiUnifiedTasksSchema,opsQueryIndexSchema} from '../tools/main-schema-release.mjs';
+import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema,workflowAutomationSchema,aiTaskFeedbackCandidatesSchema,aiUnifiedTasksSchema,opsQueryIndexSchema,salesSubdivisionEditsSchema} from '../tools/main-schema-release.mjs';
 import {classifyRelease} from '../tools/release-scope-plan.mjs';
 
 async function fixture(t,components=['worker'],failAt=null){
@@ -846,6 +846,19 @@ test('OpsQueryIndex installs three indexes with no role provisioning, no Pi upgr
  f.events.length=0;
  const result=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
  assert.deepEqual(calls,[]);assert.equal(result.schemaReceipt.finalized.result.migrationCount,162);
+ assert.ok(f.events.indexOf('Install')<f.events.indexOf('Finalize'));
+ assert.ok(!f.events.includes('ProvisionRoles'));assert.ok(!f.events.includes('UpgradePi'));
+});
+
+test('SalesSubdivisionEdits installs two empty tables with no role provisioning step, no Pi upgrade and finalizes at generation 163',async t=>{
+ const f=await migrationFixture(t,null,salesSubdivisionEditsSchema),native=f.context.runStep,calls=[];
+ f.request.releasePlan.changes=[];
+ f.context.runStep=async args=>{if(args.action==='ProvisionRoles')calls.push(path.basename(args.script));return native(args);};
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ f.events.length=0;
+ const result=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ // The reader/writer ACL is granted by the ordinary Django start, not by a domain ProvisionRoles step.
+ assert.deepEqual(calls,[]);assert.equal(result.schemaReceipt.finalized.result.migrationCount,163);
  assert.ok(f.events.indexOf('Install')<f.events.indexOf('Finalize'));
  assert.ok(!f.events.includes('ProvisionRoles'));assert.ok(!f.events.includes('UpgradePi'));
 });

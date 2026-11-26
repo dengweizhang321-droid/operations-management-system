@@ -14,6 +14,21 @@ sys.path.insert(0, str(ROOT / "tools"))
 import ops_query_index_addition as gate
 import ops_query_index_catalog as catalog
 
+# Later generations add migrations on top of this generation's 162 tree; this generation's checks always run
+# against the exact 162-era migration set, never the current repository head.
+NEWER_MIGRATIONS = frozenset({"backend/sales/migrations/0014_product_subdivision_edits.py"})
+
+
+def copy_era_migrations(destination, *, skip=()):
+    for path in (ROOT / "backend").glob("*/migrations/*.py"):
+        relative = path.relative_to(ROOT).as_posix()
+        if relative in NEWER_MIGRATIONS or relative in skip:
+            continue
+        target = Path(destination) / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+    return Path(destination)
+
 
 class ScriptedCursor:
     """Answers the two statements verify_indexes issues, from a fixed catalogue."""
@@ -118,39 +133,24 @@ class CatalogTests(unittest.TestCase):
 
     def test_source_delta_requires_exactly_the_three_files(self):
         with tempfile.TemporaryDirectory() as tmp:
-            baseline = Path(tmp) / "baseline"
-            for path in (ROOT / "backend").glob("*/migrations/*.py"):
-                relative = path.relative_to(ROOT).as_posix()
-                if relative in gate.FILES:
-                    continue
-                target = baseline / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(path, target)
-            self.assertEqual(len(gate.common.migrations(baseline)) + 3, len(gate.common.migrations(ROOT)))
-            self.assertEqual(gate.source_delta(ROOT, baseline), gate.common.digest(gate.common.migrations(ROOT)))
+            root = copy_era_migrations(Path(tmp) / "root")
+            baseline = copy_era_migrations(Path(tmp) / "baseline", skip=gate.FILES)
+            self.assertEqual(len(gate.common.migrations(baseline)) + 3, len(gate.common.migrations(root)))
+            self.assertEqual(gate.source_delta(root, baseline), gate.common.digest(gate.common.migrations(root)))
             # A baseline that already contains one step, or lacks an unrelated migration, is refused.
             first = sorted(gate.FILES)[0]
             shutil.copyfile(ROOT / first, baseline / first)
             with self.assertRaises(ValueError):
-                gate.source_delta(ROOT, baseline)
+                gate.source_delta(root, baseline)
             (baseline / first).unlink()
             victim = baseline / "backend/sales/migrations/0001_initial.py"
             victim.write_bytes(victim.read_bytes() + b"\n# drift\n")
             with self.assertRaises(ValueError):
-                gate.source_delta(ROOT, baseline)
+                gate.source_delta(root, baseline)
 
     def _roots(self, tmp):
-        """A baseline without the three steps, and a root that is the real repository migrations."""
-        baseline, root = Path(tmp) / "baseline", Path(tmp) / "root"
-        for path in (ROOT / "backend").glob("*/migrations/*.py"):
-            relative = path.relative_to(ROOT).as_posix()
-            for base in (root, baseline):
-                if base is baseline and relative in gate.FILES:
-                    continue
-                target = base / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(path, target)
-        return root, baseline
+        """A baseline without the three steps, and a root that is the exact 162-era repository migrations."""
+        return copy_era_migrations(Path(tmp) / "root"), copy_era_migrations(Path(tmp) / "baseline", skip=gate.FILES)
 
     def test_source_delta_five_exact_cases(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -196,10 +196,7 @@ class RehearsalEvidenceTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        for path in (ROOT / "backend").glob("*/migrations/*.py"):
-            target = self.root / path.relative_to(ROOT)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(path, target)
+        copy_era_migrations(self.root)
         self.file = self.root / gate.REHEARSAL_PATH
         self.file.parent.mkdir(parents=True, exist_ok=True)
         self.original = json.loads((ROOT / gate.REHEARSAL_PATH).read_text(encoding="utf8"))
@@ -214,7 +211,7 @@ class RehearsalEvidenceTests(unittest.TestCase):
         return self.put(value)
 
     def test_committed_result_passes_and_is_bound_to_the_real_migrations(self):
-        self.assertEqual(self.original["migrationSha256"], gate.common.digest(gate.common.migrations(ROOT)))
+        self.assertEqual(self.original["migrationSha256"], gate.common.digest(gate.common.migrations(self.root)))
         gate.verify_rehearsal_evidence(self.root, self.put(self.original))
 
     def test_each_tamper_is_refused(self):
@@ -249,8 +246,11 @@ class RehearsalEvidenceTests(unittest.TestCase):
     def test_only_the_merge_time_digest_gate_calls_it(self):
         hits = sorted(str(p.relative_to(ROOT)).replace("\\", "/") for folder in ("tools", "backend", "docs")
                       for p in (ROOT / folder).rglob("*.py") if "verify_rehearsal_evidence" in p.read_text(encoding="utf8", errors="ignore"))
-        self.assertEqual(hits, ["docs/ops-query-index-20261118/run-mandatory-checks.py", "tools/check_schema_code_digest.py",
-                                "tools/ops_query_index_addition.py"])
+        # Later generations (SalesSubdivisionEdits 163) carry their own copy of the same merge-time-only call.
+        self.assertEqual(hits, ["docs/ops-query-index-20261118/run-mandatory-checks.py",
+                                "docs/subdivision-category-edit-20261126/run-mandatory-checks.py",
+                                "tools/check_schema_code_digest.py", "tools/ops_query_index_addition.py",
+                                "tools/sales_subdivision_edits_addition.py"])
         import ast
         tree = ast.parse((ROOT / "tools/ops_query_index_addition.py").read_text(encoding="utf8"))
         admission = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "admission")

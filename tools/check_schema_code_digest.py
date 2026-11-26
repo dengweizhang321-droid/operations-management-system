@@ -26,6 +26,8 @@ SPECS = {
                             "sales-preflight-index-mandatory-code-checks-v1"),
     "OpsQueryIndex": ("ops_query_index_candidate", (159,), 162,
                       "ops-query-index-mandatory-code-checks-v1"),
+    "SalesSubdivisionEdits": ("sales_subdivision_edits_candidate", (162,), 163,
+                              "sales-subdivision-edits-mandatory-code-checks-v1"),
     "AiUnifiedTasks": ("ai_unified_tasks_candidate", (158,), 159,
                            "ai-unified-tasks-mandatory-code-checks-v1"),
     "AiTaskFeedbackCandidates": ("ai_task_feedback_candidates_candidate", (156,), 158,
@@ -37,7 +39,7 @@ SPECS = {
 # edit cannot retain an old CHECKS source map. Earlier kinds predate that
 # binding and keep their historical, weaker validation mode.
 EXECUTION_MATERIAL_KINDS = {"SalesPreflightIndex", "WorkflowAutomation", "AiTaskFeedbackCandidates", "AiUnifiedTasks",
-                            "OpsQueryIndex"}
+                            "OpsQueryIndex", "SalesSubdivisionEdits"}
 RECIPE_FIELDS = {"version", "additionKind", "fromGeneration", "toGeneration", "steps",
                  "stepFiles", "validation", "validationSha256", "codeSha256"}
 
@@ -152,7 +154,7 @@ def check_recipe(root, recipe_name):
         if kind in EXECUTION_MATERIAL_KINDS:
             if kind == "AiUnifiedTasks":
                 gate.verify_structure_evidence(root, proof)
-            elif kind == "OpsQueryIndex":
+            elif kind in {"OpsQueryIndex", "SalesSubdivisionEdits"}:
                 # Merge-time only: never reached from admission or any release path.
                 gate.verify_rehearsal_evidence(root, proof)
             # These records also bind the new execution material, preventing a

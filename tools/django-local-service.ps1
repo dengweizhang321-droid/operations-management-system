@@ -1825,6 +1825,34 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   # sales_preflight_addition._verify_active_with_base, plus the exact
   # workflow-only delta against this generation's own baseline.
   # Ai158 is a finite schema-only child of the verified Workflow156 parent.
+  # SalesSubdivisionEdits163 is a finite schema-only child of the verified OpsQueryIndex162 parent:
+  # one sales migration creating two empty subdivision edit tables. It is checked before every
+  # older marker, so the parent chain stays fully retained through
+  # sales_subdivision_edits_addition.parent_proof -> ops_query_index_addition._verify_active_with_base,
+  # plus the exact one-migration delta against its own baseline. The ACL is provisioned by the
+  # ordinary Django start, so the gate accepts the owner-only or the exact reviewed ACL.
+  $salesSubdivisionEditsGate = Join-Path $candidateRoot 'tools\sales_subdivision_edits_addition.py'
+  $salesSubdivisionEditsDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('sales-subdivision-edits-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-sales-subdivision-edits-schema-addition-v1' -or $salesSubdivisionEditsDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'sales-subdivision-edits-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $salesSubdivisionEditsGate -PathType Leaf)) {throw 'SalesSubdivisionEdits163 requires its exact verifier'}
+    $salesSubdivisionEditsCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported SalesSubdivisionEdits163 lifecycle operation'}
+    $salesSubdivisionEditsArgs = @($salesSubdivisionEditsGate,$salesSubdivisionEditsCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($salesSubdivisionEditsCommand -ceq 'admission') {$salesSubdivisionEditsArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($salesSubdivisionEditsCommand -ceq 'deployment') {$salesSubdivisionEditsArgs += @('--operation',$IntegrationOperationId)}
+    $salesSubdivisionEditsRun = Invoke-BoundedNativeProcess $Python $salesSubdivisionEditsArgs $candidateRoot
+    if ($salesSubdivisionEditsRun -isnot [pscustomobject] -or $salesSubdivisionEditsRun.ExitCode -isnot [int] -or
+        $salesSubdivisionEditsRun.LaunchFailed -isnot [bool] -or $salesSubdivisionEditsRun.LaunchFailed -or
+        $salesSubdivisionEditsRun.Diagnostic.OutputTruncated -isnot [bool] -or $salesSubdivisionEditsRun.Diagnostic.OutputTruncated -or
+        @($salesSubdivisionEditsRun.Output | Where-Object {$_ -is [string] -and $_.TrimStart().StartsWith('{')}).Count -ne 1) {
+      throw 'SalesSubdivisionEdits163 requires one complete typed native JSON object'
+    }
+    $salesSubdivisionEditsProof = ConvertFrom-UniqueNativeJson $salesSubdivisionEditsRun 'Verify finite SalesSubdivisionEdits163 schema addition'
+    if ($salesSubdivisionEditsProof -isnot [pscustomobject] -or $salesSubdivisionEditsProof.status -isnot [string] -or
+        $salesSubdivisionEditsProof.status -cne 'verified') {throw 'SalesSubdivisionEdits163 schema addition gate refused'}
+    return
+  }
   # OpsQueryIndex162 is a finite schema-only child of the verified Ai159 parent: three
   # ordinary partial indexes in sales, netshop and customer_service, one generation.
   # It is checked before every older marker, so the parent chain stays fully retained
@@ -2340,6 +2368,9 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\sales_subdivision_edits_addition.py",
+      "tools\sales_subdivision_edits_catalog.py",
+      "tools\sales_subdivision_edits_candidate.py",
       "tools\ops_query_index_addition.py",
       "tools\ops_query_index_catalog.py",
       "tools\ops_query_index_candidate.py",

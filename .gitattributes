@@ -74,3 +74,6 @@ tools/worker-local-service.ps1 -text whitespace=cr-at-eol
 
 # OpsQueryIndex 162 delivery evidence is kept verbatim.
 docs/ops-query-index-20261118/*.json -text whitespace=cr-at-eol
+
+# SalesSubdivisionEdits 163 delivery evidence is kept verbatim.
+docs/subdivision-category-edit-20261126/*.json -text whitespace=cr-at-eol

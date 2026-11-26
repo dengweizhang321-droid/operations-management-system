@@ -342,8 +342,13 @@ export const opsQueryIndexDjangoScriptSha256='f42613d8f1582cd7d70a4db780280f58d6
 // appended to the list below; every older generation, including the bytes installed in production, stays registered
 // so forward adoption and rollback both remain admissible. The hash is over the git-stored bytes (UTF-8 BOM + CRLF, -text).
 export const processPriorityNormalizeDjangoScriptSha256='3504c8501c6909ed39dd69cfcd3862462e5b6ff81b7cf41cd87879fb4d945182';
+// SalesSubdivisionEdits 163 (codex/subdivision-category-edit-20261126): finite schema branch, bi-app-adopt selectors and
+// CopyApp members for sales migration 0014 (two empty subdivision edit tables). Candidate-only entry appended to the
+// list below: every older generation, including the bytes installed in production, stays registered so forward
+// adoption and rollback both remain admissible. The hash is over the git-stored bytes (UTF-8 BOM + CRLF, -text).
+export const salesSubdivisionEditsDjangoScriptSha256='26fea33e0afbb46f469665ddcfe1cc7827fa3cf0442e778c7a42d8b1ceaeb050';
 export const piNativeCandidateControllerSha256=Object.freeze({
- 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256,djangoSupervisorRelaunchDjangoScriptSha256,opsQueryIndexDjangoScriptSha256,processPriorityNormalizeDjangoScriptSha256]),
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256,djangoSupervisorRelaunchDjangoScriptSha256,opsQueryIndexDjangoScriptSha256,processPriorityNormalizeDjangoScriptSha256,salesSubdivisionEditsDjangoScriptSha256]),
  'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256,workerStopExitingProcessWorkerScriptSha256,dingTalkObserverRetryWorkerScriptSha256,dingTalkObserverRetryBudgetWorkerScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });
