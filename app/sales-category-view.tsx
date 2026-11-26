@@ -123,7 +123,7 @@ type SubdivisionProduct = {
   productCode: string;
   productName: string;
   erpCategory: string;
-  matchedBy: "manual" | "code" | "name_to_code" | "name" | "none";
+  matchedBy: "manual" | "code" | "name_to_code" | "sales_name_to_code" | "name" | "none";
   netSalesCents: number;
   netQuantity: number;
   grossMarginRate: number;
@@ -159,7 +159,7 @@ type CategorySubdivisionsResponse = {
     shareRate: number | null; yearOverYearRate: number | null; weekOverWeekRate: number | null;
     yearAgoNetSalesCents: number; currentWeekNetSalesCents: number; previousWeekNetSalesCents: number;
   };
-  coverage: Record<"manual" | "code" | "name_to_code" | "name" | "unclassified", { productCount: number; netSalesCents: number }>;
+  coverage: Record<"manual" | "code" | "name_to_code" | "sales_name_to_code" | "name" | "unclassified", { productCount: number; netSalesCents: number }>;
   unclassified: CategoryMetric & { subdivision: string; visible: boolean; products: SubdivisionProduct[]; productsTruncated: boolean };
   details: {
     items: SubdivisionMetric[];
@@ -170,7 +170,7 @@ type CategorySubdivisionsResponse = {
 };
 
 const matchedByLabel: Record<SubdivisionProduct["matchedBy"], string> = {
-  manual: "手动归类", code: "规格代码", name_to_code: "名称转代码", name: "名称兜底（吉客云未找到）", none: "未匹配",
+  manual: "手动归类", code: "规格代码", name_to_code: "名称转代码", sales_name_to_code: "名称转代码（销售明细）", name: "名称兜底（吉客云未找到）", none: "未匹配",
 };
 
 type CategoryGranularity = "day" | "week" | "month";
@@ -518,13 +518,13 @@ function CategorySubdivisionTab({ identity, startDate, endDate, filters, onFilte
       const unclassified = shown.unclassified;
       const coverage = shown.coverage;
       const covered = shown.mapping.coveredCategories.join("、");
-      const mappedProducts = coverage.manual.productCount + coverage.code.productCount + coverage.name_to_code.productCount + coverage.name.productCount;
+      const mappedProducts = coverage.manual.productCount + coverage.code.productCount + coverage.name_to_code.productCount + coverage.sales_name_to_code.productCount + coverage.name.productCount;
       return <>
         <section className="category-kpi-grid">
           <article><span>细分净销售额</span><strong>{formatCurrency(summary.netSalesCents)}</strong><small>共 {formatCount(summary.subdivisionCount)} 个细分，退款以负值参与</small></article>
           <article><span>净销量</span><strong>{formatCount(summary.netQuantity)}</strong><small>退货 {formatCount(summary.returnQuantity)} 件 · 退款 {formatCurrency(summary.refundAmountCents)}</small></article>
           <article><span>毛利额</span><strong>{formatCurrency(summary.grossProfitCents)}</strong><small>毛利率 {formatRate(summary.grossMarginRate)}</small></article>
-          <article><span>已归类货品</span><strong>{formatCount(mappedProducts)}</strong><small>手动 {formatCount(coverage.manual.productCount)} / 规格代码 {formatCount(coverage.code.productCount)} / 名称转代码 {formatCount(coverage.name_to_code.productCount)} / 名称兜底 {formatCount(coverage.name.productCount)}</small></article>
+          <article><span>已归类货品</span><strong>{formatCount(mappedProducts)}</strong><small>手动 {formatCount(coverage.manual.productCount)} / 规格代码 {formatCount(coverage.code.productCount)} / 名称转代码 {formatCount(coverage.name_to_code.productCount + coverage.sales_name_to_code.productCount)} / 名称兜底 {formatCount(coverage.name.productCount)}</small></article>
           <article className={unclassified.visible ? "warning" : ""}><span>未归类货品</span><strong>{formatCount(coverage.unclassified.productCount)}</strong><small>{formatCurrency(unclassified.netSalesCents)} · 相当于已归类净额的 {formatRate(unclassified.shareRate)}</small></article>
         </section>
 
@@ -561,7 +561,7 @@ function CategorySubdivisionTab({ identity, startDate, endDate, filters, onFilte
 
         <section className="category-source-note"><strong>数据来源与口径</strong>
           <span>映射来源：{shown.mapping.sources.map((source) => `${source.fileName}（SHA-256 前 8 位 ${source.sha256.slice(0, 8)}，${formatCount(source.rowCount)} 条）`).join("；")}。</span>
-          <span>按吉客云规格代码归集；只有名称的映射条目先按名称在吉客云货品档案中找到规格代码；档案中找不到的按名称兜底计入；手动归类优先。趋势按日。覆盖分类：{covered}，其中未进映射的货品归“{shown.mapping.unclassifiedLabel}”。</span>
+          <span>按吉客云规格代码归集；只有名称的映射条目先按名称在吉客云货品档案中找规格代码，找不到再到吉客云历史销售明细中按名称精确查找；仍找不到的按名称兜底计入；手动归类优先。趋势按日。覆盖分类：{covered}，其中未进映射的货品归“{shown.mapping.unclassifiedLabel}”。</span>
           <span>同比：{shown.comparisonPeriods.yearAgo.startDate} 至 {shown.comparisonPeriods.yearAgo.endDate}；环比上周：近 7 天 {shown.comparisonPeriods.weekOverWeek.current.startDate} 至 {shown.comparisonPeriods.weekOverWeek.current.endDate}，对比此前 7 天 {shown.comparisonPeriods.weekOverWeek.previous.startDate} 至 {shown.comparisonPeriods.weekOverWeek.previous.endDate}。</span>
           <span>趋势：按日展示最近 {shown.details.trend.periodLimit} 个有数据日；数据截止 {shown.dataCutoffDate ?? "暂无"}。</span></section>
       </>;

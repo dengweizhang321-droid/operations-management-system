@@ -6,6 +6,7 @@ export const SUBDIVISION_MATCH_LABELS: Record<string, string> = {
   manual: "手动归类",
   code: "规格代码",
   name_to_code: "名称转代码",
+  sales_name_to_code: "名称转代码（销售明细）",
   name: "名称兜底（吉客云未找到）",
   none: "未匹配",
 };

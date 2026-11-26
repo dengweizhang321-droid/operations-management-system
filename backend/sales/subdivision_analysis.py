@@ -49,8 +49,8 @@ _SUMMARY_KEYS = {
     "previousWeekNetSalesCents": "previous_week_net_sales_cents",
     "yearAgoNetSalesCents": "year_ago_net_sales_cents",
 }
-_COVERAGE_BUCKETS = ("manual", "code", "name_to_code", "name", "unclassified")
-_CODE_SOURCES = {"manual", "code", "name_to_code"}
+_COVERAGE_BUCKETS = ("manual", "code", "name_to_code", "sales_name_to_code", "name", "unclassified")
+_CODE_SOURCES = {"manual", "code", "name_to_code", "sales_name_to_code"}
 
 
 def candidate_filter(mapping: subdivisions.EffectiveMapping, major: str) -> Q:
