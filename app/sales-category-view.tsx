@@ -2,9 +2,9 @@
 
 import { useAiPageDetails } from "./ai-page-context-provider";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
-import { validCategoryAnalysis, validCategoryDetail } from "@/lib/sales/category-response";
+import { validCategoryAnalysis, validCategoryDetail, validCategorySubdivision } from "@/lib/sales/category-response";
 import { StableReadContent } from "./ui/stable-read-content";
 import type { ReactNode } from "react";
 import Dialog from "./ui/dialog";
@@ -57,6 +57,7 @@ type CategoryAnalysisResponse = {
     source: { primary: string; fallback: string; joinKey: string; unmatchedLabel: string };
   };
   filtersApplied: { dataScope: { mode: "unrestricted" | "restricted" } };
+  subdivisionParents?: string[];
   summary: {
     grossSalesCents: number; refundAmountCents: number; netSalesCents: number;
     positiveQuantity: number; returnQuantity: number; netQuantity: number;
@@ -117,6 +118,39 @@ type CategoryOutletBreakdownResponse = {
   }>;
   pagination: { total: number; returned: number; truncated: boolean; limit: number };
 };
+
+type SubdivisionProduct = {
+  productCode: string;
+  productName: string;
+  matchedBy: "code" | "name" | "none";
+  netSalesCents: number;
+  netQuantity: number;
+  grossMarginRate: number;
+};
+
+type SubdivisionItem = CategoryMetric & {
+  subdivision: string;
+  products: SubdivisionProduct[];
+  productsTruncated: boolean;
+};
+
+type CategorySubdivisionResponse = {
+  range: { startDate: string; endDate: string; endExclusive: string; timezone: string };
+  category: string;
+  dataCutoffDate: string | null;
+  mapping: {
+    source: { fileName: string; sha256: string; rowCount: number };
+    matchOrder: string[];
+    normalization: string;
+    unmatchedLabel: string;
+  };
+  parent: CategoryMetric;
+  coverage: Record<"code" | "name" | "unmatched", { productCount: number; netSalesCents: number }>;
+  items: SubdivisionItem[];
+  outsideParent: { items: Array<{ category: string; productCount: number; netSalesCents: number }>; truncated: boolean };
+};
+
+const matchedByLabel: Record<SubdivisionProduct["matchedBy"], string> = { code: "编码", name: "名称", none: "未匹配" };
 
 type CategoryGranularity = "day" | "week" | "month";
 type SortDirection = "asc" | "desc";
@@ -332,6 +366,15 @@ export default function SalesCategoryView({ identity, startDate, endDate, filter
   const detailKey = JSON.stringify([detailCategory, startDate, endDate, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
+  const [subParents, setSubParents] = useState<string[]>([]);
+  const [subParent, setSubParent] = useState<string | null>(null);
+  const [subData, setSubData] = useState<CategorySubdivisionResponse | null>(null);
+  const [subLoading, setSubLoading] = useState(false);
+  const [subError, setSubError] = useState("");
+  const [subRetry, setSubRetry] = useState(0);
+  const [subExpanded, setSubExpanded] = useState<string[]>([]);
+  const subGenerationRef = useRef(0);
+  const activeSubParent = subParent && subParents.includes(subParent) ? subParent : subParents[0] ?? null;
   const requestGenerationRef = useRef(0);
   const detailRequestGenerationRef = useRef(0);
   useAiPageDetails("sales", {
@@ -389,6 +432,10 @@ export default function SalesCategoryView({ identity, startDate, endDate, filter
         if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
         if (!validCategoryAnalysis(payload, { startDate, endDate, ...urlState })) throw new Error("品类响应不完整，请重试。");
         setResult({ key: requestKey, payload });
+        setSubParents((previous) => {
+          const next = payload.subdivisionParents ?? [];
+          return previous.length === next.length && previous.every((value, index) => value === next[index]) ? previous : next;
+        });
         onFilterOptionsChange?.({ platforms: payload.filterOptions.platforms, shops: payload.filterOptions.outlets, categories: payload.filterOptions.categories });
       } catch (reason) {
         if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
@@ -435,6 +482,46 @@ export default function SalesCategoryView({ identity, startDate, endDate, filter
     })();
     return () => { window.clearTimeout(timeout); controller.abort(); };
   }, [detailCategory, endDate, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery, startDate, detailKey, detailRetry]);
+
+  useEffect(() => {
+    if (!activeSubParent) return;
+    const controller = new AbortController();
+    const generation = ++subGenerationRef.current;
+    const timeout = window.setTimeout(() => {
+      if (controller.signal.aborted || generation !== subGenerationRef.current) return;
+      setSubError("品类细分读取超时，请重试。"); setSubLoading(false); controller.abort();
+    }, 30_000);
+    void (async () => {
+      setSubLoading(true);
+      setSubError("");
+      try {
+        const query = new URLSearchParams({ startDate, endDate, category: activeSubParent });
+        filters.channels.forEach((value) => query.append("channel", value));
+        filters.platforms.forEach((value) => query.append("platform", value));
+        filters.outletKeys.forEach((value) => query.append("outlet", value));
+        if (filters.productQuery.trim()) query.append("productQuery", filters.productQuery.trim());
+        const payload = await requestJson<CategorySubdivisionResponse>(`/api/sales/category-analysis/subdivision?${query}`, { signal: controller.signal });
+        if (!controller.signal.aborted && generation === subGenerationRef.current) {
+          if (!validCategorySubdivision(payload, startDate, endDate, activeSubParent)) throw new Error("品类细分响应不完整，请重试。");
+          setSubData(payload);
+        }
+      } catch (reason) {
+        if (!controller.signal.aborted && generation === subGenerationRef.current) {
+          setSubError(reason instanceof Error ? reason.message : "暂时无法读取品类细分");
+        }
+      } finally {
+        window.clearTimeout(timeout);
+        if (!controller.signal.aborted && generation === subGenerationRef.current) setSubLoading(false);
+      }
+    })();
+    return () => { window.clearTimeout(timeout); controller.abort(); };
+  }, [activeSubParent, endDate, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery, startDate, subRetry]);
+
+  const openSubdivision = (parent: string) => {
+    setSubParent(parent);
+    window.requestAnimationFrame(() => document.getElementById("category-subdivision-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+  const toggleSubdivision = (label: string) => setSubExpanded((values) => values.includes(label) ? values.filter((value) => value !== label) : [...values, label]);
 
   const filterOptions = data?.filterOptions ?? { categories: [], channels: [], platforms: [], outlets: [], totals: { categories: 0, channels: 0, platforms: 0, outlets: 0 }, truncated: false, limit: 200 };
   const hasChannelFilter = filters.channels.length > 0;
@@ -487,9 +574,52 @@ export default function SalesCategoryView({ identity, startDate, endDate, filter
       <CategoryTrend data={data} />
       <section className="panel table-panel category-detail-panel">
         <div className="table-toolbar"><div><h2>品类经营明细</h2><p>同比为去年同期净销售额变化；环比上周按截止日近 7 天对比此前 7 天；退货率按退款金额 ÷ 正向销售额计算。</p></div><span className="soft-tag">显示 {formatCount(data.details.pagination.returned)} / {formatCount(data.details.pagination.total)}{data.details.pagination.truncated ? " · 后续页未加载" : ""}</span></div>
-        <div className="data-table-wrap"><table className="data-table category-detail-table"><thead><tr><th>排名</th><th>品类</th>{sortableColumns.map((column) => <th key={column.key}><button type="button" onClick={() => updateUrlState({ sortBy: column.key, direction: urlState.sortBy === column.key && urlState.direction === "desc" ? "asc" : "desc" })}>{column.label}{urlState.sortBy === column.key ? (urlState.direction === "desc" ? " ↓" : " ↑") : ""}</button></th>)}<th>品类趋势</th><th>详情</th></tr></thead><tbody>{data.details.items.map((item, index) => <tr key={item.category}><td>{(data.details.pagination.page - 1) * data.details.pagination.pageSize + index + 1}</td><td><strong>{item.category}</strong>{item.category === "未分类" && <small className="category-unclassified-tag">需补充映射</small>}</td><td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.netQuantity)}</td><td>{formatRate(item.refundRate)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatCurrency(item.grossProfitCents)}</td><td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td className={comparisonTone(item.yearOverYearRate)} title={`去年同期 ${formatCurrency(item.yearAgoNetSalesCents)}`}>{formatComparison(item.yearOverYearRate)}</td><td className={comparisonTone(item.weekOverWeekRate)} title={`近7天 ${formatCurrency(item.currentWeekNetSalesCents)}；此前7天 ${formatCurrency(item.previousWeekNetSalesCents)}`}>{formatComparison(item.weekOverWeekRate)}</td><td><CategoryDetailTrend item={item} /></td><td><button type="button" className="category-detail-button" onClick={() => setDetailCategory(item.category)}>查看详情</button></td></tr>)}</tbody></table></div>
+        <div className="data-table-wrap"><table className="data-table category-detail-table"><thead><tr><th>排名</th><th>品类</th>{sortableColumns.map((column) => <th key={column.key}><button type="button" onClick={() => updateUrlState({ sortBy: column.key, direction: urlState.sortBy === column.key && urlState.direction === "desc" ? "asc" : "desc" })}>{column.label}{urlState.sortBy === column.key ? (urlState.direction === "desc" ? " ↓" : " ↑") : ""}</button></th>)}<th>品类趋势</th><th>详情</th></tr></thead><tbody>{data.details.items.map((item, index) => <tr key={item.category}><td>{(data.details.pagination.page - 1) * data.details.pagination.pageSize + index + 1}</td><td><strong>{item.category}</strong>{item.category === "未分类" && <small className="category-unclassified-tag">需补充映射</small>}</td><td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.netQuantity)}</td><td>{formatRate(item.refundRate)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatCurrency(item.grossProfitCents)}</td><td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td className={comparisonTone(item.yearOverYearRate)} title={`去年同期 ${formatCurrency(item.yearAgoNetSalesCents)}`}>{formatComparison(item.yearOverYearRate)}</td><td className={comparisonTone(item.weekOverWeekRate)} title={`近7天 ${formatCurrency(item.currentWeekNetSalesCents)}；此前7天 ${formatCurrency(item.previousWeekNetSalesCents)}`}>{formatComparison(item.weekOverWeekRate)}</td><td><CategoryDetailTrend item={item} /></td><td><button type="button" className="category-detail-button" onClick={() => setDetailCategory(item.category)}>查看详情</button>{subParents.includes(item.category) && <button type="button" className="category-detail-button category-subdivision-open" onClick={() => openSubdivision(item.category)}>细分</button>}</td></tr>)}</tbody></table></div>
         <footer className="category-pagination"><span>第 {data.details.pagination.page} 页 · 每页 {data.details.pagination.pageSize} 条</span><div><button type="button" disabled={urlState.page <= 1 || loading} onClick={() => updateUrlState({ page: Math.max(1, urlState.page - 1) })}>上一页</button><button type="button" disabled={!data.details.pagination.truncated || loading} onClick={() => updateUrlState({ page: urlState.page + 1 })}>下一页</button></div></footer>
       </section>
+      {activeSubParent && (() => {
+        const sub = subData && subData.category === activeSubParent ? subData : null;
+        const unmatchedShare = sub && sub.parent.netSalesCents !== 0 ? sub.coverage.unmatched.netSalesCents / sub.parent.netSalesCents : 0;
+        return <section id="category-subdivision-panel" className="panel table-panel category-subdivision-panel" aria-busy={subLoading}>
+          <div className="table-toolbar"><div><span className="eyebrow">CATEGORY SUBDIVISION</span><h2>品类细分</h2><p>按商品编码优先、商品名称次之，把父品类拆分为细分类型；细分合计等于父品类合计，未命中归“未细分”。</p></div>
+            <div className="category-subdivision-controls">
+              <div className="segmented" role="group" aria-label="细分父品类">{subParents.map((parent) => <button key={parent} type="button" className={activeSubParent === parent ? "active" : ""} onClick={() => setSubParent(parent)}>{parent}</button>)}</div>
+              <button type="button" className="row-action" disabled={subLoading} onClick={() => setSubRetry((value) => value + 1)}>刷新细分</button>
+            </div></div>
+          {subError && <div className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>品类细分读取失败</strong><p>{subError}{sub ? "；当前仍显示上一次成功结果。" : ""}</p></div></div>}
+          {!sub ? <div className="table-state" role="status">{subLoading ? "正在汇总品类细分…" : subError ? "品类细分暂不可用，请点击“刷新细分”重试。" : "暂无品类细分数据。"}</div> : <>
+            <div className="category-subdivision-summary">
+              <div><span>{sub.category}净销售额</span><strong>{formatCurrency(sub.parent.netSalesCents)}</strong></div>
+              <div><span>净销量</span><strong>{formatCount(sub.parent.netQuantity)}</strong></div>
+              <div><span>大毛利率</span><strong>{formatRate(sub.parent.grossMarginRate)}</strong></div>
+              <div><span>匹配覆盖</span><strong>编码命中 {formatCount(sub.coverage.code.productCount)} 个 / 名称命中 {formatCount(sub.coverage.name.productCount)} 个 / {sub.mapping.unmatchedLabel} {formatCount(sub.coverage.unmatched.productCount)} 个（占净额 {formatRate(unmatchedShare)}）</strong></div>
+            </div>
+            {sub.outsideParent.items.length > 0 && <section className="category-unclassified-notice" role="note"><span>!</span><div><strong>映射表商品不在“{sub.category}”品类</strong><p>映射表中有 {formatCount(sub.outsideParent.items.reduce((total, item) => total + item.productCount, 0))} 个商品当前不属于“{sub.category}”品类（{sub.outsideParent.items.map((item) => `${item.category} ${formatCurrency(item.netSalesCents)}`).join("、")}{sub.outsideParent.truncated ? " 等" : ""}），未计入细分。</p></div></section>}
+            <div className="data-table-wrap"><table className="data-table category-detail-table category-subdivision-table"><thead><tr><th>细分</th><th>净销售额</th><th>占比</th><th>净销量</th><th>退款金额</th><th>退货率</th><th>订单毛利</th><th>大毛利率</th><th>商品数</th><th>环比上周</th><th>同比</th></tr></thead><tbody>
+              {sub.items.map((item) => {
+                const open = subExpanded.includes(item.subdivision);
+                return <Fragment key={item.subdivision}>
+                  <tr className={item.subdivision === sub.mapping.unmatchedLabel ? "category-subdivision-unmatched" : ""}>
+                    <td><button type="button" className="category-subdivision-toggle" aria-expanded={open} onClick={() => toggleSubdivision(item.subdivision)}>{open ? "▾" : "▸"} <strong>{item.subdivision}</strong></button></td>
+                    <td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.netQuantity)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatRate(item.refundRate)}</td><td>{formatCurrency(item.grossProfitCents)}</td>
+                    <td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td>{formatCount(item.productCount)}</td>
+                    <td className={comparisonTone(item.weekOverWeekRate)} title={`近7天 ${formatCurrency(item.currentWeekNetSalesCents)}；此前7天 ${formatCurrency(item.previousWeekNetSalesCents)}`}>{formatComparison(item.weekOverWeekRate)}</td>
+                    <td className={comparisonTone(item.yearOverYearRate)} title={`去年同期 ${formatCurrency(item.yearAgoNetSalesCents)}`}>{formatComparison(item.yearOverYearRate)}</td>
+                  </tr>
+                  {open && <tr className="category-subdivision-products"><td colSpan={11}>
+                    {item.products.length === 0 ? <p className="muted-text">当前周期没有商品明细。</p> : <table className="data-table"><thead><tr><th>商品编码</th><th>商品名称</th><th>匹配方式</th><th>净销售额</th><th>净销量</th><th>大毛利率</th></tr></thead><tbody>
+                      {item.products.map((product) => <tr key={`${product.productCode}|${product.productName}`}><td>{product.productCode || "—"}</td><td>{product.productName || "—"}</td><td>{matchedByLabel[product.matchedBy]}</td><td>{formatCurrency(product.netSalesCents)}</td><td>{formatCount(product.netQuantity)}</td><td className={product.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(product.grossMarginRate)}</td></tr>)}
+                    </tbody></table>}
+                    {item.productsTruncated && <p className="muted-text">仅显示前 50 个商品。</p>}
+                  </td></tr>}
+                </Fragment>;
+              })}
+              {sub.items.length === 0 && <tr><td colSpan={11}>当前筛选下没有{sub.category}销售数据。</td></tr>}
+            </tbody></table></div>
+            <footer className="category-subdivision-note">映射来源：{sub.mapping.source.fileName}（SHA-256 {sub.mapping.source.sha256.slice(0, 8)}，{formatCount(sub.mapping.source.rowCount)} 条）；编码优先、名称次之，未命中归“{sub.mapping.unmatchedLabel}”；比较时统一全半角、去空白并忽略大小写。</footer>
+          </>}
+        </section>;
+      })()}
     </>}
     <section className="category-source-note"><strong>数据来源与口径</strong><span>品类：ERP 商品主数据优先，销售明细品类兜底，以商品编码关联；未命中归“未分类”。</span><span>销售：吉客云销售单明细账，排除“刷刷仓”；净销量沿用销售总览口径，排除配件、赠品配件、补差价专用和销售行未分类，退货率 = 退款金额 / 正向销售额。</span><span>同比：{data.comparisonPeriods.yearAgo.startDate} 至 {data.comparisonPeriods.yearAgo.endDate}；环比上周：近 7 天 {data.comparisonPeriods.weekOverWeek.current.startDate} 至 {data.comparisonPeriods.weekOverWeek.current.endDate}，对比此前 7 天 {data.comparisonPeriods.weekOverWeek.previous.startDate} 至 {data.comparisonPeriods.weekOverWeek.previous.endDate}。</span><span>品类趋势：按当前{data.details.trend.granularity === "day" ? "日" : data.details.trend.granularity === "week" ? "周" : "月"}粒度展示最近 {data.details.trend.periodLimit} 个有数据周期；数据截止 {data.dataCutoffDate ?? "暂无"}。</span></section>
   </>);

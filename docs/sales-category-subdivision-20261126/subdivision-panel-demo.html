@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>品类细分面板演示（合成数据）</title>
+<style>
+  :root { --bg:#f4f7fb; --panel:#fff; --border:#e1e8f1; --text:#26364d; --muted:#7f8da0; --brand:#3f7be0; --brand-soft:#eaf1fd; --green:#1f9d6b; --orange:#d08435; --red:#d64550; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:24px 16px; background:var(--bg); color:var(--text); font:13px/1.6 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:1100px; margin:0 auto; }
+  .banner { margin-bottom:12px; padding:8px 12px; border:1px dashed var(--orange); border-radius:8px; color:var(--orange); background:#fff8ef; font-size:12px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .toolbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:14px 18px; border-bottom:1px solid var(--border); }
+  .eyebrow { font-size:10px; letter-spacing:.08em; color:var(--brand); }
+  h2 { margin:0; font-size:16px; }
+  .toolbar p { margin:2px 0 0; color:var(--muted); font-size:12px; }
+  .controls { display:flex; gap:10px; align-items:center; }
+  .segmented { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .segmented button { padding:6px 12px; border:0; background:#fff; cursor:pointer; font:inherit; }
+  .segmented button.active { background:var(--brand); color:#fff; }
+  .summary { display:grid; grid-template-columns:repeat(3,1fr) 2.4fr; gap:10px; padding:12px 18px; }
+  .summary span { display:block; color:var(--muted); font-size:11px; }
+  .summary strong { font-size:14px; }
+  .notice { margin:0 18px 12px; padding:10px 12px; border:1px solid #f1d9b5; border-radius:8px; background:#fff8ef; font-size:12px; }
+  .wrap-table { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:9px 12px; border-top:1px solid var(--border); text-align:right; white-space:nowrap; }
+  th:first-child, td:first-child { text-align:left; }
+  th { color:var(--muted); font-weight:500; font-size:12px; background:#fafcfe; }
+  .toggle { border:0; background:none; font:inherit; cursor:pointer; color:inherit; padding:0; }
+  tr.unmatched td { color:var(--muted); }
+  tr.products > td { background:#f8fafd; padding:8px 18px 14px; text-align:left; }
+  tr.products table th, tr.products table td { padding:5px 10px; }
+  .green { color:var(--green); } .orange { color:var(--orange); } .red { color:var(--red); } .muted { color:var(--muted); }
+  .note { padding:10px 18px 14px; color:var(--muted); font-size:11px; line-height:1.6; }
+  @media (max-width:720px) { .summary { grid-template-columns:1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">合成演示数据：以下数字、商品与映射来源均为虚构，仅用于展示“品类细分”面板的布局与交互；本页不请求任何接口。</div>
+  <section class="panel" id="panel"></section>
+</div>
+<script>
+  // 合成演示数据（非真实业务数据）。金额单位：分。
+  const DEMO = {
+    "直饮机": {
+      parent: { net: 128000000, qty: 5210, margin: 0.2462 },
+      coverage: { code: [31, 0], name: [58, 0], unmatched: [9, 0.041] },
+      outside: [{ category: "净水器", count: 3, net: 1860000 }],
+      items: [
+        { name: "柜式触控直饮机", net: 52300000, qty: 1980, refund: 410000, refundRate: 0.012, profit: 13200000, margin: 0.2524, products: 24, wow: 0.062, yoy: 0.184,
+          list: [["DEMO-CM-001", "演示柜式触控直饮机 A", "code", 21000000, 790, 0.26], ["DEMO-CM-002", "演示柜式触控直饮机 B", "name", 16300000, 610, 0.24], ["", "演示柜式触控直饮机 C", "name", 15000000, 580, 0.25]] },
+        { name: "柜式旋钮直饮机", net: 38100000, qty: 1620, refund: 520000, refundRate: 0.019, profit: 8900000, margin: 0.2336, products: 19, wow: -0.031, yoy: 0.052,
+          list: [["DEMO-LT-001", "演示柜式旋钮直饮机 A", "code", 24000000, 1010, 0.24], ["DEMO-LT-002", "演示柜式旋钮直饮机 B", "code", 14100000, 610, 0.22]] },
+        { name: "立式直饮机", net: 27400000, qty: 1180, refund: 280000, refundRate: 0.010, profit: 6900000, margin: 0.2518, products: 15, wow: 0.008, yoy: null,
+          list: [["DEMO-LS-001", "演示立式直饮机 A", "name", 27400000, 1180, 0.25]] },
+        { name: "未细分", net: 10200000, qty: 430, refund: 150000, refundRate: 0.015, profit: 2400000, margin: 0.2353, products: 9, wow: null, yoy: null,
+          list: [["DEMO-XX-001", "演示未匹配商品", "none", 10200000, 430, 0.235]] }
+      ]
+    },
+    "示例父品类（演示）": {
+      parent: { net: 40000000, qty: 900, margin: 0.31 },
+      coverage: { code: [5, 0], name: [4, 0], unmatched: [2, 0.12] },
+      outside: [],
+      items: [
+        { name: "示例细分甲", net: 24000000, qty: 540, refund: 100000, refundRate: 0.008, profit: 7400000, margin: 0.3083, products: 6, wow: 0.02, yoy: 0.11,
+          list: [["DEMO-A-001", "示例商品甲", "code", 24000000, 540, 0.308]] },
+        { name: "示例细分乙", net: 11200000, qty: 260, refund: 60000, refundRate: 0.011, profit: 3500000, margin: 0.3125, products: 3, wow: -0.05, yoy: -0.02,
+          list: [["", "示例商品乙", "name", 11200000, 260, 0.3125]] },
+        { name: "未细分", net: 4800000, qty: 100, refund: 0, refundRate: 0, profit: 1500000, margin: 0.3125, products: 2, wow: null, yoy: null, list: [] }
+      ]
+    }
+  };
+  const money = (c) => new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY", maximumFractionDigits: 0 }).format(c / 100);
+  const num = (v) => new Intl.NumberFormat("zh-CN").format(v);
+  const pct = (v) => (v * 100).toFixed(1) + "%";
+  const cmp = (v) => v === null ? "—" : (v > 0 ? "+" : "") + pct(v);
+  const tone = (v) => v === null || v === 0 ? "muted" : v > 0 ? "green" : "red";
+  const matched = { code: "编码", name: "名称", none: "未匹配" };
+  let parent = Object.keys(DEMO)[0];
+  const expanded = new Set();
+
+  function render() {
+    const d = DEMO[parent];
+    const share = (n) => pct(n / d.parent.net);
+    const rows = d.items.map((it) => {
+      const open = expanded.has(it.name);
+      const head = `<tr class="${it.name === "未细分" ? "unmatched" : ""}">
+        <td><button class="toggle" data-toggle="${it.name}" aria-expanded="${open}">${open ? "▾" : "▸"} <strong>${it.name}</strong></button></td>
+        <td><strong>${money(it.net)}</strong></td><td>${share(it.net)}</td><td>${num(it.qty)}</td><td>${money(it.refund)}</td><td>${pct(it.refundRate)}</td><td>${money(it.profit)}</td>
+        <td class="${it.margin < 0 ? "orange" : "green"}">${pct(it.margin)}</td><td>${num(it.products)}</td><td class="${tone(it.wow)}">${cmp(it.wow)}</td><td class="${tone(it.yoy)}">${cmp(it.yoy)}</td></tr>`;
+      if (!open) return head;
+      const inner = it.list.length ? `<table><thead><tr><th>商品编码</th><th>商品名称</th><th>匹配方式</th><th>净销售额</th><th>净销量</th><th>大毛利率</th></tr></thead><tbody>${it.list.map((p) => `<tr><td>${p[0] || "—"}</td><td>${p[1]}</td><td>${matched[p[2]]}</td><td>${money(p[3])}</td><td>${num(p[4])}</td><td class="green">${pct(p[5])}</td></tr>`).join("")}</tbody></table>` : `<p class="muted">当前周期没有商品明细。</p>`;
+      return head + `<tr class="products"><td colspan="11">${inner}</td></tr>`;
+    }).join("");
+    document.getElementById("panel").innerHTML = `
+      <div class="toolbar"><div><span class="eyebrow">CATEGORY SUBDIVISION</span><h2>品类细分</h2><p>按商品编码优先、商品名称次之拆分父品类；细分合计等于父品类合计，未命中归“未细分”。</p></div>
+        <div class="controls"><div class="segmented" role="group" aria-label="细分父品类">${Object.keys(DEMO).map((k) => `<button data-parent="${k}" class="${k === parent ? "active" : ""}">${k}</button>`).join("")}</div></div></div>
+      <div class="summary">
+        <div><span>${parent}净销售额</span><strong>${money(d.parent.net)}</strong></div>
+        <div><span>净销量</span><strong>${num(d.parent.qty)}</strong></div>
+        <div><span>大毛利率</span><strong>${pct(d.parent.margin)}</strong></div>
+        <div><span>匹配覆盖</span><strong>编码命中 ${d.coverage.code[0]} 个 / 名称命中 ${d.coverage.name[0]} 个 / 未细分 ${d.coverage.unmatched[0]} 个（占净额 ${pct(d.coverage.unmatched[1])}）</strong></div>
+      </div>
+      ${d.outside.length ? `<div class="notice"><strong>映射表商品不在“${parent}”品类</strong>：映射表中有 ${d.outside.reduce((t, o) => t + o.count, 0)} 个商品当前不属于该品类（${d.outside.map((o) => `${o.category} ${money(o.net)}`).join("、")}），未计入细分。</div>` : ""}
+      <div class="wrap-table"><table><thead><tr><th>细分</th><th>净销售额</th><th>占比</th><th>净销量</th><th>退款金额</th><th>退货率</th><th>订单毛利</th><th>大毛利率</th><th>商品数</th><th>环比上周</th><th>同比</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="note">映射来源：演示映射.xlsx（SHA-256 00000000，合成）；编码优先、名称次之，未命中归“未细分”；比较时统一全半角、去空白并忽略大小写。</div>`;
+  }
+  document.getElementById("panel").addEventListener("click", (event) => {
+    const target = event.target.closest("button");
+    if (!target) return;
+    if (target.dataset.parent) { parent = target.dataset.parent; expanded.clear(); }
+    if (target.dataset.toggle) { expanded.has(target.dataset.toggle) ? expanded.delete(target.dataset.toggle) : expanded.add(target.dataset.toggle); }
+    render();
+  });
+  render();
+</script>
+</body>
+</html>

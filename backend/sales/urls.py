@@ -11,6 +11,7 @@ analytics_patterns = [
     path("summary", views.summary, name="sales-summary"),
     path("category-analysis", views.category_analysis, name="sales-category-analysis"),
     path("category-analysis/detail", views.category_detail, name="sales-category-detail"),
+    path("category-analysis/subdivision", views.category_subdivision, name="sales-category-subdivision"),
     path("consumers/query", views.consumer_query, name="sales-consumer-query"),
 ]
 

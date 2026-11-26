@@ -4,10 +4,11 @@ from collections import defaultdict
 from datetime import date
 from typing import Any, Sequence
 
-from django.db.models import BigIntegerField, F, Q, Sum, Value
+from django.db.models import BigIntegerField, Case, F, Q, Sum, Value, When
 from django.db.models.functions import Coalesce, TruncMonth, TruncWeek
 
 from .auth import Principal
+from . import subdivisions
 from .calculation_cache import reuse
 from .query import (
     SalesRequestError,
@@ -81,61 +82,51 @@ def _period_filter(start_date: str, end_date: str) -> Q:
     return Q(business_date__gte=start_date, business_date__lt=add_days(end_date, 1))
 
 
-def _grouped_with_comparisons(
-    params: dict[str, Any], principal: Principal, comparisons: dict[str, Any]
-) -> tuple[list[dict[str, Any]], str]:
-    periods = [
+def _comparison_period_list(params: dict[str, Any], comparisons: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
         {"startDate": params["startDate"], "endDate": params["endDate"]},
         comparisons["weekOverWeek"]["current"],
         comparisons["weekOverWeek"]["previous"],
         comparisons["yearAgo"],
     ]
+
+
+def _comparison_queryset(params: dict[str, Any], principal: Principal, comparisons: dict[str, Any]):
+    periods = _comparison_period_list(params, comparisons)
     start_date = min(period["startDate"] for period in periods)
     end_date = max(period["endDate"] for period in periods)
     queryset, scope_mode = _base(params, principal, start_date, end_date)
     included = Q()
     for period in periods:
         included |= _period_filter(period["startDate"], period["endDate"])
+    return queryset.filter(included), scope_mode
+
+
+def _comparison_aggregates(params: dict[str, Any], comparisons: dict[str, Any]) -> dict[str, Any]:
     current_filter = _period_filter(params["startDate"], params["endDate"])
-    queryset = queryset.filter(included)
+
+    def window_sum(period: dict[str, Any]):
+        return Coalesce(
+            Sum("allocated_amount_cents", filter=_period_filter(period["startDate"], period["endDate"])),
+            Value(0),
+            output_field=BigIntegerField(),
+        )
+
+    return {
+        **category_aggregates(filter_q=current_filter),
+        "current_week_net_sales_cents": window_sum(comparisons["weekOverWeek"]["current"]),
+        "previous_week_net_sales_cents": window_sum(comparisons["weekOverWeek"]["previous"]),
+        "year_ago_net_sales_cents": window_sum(comparisons["yearAgo"]),
+    }
+
+
+def _grouped_with_comparisons(
+    params: dict[str, Any], principal: Principal, comparisons: dict[str, Any]
+) -> tuple[list[dict[str, Any]], str]:
+    queryset, scope_mode = _comparison_queryset(params, principal, comparisons)
     rows = list(
         queryset.values("resolved_category")
-        .annotate(
-            **category_aggregates(filter_q=current_filter),
-            current_week_net_sales_cents=Coalesce(
-                Sum(
-                    "allocated_amount_cents",
-                    filter=_period_filter(
-                        comparisons["weekOverWeek"]["current"]["startDate"],
-                        comparisons["weekOverWeek"]["current"]["endDate"],
-                    ),
-                ),
-                Value(0),
-                output_field=BigIntegerField(),
-            ),
-            previous_week_net_sales_cents=Coalesce(
-                Sum(
-                    "allocated_amount_cents",
-                    filter=_period_filter(
-                        comparisons["weekOverWeek"]["previous"]["startDate"],
-                        comparisons["weekOverWeek"]["previous"]["endDate"],
-                    ),
-                ),
-                Value(0),
-                output_field=BigIntegerField(),
-            ),
-            year_ago_net_sales_cents=Coalesce(
-                Sum(
-                    "allocated_amount_cents",
-                    filter=_period_filter(
-                        comparisons["yearAgo"]["startDate"],
-                        comparisons["yearAgo"]["endDate"],
-                    ),
-                ),
-                Value(0),
-                output_field=BigIntegerField(),
-            ),
-        )
+        .annotate(**_comparison_aggregates(params, comparisons))
         .filter(line_count__gt=0)
         .order_by(binary_order("resolved_category"))
     )
@@ -342,6 +333,7 @@ def get_category_analysis(params: dict[str, Any], principal: Principal) -> dict[
             "contributionRateTotal": 0 if total_net == 0 else 1,
         },
         "ranking": ranking,
+        "subdivisionParents": [parent for parent in subdivisions.configured_parents() if any(item["category"] == parent for item in metrics)],
         "trend": {
             "granularity": params["granularity"], "categoryLimit": TREND_CATEGORY_LIMIT, "returned": len(trend_rows),
             "truncated": len(trend_rows) >= 3000,
@@ -417,4 +409,126 @@ def get_category_detail(params: dict[str, Any], principal: Principal) -> dict[st
         "totals": {"netSalesCents": total_net, "platformCount": len(platforms), "shopCount": len(rows)},
         "platforms": platforms,
         "pagination": {"total": total_count, "returned": len(rows), "truncated": len(rows) < total_count, "limit": 500},
+    }
+
+
+SUBDIVISION_PAIR_LIMIT = 5000
+SUBDIVISION_PRODUCT_LIMIT = 50
+SUBDIVISION_OUTSIDE_LIMIT = 20
+
+
+def _subdivision_case(parent: str, pairs: Sequence[tuple[str, str]]):
+    codes: dict[str, set[str]] = defaultdict(set)
+    names: dict[str, set[str]] = defaultdict(set)
+    for code, name in pairs:
+        subdivision, matched_by = subdivisions.resolve(parent, code, name)
+        if matched_by == "code":
+            codes[subdivision].add(code)
+        elif matched_by == "name":
+            names[subdivision].add(name)
+    # Every code branch precedes every name branch so code always wins.
+    whens = [When(product_code__in=sorted(values), then=Value(label)) for label, values in sorted(codes.items())]
+    whens += [When(product_name__in=sorted(values), then=Value(label)) for label, values in sorted(names.items())]
+    return Case(*whens, default=Value(subdivisions.UNMATCHED_LABEL))
+
+
+def _compute_category_subdivision(params: dict[str, Any], principal: Principal, comparisons: dict[str, Any], parent: str) -> dict[str, Any]:
+    parent_params = {**params, "categories": [parent]}
+    union_queryset, scope_mode = _comparison_queryset(parent_params, principal, comparisons)
+    pair_rows = list(union_queryset.order_by().values_list("product_code", "product_name").distinct()[: SUBDIVISION_PAIR_LIMIT + 1])
+    if len(pair_rows) > SUBDIVISION_PAIR_LIMIT:
+        raise SalesRequestError(f"品类细分商品数超过 {SUBDIVISION_PAIR_LIMIT}，暂不支持")
+    case = _subdivision_case(parent, pair_rows)
+    aggregates = _comparison_aggregates(parent_params, comparisons)
+    annotated = union_queryset.annotate(subdivision=case)
+    group_rows = list(annotated.order_by().values("subdivision").annotate(**aggregates).filter(line_count__gt=0))
+    parent_rows = list(union_queryset.order_by().values("resolved_category").annotate(**aggregates).filter(line_count__gt=0))
+    parent_row = {**(parent_rows[0] if parent_rows else {}), "resolved_category": parent}
+    parent_net = int(parent_row.get("net_sales_cents") or 0)
+
+    current_queryset, _ = _base(parent_params, principal)
+    product_rows = list(
+        current_queryset.annotate(subdivision=case).order_by().values("subdivision", "product_code", "product_name")
+        .annotate(**category_aggregates()).filter(line_count__gt=0)
+    )
+    products: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    coverage_keys: dict[str, set[str]] = {key: set() for key in ("code", "name", "unmatched")}
+    coverage_net = {key: 0 for key in coverage_keys}
+    for row in product_rows:
+        code, name = row["product_code"] or "", row["product_name"] or ""
+        _label, matched_by = subdivisions.resolve(parent, code, name)
+        bucket = matched_by or "unmatched"
+        net = int(row["net_sales_cents"] or 0)
+        cost = int(row["cost_amount_cents"] or 0)
+        coverage_keys[bucket].add(code or f"name:{name}")
+        coverage_net[bucket] += net
+        products[row["subdivision"]].append({
+            "productCode": code, "productName": name, "netSalesCents": net,
+            "netQuantity": int(row["net_quantity"] or 0),
+            "grossMarginRate": 0 if net == 0 else (net - cost) / net,
+            "matchedBy": matched_by or "none",
+        })
+
+    items = []
+    for row in group_rows:
+        label = row["subdivision"]
+        metric = _serialize_category({**row, "resolved_category": label}, parent_net)
+        listed = sorted(products.get(label, []), key=lambda p: (-p["netSalesCents"], binary_text_key(p["productCode"]), binary_text_key(p["productName"])))
+        items.append({
+            **metric, "subdivision": label,
+            "products": listed[:SUBDIVISION_PRODUCT_LIMIT], "productsTruncated": len(listed) > SUBDIVISION_PRODUCT_LIMIT,
+        })
+    # Unmatched is always last; others by net sales descending, UTF-8 binary tie-break.
+    items.sort(key=lambda item: (item["subdivision"] == subdivisions.UNMATCHED_LABEL, -item["netSalesCents"], binary_text_key(item["subdivision"])))
+
+    raw_codes, raw_names = subdivisions.raw_entry_values(parent)
+    outside_queryset, _ = _base({**params, "categories": []}, principal)
+    outside_aggregates = category_aggregates()
+    outside_rows = list(
+        outside_queryset.exclude(resolved_category=parent)
+        .filter(Q(product_code__in=raw_codes) | Q(product_name__in=raw_names))
+        .order_by().values("resolved_category")
+        .annotate(net_sales_cents=outside_aggregates["net_sales_cents"], product_count=outside_aggregates["product_count"])
+        .order_by("-net_sales_cents", binary_order("resolved_category"))[: SUBDIVISION_OUTSIDE_LIMIT + 1]
+    )
+    return {
+        "scopeMode": scope_mode,
+        "parent": _serialize_category(parent_row, parent_net),
+        "dataCutoff": str(parent_row["latest_business_date"]) if parent_row.get("latest_business_date") else None,
+        "items": items,
+        "coverage": {key: {"productCount": len(coverage_keys[key]), "netSalesCents": coverage_net[key]} for key in coverage_keys},
+        "outsideParent": {
+            "items": [
+                {"category": row["resolved_category"], "productCount": int(row["product_count"] or 0), "netSalesCents": int(row["net_sales_cents"] or 0)}
+                for row in outside_rows[:SUBDIVISION_OUTSIDE_LIMIT]
+            ],
+            "truncated": len(outside_rows) > SUBDIVISION_OUTSIDE_LIMIT,
+        },
+    }
+
+
+def get_category_subdivision(params: dict[str, Any], principal: Principal) -> dict[str, Any]:
+    _validate_range(params["startDate"], params["endDate"])
+    parent = params["category"].strip()
+    if parent not in subdivisions.configured_parents():
+        raise SalesRequestError("该品类暂无细分配置")
+    comparisons = _comparison_periods(params["startDate"], params["endDate"])
+    scope = {**params, "category": parent, "mapVersion": subdivisions.map_version(parent)}
+    computed = reuse("category-subdivision", scope, principal,
+        lambda: _compute_category_subdivision(params, principal, comparisons, parent))
+    return {
+        "range": {"startDate": params["startDate"], "endDate": params["endDate"], "endExclusive": add_days(params["endDate"], 1), "timezone": "Asia/Shanghai"},
+        "comparisonPeriods": comparisons,
+        "category": parent,
+        "dataCutoffDate": computed["dataCutoff"],
+        "mapping": {
+            "source": subdivisions.map_source(parent),
+            "matchOrder": subdivisions.MATCH_ORDER,
+            "normalization": subdivisions.NORMALIZATION,
+            "unmatchedLabel": subdivisions.UNMATCHED_LABEL,
+        },
+        "parent": computed["parent"],
+        "coverage": computed["coverage"],
+        "items": computed["items"],
+        "outsideParent": computed["outsideParent"],
     }
