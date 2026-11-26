@@ -741,3 +741,37 @@ class SalesAnalysisOptionsState(models.Model):
 
     class Meta:
         db_table = "sales_analysis_options_state"
+
+
+class SalesSubdivisionLabel(models.Model):
+    """Subdivision label edits layered over the static map; deletion is soft."""
+
+    major_category = models.TextField()
+    name = models.TextField()
+    sort_order = models.IntegerField(default=0)
+    is_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.TextField(default="")
+
+    class Meta:
+        db_table = "sales_subdivision_labels"
+        constraints = [
+            models.UniqueConstraint(fields=["major_category", "name"], name="sales_subdivision_label_uniq")
+        ]
+
+
+class SalesProductSubdivisionOverride(models.Model):
+    """Manual product-to-subdivision assignment keyed by the Jackyun spec code."""
+
+    product_code = models.TextField(primary_key=True)
+    major_category = models.TextField()
+    # "" means explicitly unclassified.
+    label = models.TextField(default="")
+    # Static name-only entry replaced when a missing entry is given a code.
+    source_name = models.TextField(default="")
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.TextField(default="")
+
+    class Meta:
+        db_table = "sales_product_subdivision_overrides"

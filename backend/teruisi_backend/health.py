@@ -113,8 +113,13 @@ REQUIRED_SALES_OPTIONS_COLUMNS = {
     "sales_analysis_options": {"id", "platform", "shop", "channel", "first_date", "last_date", "row_count", "entry_json", "entry_digest"},
     "sales_analysis_options_state": {"id", "status", "generation", "directory_digest", "identity_count", "stored_bytes", "source_sales_revision", "reason"},
 }
+REQUIRED_SUBDIVISION_COLUMNS = {
+    "sales_subdivision_labels": {"id", "major_category", "name", "sort_order", "is_deleted", "updated_at"},
+    "sales_product_subdivision_overrides": {"product_code", "major_category", "label", "source_name", "updated_at"},
+}
 REQUIRED_COLUMNS = {
     **REQUIRED_SALES_OPTIONS_COLUMNS,
+    **REQUIRED_SUBDIVISION_COLUMNS,
     "sales_order_lines": {
         "business_date",
         "platform_key",
@@ -877,6 +882,7 @@ ERP_REFERENCE_WRITER_AUTO_ID_TABLES = (
 )
 REQUIRED_WRITER_COLUMNS = {
     **REQUIRED_SALES_OPTIONS_COLUMNS,
+    **REQUIRED_SUBDIVISION_COLUMNS,
     "sales_order_lines": {
         "source_line_key",
         "last_import_batch_id",
@@ -951,6 +957,8 @@ REQUIRED_WRITER_COLUMNS = {
 WRITER_TABLE_PRIVILEGES = {
     "sales_analysis_options": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "sales_analysis_options_state": ("SELECT", "UPDATE"),
+    "sales_subdivision_labels": ("SELECT", "INSERT", "UPDATE"),
+    "sales_product_subdivision_overrides": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "sales_order_lines": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "sales_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "sales_data_revisions": ("SELECT", "INSERT", "UPDATE"),
@@ -982,6 +990,7 @@ WRITER_FORBIDDEN_PROTECTED_TABLE_PRIVILEGES = {
 }
 WRITER_AUTO_ID_TABLES = (
     "sales_analysis_options",
+    "sales_subdivision_labels",
     "sales_order_lines",
     "sales_import_fingerprints",
     "sales_raw_upload_chunks",
@@ -1032,6 +1041,12 @@ def _validate_schema(cursor) -> None:
             raise ReadinessError("projection_schema_missing")
         if not expected_columns.issubset(_column_names(cursor, table)):
             raise ReadinessError("projection_schema_incomplete")
+    if connection.vendor == "postgresql":
+        # The analysis API reads the subdivision edit tables on every request.
+        for table in REQUIRED_SUBDIVISION_COLUMNS:
+            cursor.execute("SELECT has_table_privilege(current_user,%s,'SELECT')", [table])
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("sales_subdivision_privilege_missing")
 
     constraints = connection.introspection.get_constraints(cursor, "sales_order_lines")
     present_indexes = {name for name, value in constraints.items() if value.get("index")}
