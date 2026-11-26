@@ -1,4 +1,5 @@
 import { record, rows, numberFields, stringFields, strings, nullableNumber, pagination } from "./view-response";
+import { SUBDIVISION_MATCH_LABELS, validMajorCategories } from "./product-subdivision-contract";
 
 const fields = ["grossSalesCents", "refundAmountCents", "netSalesCents", "costAmountCents", "positiveQuantity",
   "returnQuantity", "netQuantity", "refundRate", "grossProfitCents", "grossMarginRate", "lineCount", "shareRate"];
@@ -49,22 +50,25 @@ const coverageBucket = (value: unknown) => numberFields(value, ["productCount", 
 
 const subdivisionProduct = (value: unknown) => record(value)
   && stringFields(value, ["productCode", "productName", "erpCategory", "matchedBy"])
-  && ["code", "name", "none"].includes(String(value.matchedBy))
+  && String(value.matchedBy) in SUBDIVISION_MATCH_LABELS
   && numberFields(value, ["netSalesCents", "netQuantity", "grossMarginRate"]);
 
 const subdivisionMetric = (value: unknown) => record(value) && metric(value) && stringFields(value, ["subdivision"])
+  && (value.labelSource === undefined || value.labelSource === "static" || value.labelSource === "custom")
   && typeof value.productsTruncated === "boolean" && rows(value.products, subdivisionProduct);
 
 export function validCategorySubdivisions(value: unknown, expected: {
-  startDate: string; endDate: string; page: number; pageSize: number; granularity: string; sortBy: string; direction: string;
+  startDate: string; endDate: string; page: number; pageSize: number; sortBy: string; direction: string;
 }): boolean {
   if (!record(value) || !range(value.range, expected.startDate, expected.endDate)
     || !record(value.comparisonPeriods)
     || !record(value.mapping) || !strings(value.mapping.coveredCategories) || !strings(value.mapping.matchOrder)
-    || !stringFields(value.mapping, ["normalization", "candidateRule", "unclassifiedLabel"])
+    || !stringFields(value.mapping, ["normalization", "candidateRule", "unclassifiedLabel", "selectedMajorCategory", "configVersion"])
+    || !validMajorCategories(value.mapping.majorCategories)
     || !rows(value.mapping.sources, (item) => stringFields(item, ["fileName", "sha256"]) && numberFields(item, ["rowCount"]))
     || !numberFields(value.summary, [...fields.filter((key) => !["shareRate", "refundRate"].includes(key)), "productCount", "subdivisionCount"])
-    || !record(value.coverage) || !["code", "name", "unclassified"].every((key) => coverageBucket((value.coverage as Record<string, unknown>)[key]))
+    || !record(value.summary) || !nullableNumber(value.summary.shareRate) || !nullableNumber(value.summary.weekOverWeekRate) || !nullableNumber(value.summary.yearOverYearRate)
+    || !record(value.coverage) || !["manual", "code", "name_to_code", "name", "unclassified"].every((key) => coverageBucket((value.coverage as Record<string, unknown>)[key]))
     || !record(value.unclassified) || !subdivisionMetric(value.unclassified) || typeof value.unclassified.visible !== "boolean"
     || !record(value.details) || !rows(value.details.items, (item) => subdivisionMetric(item) && record(item) && record(item.trend)
       && rows(item.trend.points, (point) => stringFields(point, ["period"]) && numberFields(point, ["netSalesCents"]))
@@ -72,7 +76,7 @@ export function validCategorySubdivisions(value: unknown, expected: {
     || !pagination(value.details.pagination, (value.details.items as unknown[]).length) || !record(value.details.pagination)
     || value.details.pagination.page !== expected.page || value.details.pagination.pageSize !== expected.pageSize
     || !record(value.details.sort) || value.details.sort.by !== expected.sortBy || value.details.sort.direction !== expected.direction
-    || !record(value.details.trend) || value.details.trend.granularity !== expected.granularity || !numberFields(value.details.trend, ["periodLimit"])) return false;
+    || !record(value.details.trend) || !numberFields(value.details.trend, ["periodLimit"])) return false;
   const comparisons = value.comparisonPeriods;
   return stringFields(comparisons.yearAgo, ["startDate", "endDate"]) && record(comparisons.weekOverWeek)
     && stringFields(comparisons.weekOverWeek.current, ["startDate", "endDate"]) && stringFields(comparisons.weekOverWeek.previous, ["startDate", "endDate"]);
