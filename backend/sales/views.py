@@ -15,8 +15,10 @@ from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
 from .auth import PrincipalEnvelopeError, verify_principal
-from .category import get_category_analysis, get_category_detail, get_category_subdivision
+from .category import get_category_analysis, get_category_detail
 from .consumers import execute_consumer_query, parse_consumer_body
+from .subdivision_analysis import get_subdivision_analysis
+from .subdivision_mapping import get_product_subdivisions
 from .netshop_periods import NetshopPeriodsError
 from .query import (
     SalesAccessError,
@@ -294,13 +296,43 @@ def category_detail(request: HttpRequest) -> JsonResponse:
 
 
 @require_GET
-def category_subdivision(request: HttpRequest) -> JsonResponse:
+def category_subdivisions(request: HttpRequest) -> JsonResponse:
     def execute(inner: HttpRequest) -> JsonResponse:
         principal, params = _category_common(inner)
-        params["category"] = _first(inner.GET, "category", "") or ""
-        payload, stable_revision, _cache_status = _consistent_read(lambda: get_category_subdivision(
+        direction = _first(inner.GET, "direction", "desc") or "desc"
+        if direction not in {"asc", "desc"}:
+            raise SalesRequestError("direction 必须是 asc 或 desc")
+        params.update(
+            {
+                "granularity": _first(inner.GET, "granularity", "day") or "day",
+                "sortBy": _first(inner.GET, "sortBy", "netSalesCents") or "netSalesCents",
+                "direction": direction,
+                "page": _bounded_integer(_first(inner.GET, "page"), 1, "page", 10_000),
+                "pageSize": _bounded_integer(_first(inner.GET, "pageSize"), 20, "pageSize", 100),
+            }
+        )
+        payload, stable_revision, _cache_status = _consistent_read(lambda: get_subdivision_analysis(
             {**params, "productCodes": resolve_product_codes(params["productQueries"], principal)}, principal
         ), lambda: _cache_identity(inner, principal))
+        return _json(payload, revision=stable_revision)
+
+    return _handle(execute, request)
+
+
+@require_GET
+def product_subdivisions(request: HttpRequest) -> JsonResponse:
+    def execute(inner: HttpRequest) -> JsonResponse:
+        principal = _principal(inner)
+        params = {
+            "q": _first(inner.GET, "q", "") or "",
+            "subdivision": _first(inner.GET, "subdivision", "") or "",
+            "status": _first(inner.GET, "status", "all") or "all",
+            "page": _bounded_integer(_first(inner.GET, "page"), 1, "page", 10_000),
+            "pageSize": _bounded_integer(_first(inner.GET, "pageSize"), 20, "pageSize", 100),
+        }
+        payload, stable_revision, _cache_status = _consistent_read(
+            lambda: get_product_subdivisions(params, principal), lambda: _cache_identity(inner, principal)
+        )
         return _json(payload, revision=stable_revision)
 
     return _handle(execute, request)

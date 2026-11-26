@@ -26,12 +26,8 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const startDate = params.get("startDate") ?? "";
     const endDate = params.get("endDate") ?? "";
-    const category = (params.get("category") ?? "").trim();
     if (!isoDatePattern.test(startDate) || !isoDatePattern.test(endDate)) {
       throw new SalesReadRequestError("startDate 和 endDate 必须使用 YYYY-MM-DD");
-    }
-    if (!category || category.length > 100) {
-      throw new SalesReadRequestError("category 不能为空且不能超过 100 字");
     }
     const outlets = selections(params, "outlet", "outlets").map(parseShopFilterKey);
     if (outlets.some((value) => value === null)) {
