@@ -13,12 +13,14 @@ export const SALES_RAW_UPLOADS_PATH = "/api/sales/imports/uploads";
 export const SALES_RAW_UPLOAD_CHUNK_PATH = "/api/sales/imports/uploads/chunk";
 export const SALES_STAGED_IMPORTS_PATH = "/api/sales/imports/staged";
 export const SALES_IMPORT_VERIFY_PATH = "/api/sales/imports/verify";
+export const SALES_PRODUCT_SUBDIVISION_EDITS_PATH = "/api/sales/product-subdivisions/edits";
 
 const WRITER_ONLY_SALES_PATHS = new Set([
   SALES_IMPORT_RECOVERY_PATH,
   SALES_RAW_UPLOADS_PATH,
   SALES_RAW_UPLOAD_CHUNK_PATH,
   SALES_STAGED_IMPORTS_PATH,
+  SALES_PRODUCT_SUBDIVISION_EDITS_PATH,
 ]);
 
 const encoder = new TextEncoder();

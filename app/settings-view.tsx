@@ -598,7 +598,7 @@ export default function SettingsView({
       tabIndex={0}
     >
       <Suspense fallback={<LoadingState>正在加载货品细分映射</LoadingState>}>
-        <LazyProductSubdivisionSettings />
+        <LazyProductSubdivisionSettings canEdit={canEdit} />
       </Suspense>
     </section>}
 

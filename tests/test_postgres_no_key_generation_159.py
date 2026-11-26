@@ -73,6 +73,7 @@ def build_generations():
     import pi_agent_catalog, pi_workspace_catalog, pi_business_catalog, pi_native_catalog
     import sales_preflight_catalog, workflow_automation_catalog
     import ai_task_feedback_candidates_catalog, ai_unified_tasks_catalog, ops_query_index_catalog
+    import sales_subdivision_edits_catalog
     policy = load_policy(ROOT / "config/integration-migration-policy-v3.json")
     generations = {138: list(policy.baseline + policy.steps)}
     stages = [
@@ -84,6 +85,7 @@ def build_generations():
         (152, pi_business_catalog.STEPS), (153, pi_native_catalog.STEPS),
         (154, sales_preflight_catalog.STEPS), (156, workflow_automation_catalog.STEPS),
         (158, ai_task_feedback_candidates_catalog.STEPS), (159, ai_unified_tasks_catalog.STEPS), (162, ops_query_index_catalog.STEPS),
+        (163, sales_subdivision_edits_catalog.STEPS),
     ]
     previous = 138
     for generation, steps in stages:
@@ -104,7 +106,7 @@ class NoKeyGeneration159Tests(unittest.TestCase):
 
     def test_catalog_steps_match_documented_generation_deltas(self):
         g = self.generations
-        self.assertEqual(sorted(g), [138, 139, 140, 142, 143, 146, 147, 148, 149, 150, 151, 152, 153, 154, 156, 158, 159, 162])
+        self.assertEqual(sorted(g), [138, 139, 140, 142, 143, 146, 147, 148, 149, 150, 151, 152, 153, 154, 156, 158, 159, 162, 163])
         for generation, steps in g.items():
             self.assertEqual(len(steps), generation, generation)
             self.assertEqual(len(set(steps)), len(steps), generation)
@@ -114,6 +116,7 @@ class NoKeyGeneration159Tests(unittest.TestCase):
         self.assertEqual(g[162][159:], ["sales.0013_customer_service_online_spec_index",
                                         "netshop.0005_market_projection_page_index",
                                         "customer_service.0003_ai_analyzed_at_index"])
+        self.assertEqual(g[163][162:], ["sales.0014_product_subdivision_edits"])
 
     def test_real_powershell_accepts_exact_generations_and_rejects_the_rest(self):
         g = self.generations
@@ -143,6 +146,16 @@ class NoKeyGeneration159Tests(unittest.TestCase):
         }.items():
             cases.append({"label": label, "accepted": False, "evidence": evidence(steps)})
         cases.append({"label": "162-table-count-159", "accepted": False, "evidence": evidence(g162, 159)})
+        g163 = g[163]
+        for label, steps in {
+            "163-without-sales0014": g162 + ["ai_assistant.0091_unknown"],
+            "163-duplicate-sales0014": g163 + [g163[-1]],
+            "163-unknown-0091": g163 + ["ai_assistant.0091_unknown"],
+            "159-plus-sales0014-without-index-steps": g159 + [g163[162]],
+            "163-without-netshop0005": [x for x in g163 if x != "netshop.0005_market_projection_page_index"] + ["ai_assistant.0091_unknown"],
+        }.items():
+            cases.append({"label": label, "accepted": False, "evidence": evidence(steps)})
+        cases.append({"label": "163-table-count-162", "accepted": False, "evidence": evidence(g163, 162)})
         expected = {c["label"]: c["accepted"] for c in cases}
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp)
@@ -163,7 +176,7 @@ class NoKeyGeneration159Tests(unittest.TestCase):
     def test_powershell_allowed_set_equals_python_exact_generations(self):
         py = BACKUP_PY.read_text(encoding="utf-8")
         found = {int(n) for n in re.findall(r"^\s*(?:generation|parent)(\d+)\s*=\s*sorted\(", py, re.M)}
-        self.assertGreaterEqual(len(found), 16, "提取器失效：只找到 " + str(sorted(found)))
+        self.assertGreaterEqual(len(found), 17, "提取器失效：只找到 " + str(sorted(found)))
         expected = found | {138, 139}
         ps = PS_SCRIPT.read_text(encoding="utf-8-sig")
         m = re.search(r"\(\$generation -cnotin @\(((?:\d+,)*\d+)\)\)", ps)

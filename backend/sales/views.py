@@ -17,6 +17,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .auth import PrincipalEnvelopeError, verify_principal
 from .category import get_category_analysis, get_category_detail
 from .consumers import execute_consumer_query, parse_consumer_body
+from . import subdivisions
 from .subdivision_analysis import get_subdivision_analysis
 from .subdivision_mapping import get_product_subdivisions
 from .netshop_periods import NetshopPeriodsError
@@ -75,6 +76,12 @@ def _cache_identity(request: HttpRequest, principal) -> str:
         default=str,
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _subdivision_cache_identity(request: HttpRequest, principal) -> str:
+    # The page response depends on the editable subdivision layer; read its digest on
+    # every request so an edit is visible immediately despite the shared HTTP cache.
+    return f"{_cache_identity(request, principal)}:{subdivisions.config_digest()}"
 
 
 def _consistent_read(loader: Callable[[], object], cache_identity: str | Callable[[], str]) -> tuple[object, str, str]:
@@ -304,16 +311,19 @@ def category_subdivisions(request: HttpRequest) -> JsonResponse:
             raise SalesRequestError("direction 必须是 asc 或 desc")
         params.update(
             {
-                "granularity": _first(inner.GET, "granularity", "day") or "day",
+                # granularity is accepted but ignored (the trend is always daily), so cached old pages keep working.
+                "majorCategory": (_first(inner.GET, "majorCategory", "") or "").strip(),
                 "sortBy": _first(inner.GET, "sortBy", "netSalesCents") or "netSalesCents",
                 "direction": direction,
                 "page": _bounded_integer(_first(inner.GET, "page"), 1, "page", 10_000),
                 "pageSize": _bounded_integer(_first(inner.GET, "pageSize"), 20, "pageSize", 100),
             }
         )
+        if len(params["majorCategory"]) > 40:
+            raise SalesRequestError("majorCategory 不能超过 40 字")
         payload, stable_revision, _cache_status = _consistent_read(lambda: get_subdivision_analysis(
             {**params, "productCodes": resolve_product_codes(params["productQueries"], principal)}, principal
-        ), lambda: _cache_identity(inner, principal))
+        ), lambda: _subdivision_cache_identity(inner, principal))
         return _json(payload, revision=stable_revision)
 
     return _handle(execute, request)
@@ -326,12 +336,13 @@ def product_subdivisions(request: HttpRequest) -> JsonResponse:
         params = {
             "q": _first(inner.GET, "q", "") or "",
             "subdivision": _first(inner.GET, "subdivision", "") or "",
+            "majorCategory": (_first(inner.GET, "majorCategory", "") or "").strip(),
             "status": _first(inner.GET, "status", "all") or "all",
             "page": _bounded_integer(_first(inner.GET, "page"), 1, "page", 10_000),
             "pageSize": _bounded_integer(_first(inner.GET, "pageSize"), 20, "pageSize", 100),
         }
         payload, stable_revision, _cache_status = _consistent_read(
-            lambda: get_product_subdivisions(params, principal), lambda: _cache_identity(inner, principal)
+            lambda: get_product_subdivisions(params, principal), lambda: _subdivision_cache_identity(inner, principal)
         )
         return _json(payload, revision=stable_revision)
 

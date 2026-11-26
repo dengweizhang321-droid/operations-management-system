@@ -118,7 +118,7 @@ jobs:
         # text check: no runtime, database, artifact or lifecycle access.
         run: node --test --test-timeout=30000 tests/schema-addition-enumeration-consistency.test.mjs
 
-      - name: Current schema recipe source bindings (OpsQueryIndex 162)
+      - name: Current schema recipe source bindings (SalesSubdivisionEdits 163)
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # Explicit current recipe only. Historical rehearsal recipes are not
         # silently renewed. Import the real inherited gate; never bind a parent,
@@ -129,7 +129,7 @@ jobs:
           python -m venv .runtime/schema-digest-ci
           .runtime/schema-digest-ci/bin/python -c "from pathlib import Path; import subprocess, sys; pins = [s.strip() for s in Path('backend/requirements.txt').read_text().splitlines() if s.strip().startswith('psycopg[binary]==')]; assert len(pins) == 1, 'Expected one exact psycopg pin'; subprocess.run([sys.executable, '-m', 'pip', 'install', pins[0]], check=True)"
           .runtime/schema-digest-ci/bin/python -B tests/schema-code-digest-static.py
-          .runtime/schema-digest-ci/bin/python -B tools/check_schema_code_digest.py --recipe config/main-schema-releases/ops-query-index-0162.json
+          .runtime/schema-digest-ci/bin/python -B tools/check_schema_code_digest.py --recipe config/main-schema-releases/sales-0014.json
 
       - name: Build (includes type checking)
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}

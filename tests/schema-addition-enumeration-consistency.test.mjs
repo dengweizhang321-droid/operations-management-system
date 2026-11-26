@@ -57,8 +57,8 @@ const MIN = {
   backupGenerations: 13,
   backupCatalogs: 14,
   publishList: 6,
-  psAllowed: 18, // 138,139,140,142,143,146-154,156,158,159,162
-  psFinance: 16, // 140,142,143,146-154,156,158,159,162
+  psAllowed: 19, // 138,139,140,142,143,146-154,156,158,159,162,163
+  psFinance: 17, // 140,142,143,146-154,156,158,159,162,163
 };
 
 // 关系 6（Pi 运行账本权限清单）的显式例外表：kind -> 原因与证据位置（必须是非空文字）。
@@ -1012,21 +1012,21 @@ test('反向 3b：$biApplicationName 链每个 finite[] 代际都有分支', () 
 });
 
 test('反向 8：备份闸允许清单或 finance_erp_targets 清单漏掉某个 toGeneration', () => {
-  const allowedHead = '($generation -cnotin @(138,139,140,142,143,146,147,148,149,150,151,152,153,154,156,158,159,162)';
-  const financeLine = "if ($generation -cin @(140,142,143,146,147,148,149,150,151,152,153,154,156,158,159,162)) { $requiredTables += 'finance_erp_targets' }";
+  const allowedHead = '($generation -cnotin @(138,139,140,142,143,146,147,148,149,150,151,152,153,154,156,158,159,162,163)';
+  const financeLine = "if ($generation -cin @(140,142,143,146,147,148,149,150,151,152,153,154,156,158,159,162,163)) { $requiredTables += 'finance_erp_targets' }";
   assert.ok(s.maintenance.includes(allowedHead), '反向用例找不到允许代际清单原文');
   assert.ok(s.maintenance.includes(financeLine), '反向用例找不到 finance_erp_targets 清单原文');
   // 只从允许清单删最新代：恰好报这一条。
-  const noAllowed = replaceNth(s.maintenance, allowedHead, allowedHead.replace(',162)', ')'));
-  only(checkPsBackupGate({...s, maintenance: noAllowed}), 'generation162', '允许代际清单', 'django-postgres-maintenance.ps1');
+  const noAllowed = replaceNth(s.maintenance, allowedHead, allowedHead.replace(',163)', ')'));
+  only(checkPsBackupGate({...s, maintenance: noAllowed}), 'generation163', '允许代际清单', 'django-postgres-maintenance.ps1');
   // 只从 finance 清单删最新代。
-  const noFinance = replaceNth(s.maintenance, financeLine, financeLine.replace(',162)', ')'));
-  only(checkPsBackupGate({...s, maintenance: noFinance}), 'generation162', 'finance_erp_targets');
+  const noFinance = replaceNth(s.maintenance, financeLine, financeLine.replace(',163)', ')'));
+  only(checkPsBackupGate({...s, maintenance: noFinance}), 'generation163', 'finance_erp_targets');
   // 回到原始 HEAD 的写法（清单止于 154）：必须报出 156、158、159 在两处都缺。
-  const old = replaceNth(replaceNth(s.maintenance, allowedHead, allowedHead.replace(',156,158,159,162)', ')')), financeLine, financeLine.replace(',156,158,159,162)', ')'));
+  const old = replaceNth(replaceNth(s.maintenance, allowedHead, allowedHead.replace(',156,158,159,162,163)', ')')), financeLine, financeLine.replace(',156,158,159,162,163)', ')'));
   const violations = checkPsBackupGate({...s, maintenance: old});
-  assert.equal(violations.length, 8, JSON.stringify(violations));
-  for (const to of [156, 158, 159, 162]) {
+  assert.equal(violations.length, 10, JSON.stringify(violations));
+  for (const to of [156, 158, 159, 162, 163]) {
     hit(violations, 'generation' + to, '允许代际清单');
     hit(violations, 'generation' + to, 'finance_erp_targets');
   }

@@ -205,6 +205,16 @@ def imports(request: HttpRequest) -> JsonResponse:
     return _handle_get(execute, request, {"viewer", "analyst", "operator", "admin"})
 
 
+@require_http_methods(["POST"])
+def product_subdivision_edits(request: HttpRequest) -> JsonResponse:
+    from .subdivision_edits import apply_edit
+
+    def execute(principal: Principal, payload: dict[str, object]) -> tuple[dict[str, object], int]:
+        return apply_edit(principal, payload), 200
+
+    return _handle_write(execute, request)
+
+
 @require_http_methods(["GET", "POST", "PUT"])
 def raw_uploads(request: HttpRequest) -> JsonResponse:
     if request.method == "GET":

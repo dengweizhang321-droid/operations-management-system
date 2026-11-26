@@ -78,7 +78,8 @@ def digest(value):
     return hashlib.sha256(canonical(value)).hexdigest()
 
 
-def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_permissions=True, unified_task_permissions=True):
+def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_permissions=True, unified_task_permissions=True,
+                              subdivision_permissions=True):
     """Exact closed catalogues and schema, never a row-count admission shortcut."""
     _require_django_app_registry()
     from integration_migration_plan import load_policy, LEGACY_CATALOGUE_SHA256, DELTA_STEP
@@ -121,23 +122,28 @@ def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_p
     generation159 = sorted([*generation158, *unified_task_steps])
     from ops_query_index_catalog import STEPS as ops_query_index_steps, verify_indexes as verify_ops_query_indexes
     generation162 = sorted([*generation159, *ops_query_index_steps])
-    ops_query_indexes_installed = receipts == generation162
+    from sales_subdivision_edits_catalog import STEPS as subdivision_edit_steps, verify_tables as verify_subdivision_edit_tables
+    generation163 = sorted([*generation162, *subdivision_edit_steps])
+    subdivision_edits_installed = receipts == generation163
+    # Owner-only is the exact state before the ordinary Django start provisions the ACL.
+    verify_subdivision_edit_tables(cursor, installed=subdivision_edits_installed, permissions=subdivision_permissions)
+    ops_query_indexes_installed = receipts in (generation162, generation163)
     verify_ops_query_indexes(cursor, installed=ops_query_indexes_installed)
-    unified_tasks_installed = receipts in (generation159, generation162)
+    unified_tasks_installed = receipts in (generation159, generation162, generation163)
     verify_unified_task_tables(cursor, installed=unified_tasks_installed,
                               permissions=unified_tasks_installed and unified_task_permissions)
-    feedback_candidates_installed = receipts in (generation158, generation159, generation162)
+    feedback_candidates_installed = receipts in (generation158, generation159, generation162, generation163)
     verify_feedback_candidate_tables(cursor, installed=feedback_candidates_installed,
                                      permissions=feedback_candidates_installed and ai_task_feedback_permissions)
-    workflow_automation_installed = receipts in (generation156, generation158, generation159, generation162)
-    sales_preflight_installed = receipts in (generation154, generation156, generation158, generation159, generation162)
+    workflow_automation_installed = receipts in (generation156, generation158, generation159, generation162, generation163)
+    sales_preflight_installed = receipts in (generation154, generation156, generation158, generation159, generation162, generation163)
     verify_index(cursor, installed=sales_preflight_installed)
     verify_workflow_automation_tables(cursor, installed=workflow_automation_installed,
                                       permissions=workflow_automation_installed)
-    native_installed = receipts in (generation153, generation154, generation156, generation158, generation159, generation162)
-    business_installed = receipts in (generation152, generation153, generation154, generation156, generation158, generation159, generation162)
-    workspace_installed = receipts in (generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162)
-    pi_installed = receipts in (generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162)
+    native_installed = receipts in (generation153, generation154, generation156, generation158, generation159, generation162, generation163)
+    business_installed = receipts in (generation152, generation153, generation154, generation156, generation158, generation159, generation162, generation163)
+    workspace_installed = receipts in (generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162, generation163)
+    pi_installed = receipts in (generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162, generation163)
     verify_pi_catalog(cursor, installed=pi_installed, permissions=pi_installed and jd_permissions, workspace=workspace_installed, business=business_installed, native=native_installed)
     if pi_installed:
         verify_workspace_catalog(cursor, installed=workspace_installed, permissions=workspace_installed and jd_permissions, business=business_installed, native=native_installed)
@@ -145,9 +151,9 @@ def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_p
         verify_business_catalog(cursor, installed=business_installed, permissions=business_installed and (native_installed or jd_permissions), native=native_installed)
     if business_installed:
         verify_native_catalog(cursor, installed=native_installed, permissions=native_installed and (sales_preflight_installed or jd_permissions))
-    tmall_installed = receipts in (generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162)
+    tmall_installed = receipts in (generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162, generation163)
     verify_tmall_catalog(cursor, installed=tmall_installed, permissions=tmall_installed and jd_permissions)
-    monitoring_installed = receipts in (generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162)
+    monitoring_installed = receipts in (generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162, generation163)
     preferences_installed = receipts == generation147
     jd_installed = receipts == generation146
     if monitoring_installed:
@@ -156,7 +162,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_p
         verify_preferences_catalog(cursor, permissions=jd_permissions)
     else:
         verify_jd_catalog(cursor, installed=jd_installed, permissions=jd_installed and jd_permissions)
-    schedule_installed = receipts in (generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162)
+    schedule_installed = receipts in (generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162, generation163)
     # A receipt-free/partial 0083 must never be mistaken for an old backup.
     # This read-only catalogue has no dependency on adoption finalization.
     verify_schedule_catalog(cursor, installed=schedule_installed)
@@ -179,7 +185,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_p
         from netshop.promotion_presence import verify_cache_catalog
         verify_cache_catalog(cursor)
         return 139
-    if receipts in (parent140, parent142, generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162):
+    if receipts in (parent140, parent142, generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159, generation162, generation163):
         audit_installed = receipts != parent140
         verify_audit_catalog(cursor, installed=audit_installed)
         from netshop.promotion_presence import verify_cache_catalog
@@ -193,7 +199,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_p
         cursor.execute("SELECT t.tgtype,p.proname,t.tgenabled FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid=to_regclass('public.finance_erp_targets') AND t.tgname='finance_erp_target_revision_required' AND NOT t.tgisinternal")
         if cursor.fetchall()!=[(30,"finance_source_mark_revision_required","O")]:
             raise RuntimeError("ERP-goal addition revision guard differs")
-        return 162 if ops_query_indexes_installed else 159 if unified_tasks_installed else 158 if feedback_candidates_installed else 156 if workflow_automation_installed else 154 if sales_preflight_installed else 153 if native_installed else 152 if business_installed else 151 if workspace_installed else 150 if pi_installed else 149 if tmall_installed else 148 if monitoring_installed else 147 if preferences_installed else 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
+        return 163 if subdivision_edits_installed else 162 if ops_query_indexes_installed else 159 if unified_tasks_installed else 158 if feedback_candidates_installed else 156 if workflow_automation_installed else 154 if sales_preflight_installed else 153 if native_installed else 152 if business_installed else 151 if workspace_installed else 150 if pi_installed else 149 if tmall_installed else 148 if monitoring_installed else 147 if preferences_installed else 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
     raise RuntimeError("no-key backup migration catalogue is not a reviewed generation")
 
 

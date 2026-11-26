@@ -34,7 +34,11 @@ export const aiUnifiedTasksSchema={version:'teruisi-main-schema-release-v1',addi
 // 159 -> 162: three independent single-index migrations in three apps, one generation.
 export const opsQueryIndexSchema={version:'teruisi-main-schema-release-v1',additionKind:'OpsQueryIndex',fromGeneration:159,toGeneration:162,steps:['sales.0013_customer_service_online_spec_index','netshop.0005_market_projection_page_index','customer_service.0003_ai_analyzed_at_index']};
 export const opsQueryIndexMigrations=['backend/sales/migrations/0013_customer_service_online_spec_index.py','backend/netshop/migrations/0005_market_projection_page_index.py','backend/customer_service/migrations/0003_ai_analyzed_at_index.py'];
+// 162 -> 163: one sales migration creating two empty subdivision edit tables; ACL is provisioned by the ordinary Django start.
+export const salesSubdivisionEditsSchema={version:'teruisi-main-schema-release-v1',additionKind:'SalesSubdivisionEdits',fromGeneration:162,toGeneration:163,steps:['sales.0014_product_subdivision_edits']};
+export const salesSubdivisionEditsMigrations=['backend/sales/migrations/0014_product_subdivision_edits.py'];
 const finite=[
+ {schema:salesSubdivisionEditsSchema,migrations:salesSubdivisionEditsMigrations,recipe:'config/main-schema-releases/sales-0014.json',binder:'sales_subdivision_edits_candidate.py',evidence:'sales-0014-evidence.json'},
  {schema:opsQueryIndexSchema,migrations:opsQueryIndexMigrations,recipe:'config/main-schema-releases/ops-query-index-0162.json',binder:'ops_query_index_candidate.py',evidence:'ops-query-index-0162-evidence.json'},
  {schema:aiUnifiedTasksSchema,migrations:['backend/ai_assistant/migrations/0090_unified_tasks.py'],recipe:'config/main-schema-releases/ai-0090.json',binder:'ai_unified_tasks_candidate.py',evidence:'ai-0090-evidence.json'},
  {schema:aiTaskFeedbackCandidatesSchema,migrations:aiTaskFeedbackCandidatesMigrations,recipe:'config/main-schema-releases/ai-0088-0089.json',binder:'ai_task_feedback_candidates_candidate.py',evidence:'ai-0088-0089-evidence.json'},

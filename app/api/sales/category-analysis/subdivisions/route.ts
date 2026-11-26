@@ -33,6 +33,9 @@ export async function GET(request: Request) {
     if (outlets.some((value) => value === null)) {
       throw new SalesReadRequestError("outlet 必须使用有效的平台与店铺复合键。");
     }
+    if ((params.get("majorCategory") ?? "").length > 40) {
+      throw new SalesReadRequestError("majorCategory 不能超过 40 字。");
+    }
     selections(params, "channel", "channels");
     selections(params, "platform", "platforms");
     parseProductQueriesStrict([...params.getAll("productQuery"), ...params.getAll("productQueries")]);
