@@ -32,6 +32,7 @@ def _row(code: str, name: str, **extra: Any) -> dict[str, Any]:
 
 def _compute(mapping: subdivisions.EffectiveMapping) -> dict[str, Any]:
     covered_all = mapping.covered_categories()
+    sales_index = subdivisions.sales_name_index()  # one lookup per computation; rows below only read the dicts
     master = subdivisions.master_candidates(
         covered_all, sorted({*mapping.static_codes(), *mapping.manual_codes(), *(i["code"] for i in mapping.sales_lookup())}),
         sorted({name for _code, name, _label, _major in mapping.entries if name}),
@@ -53,7 +54,7 @@ def _compute(mapping: subdivisions.EffectiveMapping) -> dict[str, Any]:
             if major is None:
                 continue
         rows.append(_row(
-            code, name, specification=item["specification"] or "", supplier=subdivisions.supplier_for(code, item["supplier"]),
+            code, name, specification=item["specification"] or "", supplier=subdivisions.supplier_for(code, item["supplier"], sales_index),
             erpCategory=item["category"] or "", productStatus=item["product_status"] or "",
             majorCategory=major, subdivision=label, matchedBy=matched_by or "none",
             status="mapped" if label is not None else "unclassified",
@@ -68,7 +69,7 @@ def _compute(mapping: subdivisions.EffectiveMapping) -> dict[str, Any]:
         label = manual["label"] if manual["label"] and mapping.is_live(manual["major"], manual["label"]) else None
         rows.append(_row(
             manual["code"], manual["sourceName"], majorCategory=manual["major"], subdivision=label, matchedBy="manual",
-            supplier=subdivisions.supplier_for(manual["code"], ""),
+            supplier=subdivisions.supplier_for(manual["code"], "", sales_index),
             status="mapped" if label is not None else "unclassified", overridden=True, sourceName=manual["sourceName"],
         ))
 
@@ -81,7 +82,7 @@ def _compute(mapping: subdivisions.EffectiveMapping) -> dict[str, Any]:
         label, _major, matched = mapping.resolve(item["code"], item["name"])
         label = label if matched == "sales_name_to_code" else None
         rows.append(_row(
-            item["code"], item["name"], supplier=subdivisions.supplier_for(item["code"], ""), majorCategory=item["major"],
+            item["code"], item["name"], supplier=subdivisions.supplier_for(item["code"], "", sales_index), majorCategory=item["major"],
             subdivision=label, matchedBy="sales_name_to_code", status="mapped" if label is not None else "unclassified",
             defaultSubdivision=label,
         ))
@@ -97,11 +98,11 @@ def _compute(mapping: subdivisions.EffectiveMapping) -> dict[str, Any]:
         if code_key:
             if code_key in master_codes or code_key in manual_keys:
                 continue
-            if mapping.has_sales_code(code):
+            if mapping.has_sales_code(code, sales_index):
                 # The archive lacks this code but the sales lines carry it: counted by code, listed from sales.
                 live_label = label if mapping.is_live(major, label) else None
                 rows.append(_row(
-                    code, name, supplier=subdivisions.supplier_for(code, ""), majorCategory=major, subdivision=live_label,
+                    code, name, supplier=subdivisions.supplier_for(code, "", sales_index), majorCategory=major, subdivision=live_label,
                     matchedBy="code", status="mapped" if live_label is not None else "unclassified", defaultSubdivision=live_label,
                 ))
                 continue

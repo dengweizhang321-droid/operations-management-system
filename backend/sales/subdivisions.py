@@ -24,8 +24,10 @@ import hashlib
 import re
 import unicodedata
 import threading
+import time
 from typing import Any
 
+from django.db import connection, transaction
 from django.db.models import Count, Max, Q
 
 from .auth import Principal
@@ -99,7 +101,9 @@ def master_candidates(covered: list[str], codes: list[str], names: list[str]) ->
 
 
 _SALES_INDEX_LOCK = threading.Lock()
-_SALES_INDEX: dict[str, Any] = {"token": None, "value": None}
+_SALES_INDEX: dict[str, Any] = {"token": None, "value": None, "failedToken": None, "failedUntil": 0.0}
+SALES_INDEX_TIMEOUT_MS = 60_000
+SALES_INDEX_FAILURE_BACKOFF_SECONDS = 60
 
 
 def _compute_sales_index() -> tuple[dict[str, frozenset[str]], dict[str, str], frozenset[str]]:
@@ -140,17 +144,49 @@ def sales_name_index() -> tuple[dict[str, frozenset[str]], dict[str, str], froze
     with _SALES_INDEX_LOCK:
         if _SALES_INDEX["token"] == token:
             return _SALES_INDEX["value"]
-    value = _compute_sales_index()
+        if _SALES_INDEX["failedToken"] == token and time.monotonic() < _SALES_INDEX["failedUntil"]:
+            raise SalesRequestError("销售明细名称索引暂时无法计算，请稍后重试")
+    try:
+        value = _compute_with_budget()
+    except Exception:
+        # Back off per revision so a statement timeout is not retried by every request.
+        with _SALES_INDEX_LOCK:
+            _SALES_INDEX["failedToken"] = token
+            _SALES_INDEX["failedUntil"] = time.monotonic() + SALES_INDEX_FAILURE_BACKOFF_SECONDS
+        raise
     with _SALES_INDEX_LOCK:
         _SALES_INDEX["token"], _SALES_INDEX["value"] = token, value
+        _SALES_INDEX["failedToken"] = None
     return value
 
 
-def supplier_for(code: object, erp_supplier: object) -> str:
-    """The archive supplier when non-empty, else the latest non-empty supplier on sales lines of that code."""
+def _compute_with_budget():
+    """Run the full-history scan under a wider statement budget that never leaks to the caller.
+
+    set_config(..., true) is transaction-local; inside an outer transaction the nested atomic is a savepoint,
+    so the previous value is restored explicitly on success (and by the savepoint rollback on failure).
+    """
+    if connection.vendor != "postgresql":
+        return _compute_sales_index()
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT current_setting('statement_timeout')")
+            previous = cursor.fetchone()[0]
+            cursor.execute("SELECT set_config('statement_timeout', %s, true)", [str(SALES_INDEX_TIMEOUT_MS)])
+        value = _compute_sales_index()
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT set_config('statement_timeout', %s, true)", [previous])
+    return value
+
+
+def supplier_for(code: object, erp_supplier: object, index: tuple) -> str:
+    """The archive supplier when non-empty, else the latest non-empty supplier on sales lines of that code.
+
+    ``index`` is the tuple from one ``sales_name_index()`` call made by the caller, so per-row use never queries.
+    """
     if erp_supplier and str(erp_supplier).strip():
         return str(erp_supplier)
-    return sales_name_index()[1].get(str(code or ""), "")
+    return index[1].get(str(code or ""), "")
 
 
 def _build_data() -> dict[str, Any]:
@@ -336,8 +372,9 @@ class EffectiveMapping:
         """Name-only entries resolved to a code through the historical sales lines."""
         return list(self._sales_lookup)
 
-    def has_sales_code(self, code: object) -> bool:
-        return str(code or "") in sales_name_index()[2]
+    @staticmethod
+    def has_sales_code(code: object, index: tuple) -> bool:
+        return str(code or "") in index[2]
 
     def manual_codes(self) -> list[str]:
         return [item["code"] for item in self._manual.values()]
