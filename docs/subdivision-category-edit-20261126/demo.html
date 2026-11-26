@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>品类细分可编辑 · 演示（合成数据）</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --line:#dde3ea; --text:#1d2a36; --muted:#6b7a89; --green:#1f8a64; --red:#c64545; --orange:#d9822b; --soft:#f8fafd; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:20px; background:var(--bg); color:var(--text); font:13px/1.5 -apple-system,"Microsoft YaHei",sans-serif; }
+  .banner { padding:8px 12px; margin-bottom:14px; border:1px dashed var(--orange); border-radius:8px; background:#fff7ec; color:#8a5412; font-weight:700; }
+  .tabs { display:flex; gap:6px; margin-bottom:12px; }
+  .tabs button { padding:7px 14px; border:1px solid var(--line); border-radius:8px; background:var(--card); cursor:pointer; }
+  .tabs button.active { border-color:var(--green); color:var(--green); font-weight:700; }
+  .panel { margin-bottom:12px; padding:14px 16px; border:1px solid var(--line); border-radius:10px; background:var(--card); }
+  h2 { margin:0 0 4px; font-size:15px; } p.note { margin:0; color:var(--muted); font-size:12px; }
+  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px; }
+  select,input { height:30px; padding:0 8px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  .wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; min-width:1180px; }
+  th,td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  th { background:var(--soft); font-weight:700; }
+  th button { padding:0; border:0; background:none; font:inherit; font-weight:700; cursor:pointer; color:inherit; }
+  tfoot td { border-top:2px solid var(--line); background:var(--soft); font-weight:700; }
+  .green { color:var(--green); } .red { color:var(--red); } .orange { color:var(--orange); } .muted { color:var(--muted); }
+  .tag { padding:2px 8px; border-radius:10px; background:#e8f5ef; color:var(--green); font-size:12px; }
+  .st { padding:2px 8px; border-radius:10px; font-size:12px; } .st.ok { background:#e8f5ef; color:var(--green); } .st.warn { background:#fff3e2; color:var(--orange); } .st.bad { background:#fdeaea; color:var(--red); }
+  button.act { padding:3px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; cursor:pointer; }
+  button.primary { padding:4px 12px; border:0; border-radius:6px; background:var(--green); color:#fff; cursor:pointer; }
+  tr.edit td { background:#f4f9f6; white-space:normal; }
+  .editrow { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-top:6px; }
+  small.cell { display:block; color:var(--muted); }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="banner">演示页：以下全部为合成数据，仅展示版式与交互，不代表真实销售或货品。</div>
+<div class="tabs"><button id="t1" class="active">销售分析 › 品类细分</button><button id="t2">系统设置 › 货品细分映射</button></div>
+
+<section id="v1">
+  <div class="panel">
+    <h2>品类细分设置</h2>
+    <p class="note">公共筛选已同步应用；顶部品类多选不作用于品类细分；趋势固定按日（已删除“趋势粒度”）。</p>
+    <div class="controls"><span>大类目</span><select aria-label="大类目"><option>直饮机</option></select><span class="muted">按吉客云规格代码归集，手动归类优先</span></div>
+  </div>
+  <div class="panel">
+    <h2>品类细分明细</h2>
+    <p class="note">点击表头在降序、升序间切换；↕ 表示可排序。合计行是全部细分的合计，不是当前页。</p>
+    <div class="wrap"><table>
+      <thead><tr id="head"></tr></thead>
+      <tbody id="body"></tbody>
+      <tfoot id="foot"></tfoot>
+    </table></div>
+  </div>
+  <p class="note">按吉客云规格代码归集；只有名称的映射条目先按名称在吉客云货品档案中找到规格代码；档案中找不到的按名称兜底计入；手动归类优先。趋势按日。</p>
+</section>
+
+<section id="v2" class="hidden">
+  <div class="panel">
+    <h2>货品细分映射</h2>
+    <p class="note">映射默认来自《直饮机分类规格匹配.xlsx》，可在此手动调整，手动归类优先；规格代码即吉客云货品编号；供应链名称取吉客云货品档案的供应商。</p>
+    <div class="controls">
+      <label>大类目 <select><option>全部大类目</option><option>直饮机</option></select></label>
+      <label>细分名称 <select><option>全部细分</option><option>台式直饮机</option><option>柜式旋钮直饮机</option></select></label>
+      <label>状态 <select><option>全部状态</option></select></label>
+      <label>搜索 <input placeholder="规格代码、名称、供应链、分类或细分"></label>
+    </div>
+  </div>
+  <div class="panel wrap"><table>
+    <thead><tr><th>吉客云规格代码</th><th>货品名称</th><th>规格</th><th>供应链名称</th><th>吉客云分类</th><th>大类目</th><th>细分名称</th><th>匹配方式</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody id="body2"></tbody>
+  </table></div>
+</section>
+
+<script>
+// 合成数据：金额单位为元。
+const subs = [
+  { name:"台式直饮机", net:182000, share:0, qty:420, refundRate:.031, refund:5800, profit:54600, margin:.30, yoy:.12, wow:-.04, count:6, src:"静态" },
+  { name:"柜式旋钮直饮机", net:240500, share:0, qty:515, refundRate:.025, refund:6100, profit:62530, margin:.26, yoy:-.08, wow:.05, count:9, src:"静态" },
+  { name:"柜式触控直饮机", net:96200, share:0, qty:188, refundRate:.044, refund:4300, profit:21160, margin:.22, yoy:null, wow:.11, count:5, src:"静态" },
+  { name:"商用直饮机（自定义）", net:0, share:0, qty:0, refundRate:0, refund:0, profit:0, margin:0, yoy:null, wow:null, count:0, src:"自定义" },
+];
+const total = subs.reduce((a,s)=>a+s.net,0); subs.forEach(s=>s.share = total? s.net/total : 0);
+const cols = [["name","细分"],["net","净销售额"],["share","贡献率"],["qty","净销量"],["refundRate","退货率"],["refund","退款金额"],["profit","毛利额"],["margin","毛利率"],["yoy","同比"],["wow","环比上周"],["count","货品数"]];
+let sortKey="net", dir="desc", editing=null, products=null;
+const money=v=>"¥"+Math.round(v).toLocaleString("zh-CN"), pct=v=>(v*100).toFixed(1)+"%", cmp=v=>v==null?"—":(v>0?"+":"")+pct(v);
+const fmt={name:s=>`<strong>${s.name}</strong>`,net:s=>money(s.net),share:s=>pct(s.share),qty:s=>s.qty,refundRate:s=>pct(s.refundRate),refund:s=>money(s.refund),profit:s=>money(s.profit),margin:s=>pct(s.margin),yoy:s=>cmp(s.yoy),wow:s=>cmp(s.wow),count:s=>s.count};
+function render(){
+  const head=document.getElementById("head");
+  const th=(k,l)=>{const a=sortKey===k;return `<th aria-sort="${a?(dir==="desc"?"descending":"ascending"):"none"}"><button data-k="${k}">${l} ${a?(dir==="desc"?"↓":"↑"):"↕"}</button></th>`};
+  head.innerHTML="<th>排名</th>"+th("name","细分")+cols.slice(1,10).map(c=>th(c[0],c[1])).join("")+"<th>细分趋势</th>"+th("count","货品数")+"<th>操作</th>";
+  head.querySelectorAll("button").forEach(b=>b.onclick=()=>{const k=b.dataset.k;dir=sortKey===k&&dir==="desc"?"asc":"desc";sortKey=k;render();});
+  const rows=[...subs].sort((a,b)=>{ if(sortKey==="name") return (dir==="desc"?-1:1)*a.name.localeCompare(b.name,"zh"); const x=a[sortKey],y=b[sortKey]; if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1; return (dir==="desc"?y-x:x-y); });
+  document.getElementById("body").innerHTML=rows.map((s,i)=>{
+    const open=products===s.name, ed=editing===s.name;
+    let html=`<tr><td>${i+1}</td>`+cols.slice(0,10).map(c=>`<td class="${c[0]==="yoy"||c[0]==="wow"?(s[c[0]]==null?"muted":s[c[0]]>0?"green":"red"):""}">${fmt[c[0]](s)}</td>`).join("")+`<td class="muted">～～～</td><td>${s.count}</td><td><button class="act" data-p="${s.name}">${open?"收起货品":"查看货品"}</button> <button class="act" data-e="${s.name}">${ed?"收起编辑":"编辑"}</button></td></tr>`;
+    if(open) html+=`<tr class="edit"><td colspan="14">合成货品清单：ZG-DEMO-001（规格代码）· 名称转代码 · ¥38,000；ZG-DEMO-002 · 手动归类 · ¥21,500</td></tr>`;
+    if(ed) html+=`<tr class="edit"><td colspan="14">细分：<strong>${s.name}</strong>（${s.src}）<div class="editrow"><button class="act" data-d="${s.name}">删除该细分</button><label>新增细分<br><input id="nl" placeholder="输入新细分名称"></label><button class="primary" id="add">添加</button></div></td></tr>`;
+    return html;
+  }).join("");
+  document.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{products=products===b.dataset.p?null:b.dataset.p;if(editing===b.dataset.p)editing=null;render();});
+  document.querySelectorAll("[data-e]").forEach(b=>b.onclick=()=>{editing=editing===b.dataset.e?null:b.dataset.e;if(products===b.dataset.e)products=null;render();});
+  document.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{const s=subs.find(x=>x.name===b.dataset.d);if(confirm(`确定删除细分“${s.name}”吗？删除后该细分下 ${s.count} 个货品将转为“未归类”，可在系统设置重新归类。（演示：不会真的删除）`)){}});
+  const add=document.getElementById("add"); if(add) add.onclick=()=>{const v=document.getElementById("nl").value.trim(); if(!v)return alert("请输入新细分名称"); subs.push({name:v,net:0,share:0,qty:0,refundRate:0,refund:0,profit:0,margin:0,yoy:null,wow:null,count:0,src:"自定义"}); editing=null; render();};
+  const sum=k=>subs.reduce((a,s)=>a+s[k],0);
+  document.getElementById("foot").innerHTML=`<tr><td>合计</td><td>共 ${subs.length} 个细分</td><td>${money(sum("net"))}</td><td>${total?"100.0%":"—"}</td><td>${sum("qty")}</td><td>${pct(sum("refund")/(sum("net")+sum("refund")))}</td><td>${money(sum("refund"))}</td><td>${money(sum("profit"))}</td><td>${pct(sum("profit")/sum("net"))}</td><td>+3.4%</td><td>+1.2%</td><td></td><td>${sum("count")}</td><td></td></tr>`;
+}
+const rows2=[
+  ["ZG-DEMO-001","志高 DEMO 台式直饮机 A","标准","合成供应商甲","直饮机","直饮机","台式直饮机","规格代码","ok","已归类",false],
+  ["ZG-DEMO-002","志高 DEMO 柜式直饮机 B","白钢","合成供应商乙","直饮机","直饮机","柜式旋钮直饮机","名称转代码","ok","已归类",false],
+  ["MAN-DEMO-9","合成手动归类货品","—","合成供应商丙","其他","直饮机","柜式触控直饮机","手动归类","ok","已归类",true],
+  ["","志高 DEMO 无代码条目（档案未找到）","—","—","—","直饮机","台式直饮机","仍计入：按名称兜底","bad","吉客云未找到",false],
+  ["ZG-DEMO-777","合成未归类直饮机","标准","合成供应商甲","直饮机","直饮机","","未匹配","warn","未归类",false],
+];
+let edit2=null;
+function render2(){
+  document.getElementById("body2").innerHTML=rows2.map((r,i)=>{
+    const ed=edit2===i, needCode=!r[0]&&r[8]==="bad";
+    return `<tr><td>${ed&&needCode?'<input placeholder="必填，规格代码">':(r[0]||"—")}</td><td><strong>${r[1]}</strong></td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td>${ed?`<select><option>未归类</option><option${r[6]==="台式直饮机"?" selected":""}>台式直饮机</option><option${r[6]==="柜式旋钮直饮机"?" selected":""}>柜式旋钮直饮机</option><option${r[6]==="柜式触控直饮机"?" selected":""}>柜式触控直饮机</option></select>`:(r[6]?`<span class="tag">${r[6]}</span>`:"—")+(r[10]?'<small class="cell">默认：未归类</small>':"")}</td><td>${r[7]}</td><td><span class="st ${r[8]}">${r[9]}</span></td><td>${ed?`<button class="primary" data-s="${i}">保存</button> <button class="act" data-c="${i}">取消</button>`:`<button class="act" data-x="${i}">编辑</button>${r[10]?' <button class="act">恢复默认</button>':""}`}</td></tr>`;
+  }).join("");
+  document.querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>{edit2=+b.dataset.x;render2();});
+  document.querySelectorAll("[data-s],[data-c]").forEach(b=>b.onclick=()=>{edit2=null;render2();});
+}
+document.getElementById("t1").onclick=()=>{v1.classList.remove("hidden");v2.classList.add("hidden");t1.classList.add("active");t2.classList.remove("active");};
+document.getElementById("t2").onclick=()=>{v2.classList.remove("hidden");v1.classList.add("hidden");t2.classList.add("active");t1.classList.remove("active");};
+render(); render2();
+</script>
+</body>
+</html>
