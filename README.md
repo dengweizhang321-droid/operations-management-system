@@ -17,7 +17,7 @@
 | 工作范围 | 能力与说明 |
 | --- | --- |
 | BI 看板 | 综合经营驾驶舱、类目、库存、流量及目标展示；[驾驶舱说明](docs/历史记录/性能与发布/bi-cockpit-production-20261006.md) |
-| 销售与网店 | 销售、退款、毛利、财报与目标；店铺、商品、推广及平台对比；[网店分析说明](docs/netshop-refactor/README.md) |
+| 销售与网店 | 销售、退款、毛利、财报与目标（销售分析 · 品类分析含“品类细分”，当前支持直饮机，映射来自《直饮机分类规格匹配》，编码优先、名称次之）；店铺、商品、推广及平台对比；[网店分析说明](docs/netshop-refactor/README.md) |
 | 市场分析 | TOP 榜单、价格、行业汇报与 SKU 图片标注；[分页与查询](docs/使用手册/市场分析/market-query-pagination.md)、[标注与复核](docs/使用手册/市场分析/market-annotation-reliability.md) |
 | 库存与商品 | 库存健康、库龄、广东入仓监控、备货计划及商品经营；[库存管理说明](docs/使用手册/商品库存/inventory-management.md) |
 | 运营事务 | 工作计划、巡店、评价、新品上架、上新跟进和变量配置；[上新跟进与周报](docs/使用手册/运营协同/new-product-weekly-followup.md) |

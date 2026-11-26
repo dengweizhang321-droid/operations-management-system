@@ -15,7 +15,7 @@ from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
 from .auth import PrincipalEnvelopeError, verify_principal
-from .category import get_category_analysis, get_category_detail
+from .category import get_category_analysis, get_category_detail, get_category_subdivision
 from .consumers import execute_consumer_query, parse_consumer_body
 from .netshop_periods import NetshopPeriodsError
 from .query import (
@@ -286,6 +286,19 @@ def category_detail(request: HttpRequest) -> JsonResponse:
         principal, params = _category_common(inner)
         params["category"] = _first(inner.GET, "category", "") or ""
         payload, stable_revision, _cache_status = _consistent_read(lambda: get_category_detail(
+            {**params, "productCodes": resolve_product_codes(params["productQueries"], principal)}, principal
+        ), lambda: _cache_identity(inner, principal))
+        return _json(payload, revision=stable_revision)
+
+    return _handle(execute, request)
+
+
+@require_GET
+def category_subdivision(request: HttpRequest) -> JsonResponse:
+    def execute(inner: HttpRequest) -> JsonResponse:
+        principal, params = _category_common(inner)
+        params["category"] = _first(inner.GET, "category", "") or ""
+        payload, stable_revision, _cache_status = _consistent_read(lambda: get_category_subdivision(
             {**params, "productCodes": resolve_product_codes(params["productQueries"], principal)}, principal
         ), lambda: _cache_identity(inner, principal))
         return _json(payload, revision=stable_revision)

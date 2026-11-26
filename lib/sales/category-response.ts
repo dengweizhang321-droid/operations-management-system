@@ -18,6 +18,7 @@ export function validCategoryAnalysis(value: unknown, expected: {
     || !record(value.structure) || !numberFields(value.structure, ["otherNetSalesCents", "otherShareRate", "contributionRateTotal"])
     || !rows(value.structure.items, (item) => metric(item) && numberFields(item, ["rank"]))
     || !rows(value.ranking, (item) => metric(item) && numberFields(item, ["rank"]))
+    || !(value.subdivisionParents === undefined || strings(value.subdivisionParents))
     || !record(value.trend) || value.trend.granularity !== expected.granularity
     || !rows(value.trend.items, (item) => stringFields(item, ["period", "category"]) && numberFields(item,
       ["netSalesCents", "grossProfitCents", "positiveQuantity", "returnQuantity", "refundAmountCents"]))
@@ -43,4 +44,24 @@ export function validCategoryDetail(value: unknown, start: string, end: string, 
     && rows(value.platforms, (item) => record(item) && stringFields(item, ["platform"]) && numberFields(item, [...fields, "shopCount"])
       && rows(item.shops, (shop) => stringFields(shop, ["shop"]) && numberFields(shop, fields)))
     && pagination(value.pagination) && numberFields(value.pagination, ["limit"]);
+}
+
+const coverageBucket = (value: unknown) => numberFields(value, ["productCount", "netSalesCents"]);
+
+const subdivisionProduct = (value: unknown) => record(value) && stringFields(value, ["productCode", "productName", "matchedBy"])
+  && ["code", "name", "none"].includes(String(value.matchedBy))
+  && numberFields(value, ["netSalesCents", "netQuantity", "grossMarginRate"]);
+
+export function validCategorySubdivision(value: unknown, start: string, end: string, category: string): boolean {
+  if (!record(value) || !range(value.range, start, end) || value.category !== category
+    || !record(value.mapping) || !record(value.mapping.source) || !stringFields(value.mapping.source, ["fileName", "sha256"])
+    || !numberFields(value.mapping.source, ["rowCount"]) || !stringFields(value.mapping, ["normalization", "unmatchedLabel"])
+    || !strings(value.mapping.matchOrder)
+    || !record(value.parent) || !metric(value.parent)
+    || !record(value.coverage) || !["code", "name", "unmatched"].every((key) => coverageBucket((value.coverage as Record<string, unknown>)[key]))
+    || !rows(value.items, (item) => record(item) && metric(item) && stringFields(item, ["subdivision"])
+      && typeof item.productsTruncated === "boolean" && rows(item.products, subdivisionProduct))
+    || !record(value.outsideParent) || typeof value.outsideParent.truncated !== "boolean"
+    || !rows(value.outsideParent.items, (item) => stringFields(item, ["category"]) && numberFields(item, ["productCount", "netSalesCents"]))) return false;
+  return true;
 }

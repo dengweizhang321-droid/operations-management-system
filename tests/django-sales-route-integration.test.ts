@@ -7,6 +7,7 @@ const migratedRoutes = [
   "app/api/sales/summary/route.ts",
   "app/api/sales/category-analysis/route.ts",
   "app/api/sales/category-analysis/detail/route.ts",
+  "app/api/sales/category-analysis/subdivision/route.ts",
 ];
 
 test("all public sales analysis routes use the Django-only signed gateway", async () => {
