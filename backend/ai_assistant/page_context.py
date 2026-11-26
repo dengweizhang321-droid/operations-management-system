@@ -16,7 +16,7 @@ VIEWS = {
     "inventory": {"overview", "age", "plan", "stale", "inbound", "tmall_warehouse", "guangdong"},
     "product": {"overview", "calculator"},
     "workflow": {"plan", "inspection", "reviews", "launch", "launch-followup", "variables"},
-    "import": {"files", "history", "chains", "continuity"}, "settings": {"parameters", "master", "warehouses", "dingtalk", "backups", "permissions"},
+    "import": {"files", "history", "chains", "continuity"}, "settings": {"parameters", "master", "warehouses", "subdivisions", "dingtalk", "backups", "permissions"},
     "ai": {"assistant", "agents", "memory", "sandbox", "space", "management", "scheduled", "configuration", "reports", "skills", "pipelines"},
 }
 FILTERS = {

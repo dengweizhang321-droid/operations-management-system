@@ -18,7 +18,6 @@ export function validCategoryAnalysis(value: unknown, expected: {
     || !record(value.structure) || !numberFields(value.structure, ["otherNetSalesCents", "otherShareRate", "contributionRateTotal"])
     || !rows(value.structure.items, (item) => metric(item) && numberFields(item, ["rank"]))
     || !rows(value.ranking, (item) => metric(item) && numberFields(item, ["rank"]))
-    || !(value.subdivisionParents === undefined || strings(value.subdivisionParents))
     || !record(value.trend) || value.trend.granularity !== expected.granularity
     || !rows(value.trend.items, (item) => stringFields(item, ["period", "category"]) && numberFields(item,
       ["netSalesCents", "grossProfitCents", "positiveQuantity", "returnQuantity", "refundAmountCents"]))
@@ -48,20 +47,33 @@ export function validCategoryDetail(value: unknown, start: string, end: string, 
 
 const coverageBucket = (value: unknown) => numberFields(value, ["productCount", "netSalesCents"]);
 
-const subdivisionProduct = (value: unknown) => record(value) && stringFields(value, ["productCode", "productName", "matchedBy"])
+const subdivisionProduct = (value: unknown) => record(value)
+  && stringFields(value, ["productCode", "productName", "erpCategory", "matchedBy"])
   && ["code", "name", "none"].includes(String(value.matchedBy))
   && numberFields(value, ["netSalesCents", "netQuantity", "grossMarginRate"]);
 
-export function validCategorySubdivision(value: unknown, start: string, end: string, category: string): boolean {
-  if (!record(value) || !range(value.range, start, end) || value.category !== category
-    || !record(value.mapping) || !record(value.mapping.source) || !stringFields(value.mapping.source, ["fileName", "sha256"])
-    || !numberFields(value.mapping.source, ["rowCount"]) || !stringFields(value.mapping, ["normalization", "unmatchedLabel"])
-    || !strings(value.mapping.matchOrder)
-    || !record(value.parent) || !metric(value.parent)
-    || !record(value.coverage) || !["code", "name", "unmatched"].every((key) => coverageBucket((value.coverage as Record<string, unknown>)[key]))
-    || !rows(value.items, (item) => record(item) && metric(item) && stringFields(item, ["subdivision"])
-      && typeof item.productsTruncated === "boolean" && rows(item.products, subdivisionProduct))
-    || !record(value.outsideParent) || typeof value.outsideParent.truncated !== "boolean"
-    || !rows(value.outsideParent.items, (item) => stringFields(item, ["category"]) && numberFields(item, ["productCount", "netSalesCents"]))) return false;
-  return true;
+const subdivisionMetric = (value: unknown) => record(value) && metric(value) && stringFields(value, ["subdivision"])
+  && typeof value.productsTruncated === "boolean" && rows(value.products, subdivisionProduct);
+
+export function validCategorySubdivisions(value: unknown, expected: {
+  startDate: string; endDate: string; page: number; pageSize: number; granularity: string; sortBy: string; direction: string;
+}): boolean {
+  if (!record(value) || !range(value.range, expected.startDate, expected.endDate)
+    || !record(value.comparisonPeriods)
+    || !record(value.mapping) || !strings(value.mapping.coveredCategories) || !strings(value.mapping.matchOrder)
+    || !stringFields(value.mapping, ["normalization", "candidateRule", "unclassifiedLabel"])
+    || !rows(value.mapping.sources, (item) => stringFields(item, ["fileName", "sha256"]) && numberFields(item, ["rowCount"]))
+    || !numberFields(value.summary, [...fields.filter((key) => !["shareRate", "refundRate"].includes(key)), "productCount", "subdivisionCount"])
+    || !record(value.coverage) || !["code", "name", "unclassified"].every((key) => coverageBucket((value.coverage as Record<string, unknown>)[key]))
+    || !record(value.unclassified) || !subdivisionMetric(value.unclassified) || typeof value.unclassified.visible !== "boolean"
+    || !record(value.details) || !rows(value.details.items, (item) => subdivisionMetric(item) && record(item) && record(item.trend)
+      && rows(item.trend.points, (point) => stringFields(point, ["period"]) && numberFields(point, ["netSalesCents"]))
+      && nullableNumber(item.trend.changeRate) && ["up", "down", "flat", "insufficient"].includes(String(item.trend.direction)))
+    || !pagination(value.details.pagination, (value.details.items as unknown[]).length) || !record(value.details.pagination)
+    || value.details.pagination.page !== expected.page || value.details.pagination.pageSize !== expected.pageSize
+    || !record(value.details.sort) || value.details.sort.by !== expected.sortBy || value.details.sort.direction !== expected.direction
+    || !record(value.details.trend) || value.details.trend.granularity !== expected.granularity || !numberFields(value.details.trend, ["periodLimit"])) return false;
+  const comparisons = value.comparisonPeriods;
+  return stringFields(comparisons.yearAgo, ["startDate", "endDate"]) && record(comparisons.weekOverWeek)
+    && stringFields(comparisons.weekOverWeek.current, ["startDate", "endDate"]) && stringFields(comparisons.weekOverWeek.previous, ["startDate", "endDate"]);
 }
