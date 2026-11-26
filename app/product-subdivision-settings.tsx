@@ -168,7 +168,7 @@ export default function ProductSubdivisionSettings({ canEdit }: { canEdit: boole
         <h2>货品细分映射</h2>
         <p>
           {source ? `映射默认来自《${source.fileName}》（SHA-256 前 8 位 ${source.sha256.slice(0, 8)}，${source.rowCount.toLocaleString("zh-CN")} 条），` : ""}
-          可在此手动调整，手动归类优先；规格代码即吉客云货品编号；供应链名称取吉客云货品档案的供应商。
+          可在此手动调整，手动归类优先；规格代码即吉客云货品编号。只有名称的条目先在吉客云货品档案中找规格代码，找不到再到吉客云历史销售明细中按名称精确查找；名称不完全一致的不会自动归类，可手动补规格代码。供应链名称优先取货品档案的供应商，为空时取销售明细中最近一次的“货品默认供应商”。
         </p>
       </div>
       <div className="warehouse-mapping-summary" aria-label="货品细分映射汇总">

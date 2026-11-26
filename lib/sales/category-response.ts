@@ -68,7 +68,7 @@ export function validCategorySubdivisions(value: unknown, expected: {
     || !rows(value.mapping.sources, (item) => stringFields(item, ["fileName", "sha256"]) && numberFields(item, ["rowCount"]))
     || !numberFields(value.summary, [...fields.filter((key) => !["shareRate", "refundRate"].includes(key)), "productCount", "subdivisionCount"])
     || !record(value.summary) || !nullableNumber(value.summary.shareRate) || !nullableNumber(value.summary.weekOverWeekRate) || !nullableNumber(value.summary.yearOverYearRate)
-    || !record(value.coverage) || !["manual", "code", "name_to_code", "name", "unclassified"].every((key) => coverageBucket((value.coverage as Record<string, unknown>)[key]))
+    || !record(value.coverage) || !["manual", "code", "name_to_code", "sales_name_to_code", "name", "unclassified"].every((key) => coverageBucket((value.coverage as Record<string, unknown>)[key]))
     || !record(value.unclassified) || !subdivisionMetric(value.unclassified) || typeof value.unclassified.visible !== "boolean"
     || !record(value.details) || !rows(value.details.items, (item) => subdivisionMetric(item) && record(item) && record(item.trend)
       && rows(item.trend.points, (point) => stringFields(point, ["period"]) && numberFields(point, ["netSalesCents"]))
