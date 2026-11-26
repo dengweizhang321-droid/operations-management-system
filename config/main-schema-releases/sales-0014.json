@@ -1,0 +1,15 @@
+{
+  "version": "teruisi-main-schema-recipe-v1",
+  "additionKind": "SalesSubdivisionEdits",
+  "fromGeneration": 162,
+  "toGeneration": 163,
+  "steps": [
+    "sales.0014_product_subdivision_edits"
+  ],
+  "stepFiles": {
+    "backend/sales/migrations/0014_product_subdivision_edits.py": "665c5450d54de691f30112ccf1cd5899efe6a15b387d9a9dddfd0ba2b9ee05ef"
+  },
+  "validation": "docs/subdivision-category-edit-20261126/subdivision-edits-checks.json",
+  "validationSha256": "11a0cd0196ef78ee494b4e648127f46bf8d815f17651fede4029fa0e5b896dba",
+  "codeSha256": "16715ee684ff25259be4df68d0fb4d87e6c34e585139fbafc1ddc2e2fccf94d6"
+}

@@ -1,0 +1,37 @@
+{
+  "version": "sales-subdivision-edits-mandatory-code-checks-v1",
+  "status": "code-checked",
+  "checkedAt": "2026-11-26T12:20:55.705536+00:00",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "fullBackupOrRestorePerformed": false,
+  "generations": [
+    162,
+    163
+  ],
+  "parentVariants": [
+    [
+      162,
+      163
+    ]
+  ],
+  "steps": [
+    "sales.0014_product_subdivision_edits"
+  ],
+  "codeSha256": "16715ee684ff25259be4df68d0fb4d87e6c34e585139fbafc1ddc2e2fccf94d6",
+  "migrationSha256": "c99f521b7ef5075407d22ab8254d71d7a23011bc6064b8371c33b53b1de0bdca",
+  "checks": [
+    "migration-closure",
+    "node-syntax",
+    "powershell-syntax",
+    "python-syntax"
+  ],
+  "evidence": {
+    "path": "docs/subdivision-category-edit-20261126/subdivision-edits-execution.json",
+    "sha256": "9b0ded7f69c01b7c4dd03f4e9faea075fa0279c49e33cc4a7a99e2f62a1dac73"
+  },
+  "rehearsalEvidence": {
+    "path": "docs/subdivision-category-edit-20261126/rehearsal-result.json",
+    "sha256": "1369af60cf694abc91244192ba6dbb0a47f67f69c3275b992cfbbcd2fdcf86e6"
+  }
+}
