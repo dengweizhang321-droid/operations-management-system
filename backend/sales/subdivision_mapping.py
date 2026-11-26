@@ -45,12 +45,13 @@ def _compute(mapping: subdivisions.EffectiveMapping) -> dict[str, Any]:
         code, name = item["product_code"] or "", item["product_name"] or ""
         label, major, matched_by = mapping.resolve(code, name)
         manual = mapping.manual_for(code)
+        # Every archive row counts as "found", even when it is not listed below.
+        master_codes.add(subdivisions.normalize(code))
+        master_names.add(subdivisions.normalize(name))
         if matched_by is None:
             major = covered_major.get(item["category"])
             if major is None:
                 continue
-        master_codes.add(subdivisions.normalize(code))
-        master_names.add(subdivisions.normalize(name))
         rows.append(_row(
             code, name, specification=item["specification"] or "", supplier=item["supplier"] or "",
             erpCategory=item["category"] or "", productStatus=item["product_status"] or "",
