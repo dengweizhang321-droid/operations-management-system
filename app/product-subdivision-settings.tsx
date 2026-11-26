@@ -55,14 +55,13 @@ export default function ProductSubdivisionSettings() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setQuery((current) => {
-        if (current === queryInput.trim()) return current;
-        setPage(1);
-        return queryInput.trim();
-      });
+      const next = queryInput.trim();
+      if (next === query) return;
+      setQuery(next);
+      setPage(1);
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [queryInput]);
+  }, [queryInput, query]);
 
   useEffect(() => {
     const controller = new AbortController();

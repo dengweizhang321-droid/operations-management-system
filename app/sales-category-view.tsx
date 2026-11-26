@@ -484,7 +484,7 @@ function CategorySubdivisionTab({ identity, startDate, endDate, filters, onFilte
               const open = expanded.includes(item.subdivision);
               return <Fragment key={item.subdivision}>
                 <tr><td>{(shown.details.pagination.page - 1) * shown.details.pagination.pageSize + index + 1}</td><td><strong>{item.subdivision}</strong></td><td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.netQuantity)}</td><td>{formatRate(item.refundRate)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatCurrency(item.grossProfitCents)}</td><td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td className={comparisonTone(item.yearOverYearRate)} title={`去年同期 ${formatCurrency(item.yearAgoNetSalesCents)}`}>{formatComparison(item.yearOverYearRate)}</td><td className={comparisonTone(item.weekOverWeekRate)} title={`近7天 ${formatCurrency(item.currentWeekNetSalesCents)}；此前7天 ${formatCurrency(item.previousWeekNetSalesCents)}`}>{formatComparison(item.weekOverWeekRate)}</td><td><CategoryDetailTrend item={item} /></td><td>{formatCount(item.productCount)}</td><td><button type="button" className="category-detail-button" aria-expanded={open} onClick={() => toggleExpanded(item.subdivision)}>{open ? "收起货品" : "查看货品"}</button></td></tr>
-                {open && <tr className="category-subdivision-products"><td colSpan={15}>{productTable(item.products, item.productsTruncated)}</td></tr>}
+                {open && <tr className="category-subdivision-products"><td colSpan={14}>{productTable(item.products, item.productsTruncated)}</td></tr>}
               </Fragment>;
             })}
           </tbody></table></div>
