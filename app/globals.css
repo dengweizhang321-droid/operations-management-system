@@ -2304,17 +2304,10 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .category-pagination button:disabled { opacity: .45; cursor: not-allowed; }
 .category-source-note { display: flex; gap: 10px 18px; flex-wrap: wrap; padding: 12px 15px; border: 1px solid #e1e8f1; border-radius: 8px; background: #f8fafd; color: #7f8da0; font-size: 8px; line-height: 1.6; }
 .category-source-note strong { color: #536983; }
-.category-subdivision-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.category-subdivision-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 2.4fr); gap: 10px; padding: 12px 18px; }
-.category-subdivision-summary > div { display: flex; flex-direction: column; gap: 4px; }
-.category-subdivision-summary span { color: #7f8da0; font-size: 8px; }
-.category-subdivision-summary strong { font-size: 11px; }
 .category-subdivision-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
-.category-subdivision-unmatched td { color: #7f8da0; }
 .category-subdivision-products > td { padding: 8px 18px 14px; background: #f8fafd; }
+.category-unclassified-notice .data-table-wrap { margin-top: 8px; background: #fff; }
 .category-subdivision-products p { margin: 6px 0 0; font-size: 8px; }
-.category-subdivision-note { padding: 10px 18px 14px; color: #7f8da0; font-size: 8px; line-height: 1.6; }
-@media (max-width: 720px) { .category-subdivision-summary { grid-template-columns: 1fr 1fr; } }
 .modal-backdrop:has(.category-outlet-drawer) { z-index: 120; align-items: stretch; justify-content: flex-end; padding-top: 0; background: rgba(21,34,52,.34); backdrop-filter: blur(2px); }
 .category-outlet-drawer { display: flex; flex-direction: column; width: min(840px,92vw); height: 100%; overflow: hidden; background: #f5f7fb; box-shadow: -18px 0 50px rgba(25,41,64,.2); }
 .category-outlet-drawer > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 22px 16px; border-bottom: 1px solid #e1e7ef; background: #fff; }

@@ -4,7 +4,7 @@ import { useAiPageDetails } from "./ai-page-context-provider";
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
-import { validCategoryAnalysis, validCategoryDetail, validCategorySubdivision } from "@/lib/sales/category-response";
+import { validCategoryAnalysis, validCategoryDetail, validCategorySubdivisions } from "@/lib/sales/category-response";
 import { StableReadContent } from "./ui/stable-read-content";
 import type { ReactNode } from "react";
 import Dialog from "./ui/dialog";
@@ -57,7 +57,6 @@ type CategoryAnalysisResponse = {
     source: { primary: string; fallback: string; joinKey: string; unmatchedLabel: string };
   };
   filtersApplied: { dataScope: { mode: "unrestricted" | "restricted" } };
-  subdivisionParents?: string[];
   summary: {
     grossSalesCents: number; refundAmountCents: number; netSalesCents: number;
     positiveQuantity: number; returnQuantity: number; netQuantity: number;
@@ -122,35 +121,48 @@ type CategoryOutletBreakdownResponse = {
 type SubdivisionProduct = {
   productCode: string;
   productName: string;
+  erpCategory: string;
   matchedBy: "code" | "name" | "none";
   netSalesCents: number;
   netQuantity: number;
   grossMarginRate: number;
 };
 
-type SubdivisionItem = CategoryMetric & {
+type SubdivisionMetric = CategoryDetailMetric & {
   subdivision: string;
   products: SubdivisionProduct[];
   productsTruncated: boolean;
 };
 
-type CategorySubdivisionResponse = {
+type CategorySubdivisionsResponse = {
   range: { startDate: string; endDate: string; endExclusive: string; timezone: string };
-  category: string;
+  comparisonPeriods: CategoryAnalysisResponse["comparisonPeriods"];
   dataCutoffDate: string | null;
   mapping: {
-    source: { fileName: string; sha256: string; rowCount: number };
+    sources: Array<{ fileName: string; sha256: string; rowCount: number }>;
+    coveredCategories: string[];
     matchOrder: string[];
     normalization: string;
-    unmatchedLabel: string;
+    candidateRule: string;
+    unclassifiedLabel: string;
   };
-  parent: CategoryMetric;
-  coverage: Record<"code" | "name" | "unmatched", { productCount: number; netSalesCents: number }>;
-  items: SubdivisionItem[];
-  outsideParent: { items: Array<{ category: string; productCount: number; netSalesCents: number }>; truncated: boolean };
+  summary: {
+    grossSalesCents: number; refundAmountCents: number; netSalesCents: number;
+    positiveQuantity: number; returnQuantity: number; netQuantity: number;
+    costAmountCents: number; grossProfitCents: number; grossMarginRate: number; productCount: number;
+    lineCount: number; subdivisionCount: number;
+  };
+  coverage: Record<"code" | "name" | "unclassified", { productCount: number; netSalesCents: number }>;
+  unclassified: CategoryMetric & { subdivision: string; visible: boolean; products: SubdivisionProduct[]; productsTruncated: boolean };
+  details: {
+    items: SubdivisionMetric[];
+    pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
+    sort: { by: CategorySortKey; direction: SortDirection };
+    trend: { granularity: CategoryGranularity; periodLimit: number };
+  };
 };
 
-const matchedByLabel: Record<SubdivisionProduct["matchedBy"], string> = { code: "编码", name: "名称", none: "未匹配" };
+const matchedByLabel: Record<SubdivisionProduct["matchedBy"], string> = { code: "货品编号", name: "货品名称", none: "未匹配" };
 
 type CategoryGranularity = "day" | "week" | "month";
 type SortDirection = "asc" | "desc";
@@ -164,8 +176,10 @@ type CategoryUrlState = {
   pageSize: number;
 };
 
+type CategoryTab = "operations" | "subdivision";
+
 const categoryOwnedUrlKeys = [
-  "salesCategoryLevel", "salesGranularity", "salesSort", "salesDirection", "salesPage", "salesPageSize",
+  "salesCategoryLevel", "salesGranularity", "salesSort", "salesDirection", "salesPage", "salesPageSize", "salesCategoryTab",
 ] as const;
 // The shell owns `module` and `view=category`; this component only serializes its bounded analysis state.
 const validGranularities = new Set<CategoryGranularity>(["day", "week", "month"]);
@@ -191,10 +205,16 @@ function readCategoryUrl(): CategoryUrlState {
   };
 }
 
-function writeCategoryUrl(state: CategoryUrlState, mode: "push" | "replace") {
+function readCategoryTab(): CategoryTab {
+  const params = typeof window === "undefined" ? new URLSearchParams() : new URL(window.location.href).searchParams;
+  return params.get("salesCategoryTab") === "subdivision" ? "subdivision" : "operations";
+}
+
+function writeCategoryUrl(state: CategoryUrlState, tab: CategoryTab, mode: "push" | "replace") {
   const url = new URL(window.location.href);
   for (const key of categoryOwnedUrlKeys) url.searchParams.delete(key);
   url.searchParams.set("salesCategoryLevel", "1");
+  if (tab === "subdivision") url.searchParams.set("salesCategoryTab", "subdivision");
   if (state.granularity !== "day") url.searchParams.set("salesGranularity", state.granularity);
   if (state.sortBy !== "netSalesCents") url.searchParams.set("salesSort", state.sortBy);
   if (state.direction !== "desc") url.searchParams.set("salesDirection", state.direction);
@@ -351,8 +371,140 @@ const sortableColumns: Array<{ key: CategorySortKey; label: string }> = [
   { key: "weekOverWeekRate", label: "环比上周" },
 ];
 
+function CategorySubdivisionTab({ identity, startDate, endDate, filters, onFiltersChange, channelOptions }: {
+  identity?: unknown; startDate: string; endDate: string; filters: SalesSharedFilters;
+  onFiltersChange: (filters: SalesSharedFilters) => void; channelOptions: string[];
+}) {
+  const scopeKey = JSON.stringify([startDate, endDate, filters.channels, filters.platforms, filters.outletKeys, filters.productQuery.trim()]);
+  const [view, setView] = useState<{ granularity: CategoryGranularity; sortBy: CategorySortKey; direction: SortDirection; page: number; scope: string }>(
+    { granularity: "day", sortBy: "netSalesCents", direction: "desc", page: 1, scope: scopeKey });
+  // A changed filter scope always starts from the first page without an extra effect.
+  const page = view.scope === scopeKey ? view.page : 1;
+  const pageSize = 20;
+  const { granularity, sortBy, direction } = view;
+  const requestKey = JSON.stringify([scopeKey, granularity, sortBy, direction, page]);
+  const [result, setResult] = useState<{ key: string; payload: CategorySubdivisionsResponse } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const [showUnclassified, setShowUnclassified] = useState(false);
+  const generationRef = useRef(0);
+  const data = result?.key === requestKey ? result.payload : null;
+  const shown = data ?? (error ? result?.payload ?? null : null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const generation = ++generationRef.current;
+    const timeout = window.setTimeout(() => {
+      if (controller.signal.aborted || generation !== generationRef.current) return;
+      setError("品类细分读取超时，请重试。"); setLoading(false); controller.abort();
+    }, 30_000);
+    void (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const query = new URLSearchParams({ startDate, endDate, granularity, sortBy, direction, page: String(page), pageSize: String(pageSize) });
+        filters.channels.forEach((value) => query.append("channel", value));
+        filters.platforms.forEach((value) => query.append("platform", value));
+        filters.outletKeys.forEach((value) => query.append("outlet", value));
+        if (filters.productQuery.trim()) query.append("productQuery", filters.productQuery.trim());
+        const payload = await requestJson<CategorySubdivisionsResponse>(`/api/sales/category-analysis/subdivisions?${query}`, { signal: controller.signal });
+        if (controller.signal.aborted || generation !== generationRef.current) return;
+        if (!validCategorySubdivisions(payload, { startDate, endDate, page, pageSize, granularity, sortBy, direction })) throw new Error("品类细分响应不完整，请重试。");
+        setResult({ key: requestKey, payload });
+      } catch (reason) {
+        if (controller.signal.aborted || generation !== generationRef.current) return;
+        setError(reason instanceof Error ? reason.message : "暂时无法读取品类细分");
+      } finally {
+        window.clearTimeout(timeout);
+        if (!controller.signal.aborted && generation === generationRef.current) setLoading(false);
+      }
+    })();
+    return () => { window.clearTimeout(timeout); controller.abort(); };
+  }, [startDate, endDate, filters.channels, filters.platforms, filters.outletKeys, filters.productQuery, granularity, sortBy, direction, page, retryKey, requestKey]);
+
+  const patchView = (patch: Partial<typeof view>) => setView({ ...view, page: 1, ...patch, scope: scopeKey });
+  const toggleExpanded = (label: string) => setExpanded((values) => values.includes(label) ? values.filter((value) => value !== label) : [...values, label]);
+
+  const settingsPanel = <section className="panel category-filter-panel category-analysis-settings" aria-label="品类细分设置">
+    <div className="category-filter-heading"><div><span className="eyebrow">SUBDIVISION SETTINGS</span><h2>品类细分设置</h2><p>{startDate} 至 {endDate} · 公共筛选（渠道、平台、店铺、商品搜索）已同步应用；顶部品类多选不作用于品类细分。</p></div></div>
+    <div className="category-filter-layout">
+      <div className="category-level-field"><span>归类依据</span><strong>货品细分映射</strong><small>命中映射即计入对应细分，不限吉客云分类</small></div>
+      <div className="category-filter-controls">
+        <div className="category-filter-fields">
+          <MultiFilter label="渠道" values={channelOptions} selected={filters.channels} onChange={(channels) => onFiltersChange({ ...filters, channels })} />
+        </div>
+        <div className="category-filter-actions">
+          <button type="button" className="row-action" disabled={loading} onClick={() => setRetryKey((value) => value + 1)}>刷新品类细分</button>
+          <span>趋势粒度</span>
+          <div className="segmented category-granularity" role="group" aria-label="品类细分趋势统计粒度">{(["day", "week", "month"] as const).map((value) => <button key={value} type="button" className={granularity === value ? "active" : ""} onClick={() => patchView({ granularity: value })}>{value === "day" ? "按日" : value === "week" ? "按周" : "按月"}</button>)}</div>
+          {filters.channels.length > 0 && <button type="button" className="secondary-button category-filter-reset" onClick={() => onFiltersChange({ ...filters, channels: [] })}>清空渠道</button>}
+        </div>
+      </div>
+    </div>
+    {(loading || error) && <div className={`category-filter-note ${error ? "error" : ""}`} role={error ? "alert" : "status"}>{error ? `${error}${shown ? "；当前仍显示上一次成功结果。" : ""}` : "正在读取当前范围，数据通过校验后显示。"}</div>}
+  </section>;
+
+  const productTable = (products: SubdivisionProduct[], truncated: boolean) => products.length === 0
+    ? <p className="muted-text">当前周期没有货品明细。</p>
+    : <><table className="data-table"><thead><tr><th>货品编号</th><th>货品名称</th><th>吉客云分类</th><th>匹配方式</th><th>净销售额</th><th>净销量</th><th>毛利率</th></tr></thead><tbody>
+      {products.map((product) => <tr key={`${product.productCode}|${product.productName}|${product.erpCategory}`}><td>{product.productCode || "—"}</td><td>{product.productName || "—"}</td><td>{product.erpCategory || "—"}</td><td>{matchedByLabel[product.matchedBy]}</td><td>{formatCurrency(product.netSalesCents)}</td><td>{formatCount(product.netQuantity)}</td><td className={product.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(product.grossMarginRate)}</td></tr>)}
+    </tbody></table>{truncated && <p className="muted-text">仅显示前 50 个货品。</p>}</>;
+
+  const body = !shown
+    ? <section className="panel data-state sales-data-state" role={error ? "alert" : "status"}>
+      <strong>{error ? "品类细分加载失败" : "正在汇总品类细分数据"}</strong><p>{error || "正在按货品细分映射汇总销售、退款和毛利…"}</p>
+      {error && <button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button>}
+    </section>
+    : (() => {
+      const summary = shown.summary;
+      const unclassified = shown.unclassified;
+      const coverage = shown.coverage;
+      const covered = shown.mapping.coveredCategories.join("、");
+      return <>
+        <section className="category-kpi-grid">
+          <article><span>细分净销售额</span><strong>{formatCurrency(summary.netSalesCents)}</strong><small>已归类 {formatCount(summary.subdivisionCount)} 个细分，退款以负值参与</small></article>
+          <article><span>净销量</span><strong>{formatCount(summary.netQuantity)}</strong><small>退货 {formatCount(summary.returnQuantity)} 件 · 退款 {formatCurrency(summary.refundAmountCents)}</small></article>
+          <article><span>毛利额</span><strong>{formatCurrency(summary.grossProfitCents)}</strong><small>毛利率 {formatRate(summary.grossMarginRate)}</small></article>
+          <article><span>已归类货品</span><strong>{formatCount(coverage.code.productCount + coverage.name.productCount)}</strong><small>编号命中 {formatCount(coverage.code.productCount)} / 名称命中 {formatCount(coverage.name.productCount)}</small></article>
+          <article className={unclassified.visible ? "warning" : ""}><span>未归类货品</span><strong>{formatCount(coverage.unclassified.productCount)}</strong><small>{formatCurrency(unclassified.netSalesCents)} · 相当于已归类净额的 {formatRate(unclassified.shareRate)}</small></article>
+        </section>
+
+        {unclassified.visible && <section className="category-unclassified-notice" role="note"><span>!</span><div><strong>存在未进入细分映射的货品</strong>
+          <p>{covered} 中有 {formatCount(coverage.unclassified.productCount)} 个货品未进入细分映射（净销售额 {formatCurrency(unclassified.netSalesCents)}），未计入细分。可到 系统设置 › 货品细分映射 查看。{" "}
+            <button type="button" className="category-subdivision-toggle" aria-expanded={showUnclassified} onClick={() => setShowUnclassified((value) => !value)}>{showUnclassified ? "收起货品" : "展开货品"}</button></p>
+          {showUnclassified && <div className="data-table-wrap">{productTable(unclassified.products, unclassified.productsTruncated)}</div>}
+        </div></section>}
+
+        {summary.subdivisionCount === 0 ? <section className="panel data-state" role="status"><span className="state-symbol">∅</span><strong>当前筛选没有已归类的细分销售数据</strong><p>可清空筛选或切换顶部统计周期；系统不会用模拟数据填充空结果。</p></section> : <section className="panel table-panel category-detail-panel">
+          <div className="table-toolbar"><div><h2>品类细分明细</h2><p>贡献率以已归类细分合计为分母，未归类不计入；同比为去年同期净销售额变化；环比上周按截止日近 7 天对比此前 7 天；退货率按退款金额 ÷ 正向销售额计算。</p></div><span className="soft-tag">显示 {formatCount(shown.details.pagination.returned)} / {formatCount(shown.details.pagination.total)}{shown.details.pagination.truncated ? " · 后续页未加载" : ""}</span></div>
+          <div className="data-table-wrap"><table className="data-table category-detail-table"><thead><tr><th>排名</th><th>细分</th>{sortableColumns.map((column) => <th key={column.key}><button type="button" onClick={() => patchView({ sortBy: column.key, direction: sortBy === column.key && direction === "desc" ? "asc" : "desc" })}>{column.label}{sortBy === column.key ? (direction === "desc" ? " ↓" : " ↑") : ""}</button></th>)}<th>细分趋势</th><th>货品数</th><th>操作</th></tr></thead><tbody>
+            {shown.details.items.map((item, index) => {
+              const open = expanded.includes(item.subdivision);
+              return <Fragment key={item.subdivision}>
+                <tr><td>{(shown.details.pagination.page - 1) * shown.details.pagination.pageSize + index + 1}</td><td><strong>{item.subdivision}</strong></td><td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.netQuantity)}</td><td>{formatRate(item.refundRate)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatCurrency(item.grossProfitCents)}</td><td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td className={comparisonTone(item.yearOverYearRate)} title={`去年同期 ${formatCurrency(item.yearAgoNetSalesCents)}`}>{formatComparison(item.yearOverYearRate)}</td><td className={comparisonTone(item.weekOverWeekRate)} title={`近7天 ${formatCurrency(item.currentWeekNetSalesCents)}；此前7天 ${formatCurrency(item.previousWeekNetSalesCents)}`}>{formatComparison(item.weekOverWeekRate)}</td><td><CategoryDetailTrend item={item} /></td><td>{formatCount(item.productCount)}</td><td><button type="button" className="category-detail-button" aria-expanded={open} onClick={() => toggleExpanded(item.subdivision)}>{open ? "收起货品" : "查看货品"}</button></td></tr>
+                {open && <tr className="category-subdivision-products"><td colSpan={15}>{productTable(item.products, item.productsTruncated)}</td></tr>}
+              </Fragment>;
+            })}
+          </tbody></table></div>
+          <footer className="category-pagination"><span>第 {shown.details.pagination.page} 页 · 每页 {shown.details.pagination.pageSize} 条</span><div><button type="button" disabled={page <= 1 || loading} onClick={() => patchView({ page: Math.max(1, page - 1) })}>上一页</button><button type="button" disabled={!shown.details.pagination.truncated || loading} onClick={() => patchView({ page: page + 1 })}>下一页</button></div></footer>
+        </section>}
+
+        <section className="category-source-note"><strong>数据来源与口径</strong>
+          <span>映射来源：{shown.mapping.sources.map((source) => `${source.fileName}（SHA-256 前 8 位 ${source.sha256.slice(0, 8)}，${formatCount(source.rowCount)} 条）`).join("；")}。</span>
+          <span>货品编号优先、货品名称次之；命中映射即计入对应细分，不限吉客云分类；覆盖分类：{covered}，其中未进映射的货品归“{shown.mapping.unclassifiedLabel}”。覆盖分类之外仅按映射原值精确命中。</span>
+          <span>同比：{shown.comparisonPeriods.yearAgo.startDate} 至 {shown.comparisonPeriods.yearAgo.endDate}；环比上周：近 7 天 {shown.comparisonPeriods.weekOverWeek.current.startDate} 至 {shown.comparisonPeriods.weekOverWeek.current.endDate}，对比此前 7 天 {shown.comparisonPeriods.weekOverWeek.previous.startDate} 至 {shown.comparisonPeriods.weekOverWeek.previous.endDate}。</span>
+          <span>趋势：按当前{shown.details.trend.granularity === "day" ? "日" : shown.details.trend.granularity === "week" ? "周" : "月"}粒度展示最近 {shown.details.trend.periodLimit} 个有数据周期；数据截止 {shown.dataCutoffDate ?? "暂无"}。</span></section>
+      </>;
+    })();
+
+  return <>{settingsPanel}<StableReadContent owner={JSON.stringify([startDate, endDate])} identity={identity} pending={loading || !data} complete={Boolean(data)} error={Boolean(error)}>{body}</StableReadContent></>;
+}
+
 export default function SalesCategoryView({ identity, startDate, endDate, filters, onFiltersChange, onFilterOptionsChange }: { identity?: unknown; startDate: string; endDate: string; filters: SalesSharedFilters; onFiltersChange: (filters: SalesSharedFilters) => void; onFilterOptionsChange?: (options: SalesSharedFilterOptions) => void }) {
   const [urlState, setUrlState] = useState<CategoryUrlState>(readCategoryUrl);
+  const [tab, setTab] = useState<CategoryTab>(readCategoryTab);
   const [result, setResult] = useState<{ key: string; payload: CategoryAnalysisResponse } | null>(null);
   const requestKey = JSON.stringify([startDate, endDate, filters, urlState]);
   const data = result?.key === requestKey ? result.payload : null;
@@ -366,15 +518,6 @@ export default function SalesCategoryView({ identity, startDate, endDate, filter
   const detailKey = JSON.stringify([detailCategory, startDate, endDate, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
-  const [subParents, setSubParents] = useState<string[]>([]);
-  const [subParent, setSubParent] = useState<string | null>(null);
-  const [subData, setSubData] = useState<CategorySubdivisionResponse | null>(null);
-  const [subLoading, setSubLoading] = useState(false);
-  const [subError, setSubError] = useState("");
-  const [subRetry, setSubRetry] = useState(0);
-  const [subExpanded, setSubExpanded] = useState<string[]>([]);
-  const subGenerationRef = useRef(0);
-  const activeSubParent = subParent && subParents.includes(subParent) ? subParent : subParents[0] ?? null;
   const requestGenerationRef = useRef(0);
   const detailRequestGenerationRef = useRef(0);
   useAiPageDetails("sales", {
@@ -392,12 +535,18 @@ export default function SalesCategoryView({ identity, startDate, endDate, filter
 
   const updateUrlState = useCallback((patch: Partial<CategoryUrlState>, mode: "push" | "replace" = "push") => {
     const next = { ...urlState, ...patch, page: patch.page ?? 1 };
-    writeCategoryUrl(next, mode);
+    writeCategoryUrl(next, tab, mode);
     setUrlState(next);
-  }, [urlState]);
+  }, [urlState, tab]);
+
+  const selectTab = useCallback((next: CategoryTab) => {
+    if (next === tab) return;
+    writeCategoryUrl(urlState, next, "push");
+    setTab(next);
+  }, [urlState, tab]);
 
   useEffect(() => {
-    const onPopState = () => setUrlState(readCategoryUrl());
+    const onPopState = () => { setUrlState(readCategoryUrl()); setTab(readCategoryTab()); };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -432,10 +581,6 @@ export default function SalesCategoryView({ identity, startDate, endDate, filter
         if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
         if (!validCategoryAnalysis(payload, { startDate, endDate, ...urlState })) throw new Error("品类响应不完整，请重试。");
         setResult({ key: requestKey, payload });
-        setSubParents((previous) => {
-          const next = payload.subdivisionParents ?? [];
-          return previous.length === next.length && previous.every((value, index) => value === next[index]) ? previous : next;
-        });
         onFilterOptionsChange?.({ platforms: payload.filterOptions.platforms, shops: payload.filterOptions.outlets, categories: payload.filterOptions.categories });
       } catch (reason) {
         if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
@@ -483,46 +628,6 @@ export default function SalesCategoryView({ identity, startDate, endDate, filter
     return () => { window.clearTimeout(timeout); controller.abort(); };
   }, [detailCategory, endDate, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery, startDate, detailKey, detailRetry]);
 
-  useEffect(() => {
-    if (!activeSubParent) return;
-    const controller = new AbortController();
-    const generation = ++subGenerationRef.current;
-    const timeout = window.setTimeout(() => {
-      if (controller.signal.aborted || generation !== subGenerationRef.current) return;
-      setSubError("品类细分读取超时，请重试。"); setSubLoading(false); controller.abort();
-    }, 30_000);
-    void (async () => {
-      setSubLoading(true);
-      setSubError("");
-      try {
-        const query = new URLSearchParams({ startDate, endDate, category: activeSubParent });
-        filters.channels.forEach((value) => query.append("channel", value));
-        filters.platforms.forEach((value) => query.append("platform", value));
-        filters.outletKeys.forEach((value) => query.append("outlet", value));
-        if (filters.productQuery.trim()) query.append("productQuery", filters.productQuery.trim());
-        const payload = await requestJson<CategorySubdivisionResponse>(`/api/sales/category-analysis/subdivision?${query}`, { signal: controller.signal });
-        if (!controller.signal.aborted && generation === subGenerationRef.current) {
-          if (!validCategorySubdivision(payload, startDate, endDate, activeSubParent)) throw new Error("品类细分响应不完整，请重试。");
-          setSubData(payload);
-        }
-      } catch (reason) {
-        if (!controller.signal.aborted && generation === subGenerationRef.current) {
-          setSubError(reason instanceof Error ? reason.message : "暂时无法读取品类细分");
-        }
-      } finally {
-        window.clearTimeout(timeout);
-        if (!controller.signal.aborted && generation === subGenerationRef.current) setSubLoading(false);
-      }
-    })();
-    return () => { window.clearTimeout(timeout); controller.abort(); };
-  }, [activeSubParent, endDate, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery, startDate, subRetry]);
-
-  const openSubdivision = (parent: string) => {
-    setSubParent(parent);
-    window.requestAnimationFrame(() => document.getElementById("category-subdivision-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  };
-  const toggleSubdivision = (label: string) => setSubExpanded((values) => values.includes(label) ? values.filter((value) => value !== label) : [...values, label]);
-
   const filterOptions = data?.filterOptions ?? { categories: [], channels: [], platforms: [], outlets: [], totals: { categories: 0, channels: 0, platforms: 0, outlets: 0 }, truncated: false, limit: 200 };
   const hasChannelFilter = filters.channels.length > 0;
 
@@ -548,7 +653,9 @@ export default function SalesCategoryView({ identity, startDate, endDate, filter
   const drawer = detailCategory && <CategoryOutletDrawer category={detailCategory} data={visibleDetailData}
     loading={detailLoading || (!visibleDetailData && !detailError)} error={detailError}
     onClose={closeCategoryDetail} onRetry={() => setDetailRetry((value) => value + 1)} />;
-  const withContent = (content: ReactNode) => <div className="sales-category-view">{settingsPanel}<StableReadContent owner={JSON.stringify([startDate, endDate])} identity={identity} pending={loading || !data} complete={Boolean(data)} error={Boolean(error)}>{content}</StableReadContent>{drawer}</div>;
+  const tabNav = <div className="subnav outlet-subnav" role="tablist" aria-label="品类分析工作区">{([["operations", "品类经营"], ["subdivision", "品类细分"]] as const).map(([key, label]) => <button type="button" key={key} role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""} onClick={() => selectTab(key)}>{label}</button>)}</div>;
+  const withContent = (content: ReactNode) => <div className="sales-category-view">{tabNav}{settingsPanel}<StableReadContent owner={JSON.stringify([startDate, endDate])} identity={identity} pending={loading || !data} complete={Boolean(data)} error={Boolean(error)}>{content}</StableReadContent>{drawer}</div>;
+  if (tab === "subdivision") return <div className="sales-category-view">{tabNav}<CategorySubdivisionTab identity={identity} startDate={startDate} endDate={endDate} filters={filters} onFiltersChange={onFiltersChange} channelOptions={filterOptions.channels} /></div>;
   if (!data) return withContent(<section className="panel data-state sales-data-state" role={error ? "alert" : "status"}>
     <strong>{error ? "品类分析加载失败" : "正在汇总品类经营数据"}</strong><p>{error || "正在按当前范围汇总销售、退款和毛利…"}</p>
     {error && <button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button>}
@@ -574,52 +681,9 @@ export default function SalesCategoryView({ identity, startDate, endDate, filter
       <CategoryTrend data={data} />
       <section className="panel table-panel category-detail-panel">
         <div className="table-toolbar"><div><h2>品类经营明细</h2><p>同比为去年同期净销售额变化；环比上周按截止日近 7 天对比此前 7 天；退货率按退款金额 ÷ 正向销售额计算。</p></div><span className="soft-tag">显示 {formatCount(data.details.pagination.returned)} / {formatCount(data.details.pagination.total)}{data.details.pagination.truncated ? " · 后续页未加载" : ""}</span></div>
-        <div className="data-table-wrap"><table className="data-table category-detail-table"><thead><tr><th>排名</th><th>品类</th>{sortableColumns.map((column) => <th key={column.key}><button type="button" onClick={() => updateUrlState({ sortBy: column.key, direction: urlState.sortBy === column.key && urlState.direction === "desc" ? "asc" : "desc" })}>{column.label}{urlState.sortBy === column.key ? (urlState.direction === "desc" ? " ↓" : " ↑") : ""}</button></th>)}<th>品类趋势</th><th>详情</th></tr></thead><tbody>{data.details.items.map((item, index) => <tr key={item.category}><td>{(data.details.pagination.page - 1) * data.details.pagination.pageSize + index + 1}</td><td><strong>{item.category}</strong>{item.category === "未分类" && <small className="category-unclassified-tag">需补充映射</small>}</td><td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.netQuantity)}</td><td>{formatRate(item.refundRate)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatCurrency(item.grossProfitCents)}</td><td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td className={comparisonTone(item.yearOverYearRate)} title={`去年同期 ${formatCurrency(item.yearAgoNetSalesCents)}`}>{formatComparison(item.yearOverYearRate)}</td><td className={comparisonTone(item.weekOverWeekRate)} title={`近7天 ${formatCurrency(item.currentWeekNetSalesCents)}；此前7天 ${formatCurrency(item.previousWeekNetSalesCents)}`}>{formatComparison(item.weekOverWeekRate)}</td><td><CategoryDetailTrend item={item} /></td><td><button type="button" className="category-detail-button" onClick={() => setDetailCategory(item.category)}>查看详情</button>{subParents.includes(item.category) && <button type="button" className="category-detail-button category-subdivision-open" onClick={() => openSubdivision(item.category)}>细分</button>}</td></tr>)}</tbody></table></div>
+        <div className="data-table-wrap"><table className="data-table category-detail-table"><thead><tr><th>排名</th><th>品类</th>{sortableColumns.map((column) => <th key={column.key}><button type="button" onClick={() => updateUrlState({ sortBy: column.key, direction: urlState.sortBy === column.key && urlState.direction === "desc" ? "asc" : "desc" })}>{column.label}{urlState.sortBy === column.key ? (urlState.direction === "desc" ? " ↓" : " ↑") : ""}</button></th>)}<th>品类趋势</th><th>详情</th></tr></thead><tbody>{data.details.items.map((item, index) => <tr key={item.category}><td>{(data.details.pagination.page - 1) * data.details.pagination.pageSize + index + 1}</td><td><strong>{item.category}</strong>{item.category === "未分类" && <small className="category-unclassified-tag">需补充映射</small>}</td><td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.netQuantity)}</td><td>{formatRate(item.refundRate)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatCurrency(item.grossProfitCents)}</td><td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td className={comparisonTone(item.yearOverYearRate)} title={`去年同期 ${formatCurrency(item.yearAgoNetSalesCents)}`}>{formatComparison(item.yearOverYearRate)}</td><td className={comparisonTone(item.weekOverWeekRate)} title={`近7天 ${formatCurrency(item.currentWeekNetSalesCents)}；此前7天 ${formatCurrency(item.previousWeekNetSalesCents)}`}>{formatComparison(item.weekOverWeekRate)}</td><td><CategoryDetailTrend item={item} /></td><td><button type="button" className="category-detail-button" onClick={() => setDetailCategory(item.category)}>查看详情</button></td></tr>)}</tbody></table></div>
         <footer className="category-pagination"><span>第 {data.details.pagination.page} 页 · 每页 {data.details.pagination.pageSize} 条</span><div><button type="button" disabled={urlState.page <= 1 || loading} onClick={() => updateUrlState({ page: Math.max(1, urlState.page - 1) })}>上一页</button><button type="button" disabled={!data.details.pagination.truncated || loading} onClick={() => updateUrlState({ page: urlState.page + 1 })}>下一页</button></div></footer>
       </section>
-      {activeSubParent && (() => {
-        const sub = subData && subData.category === activeSubParent ? subData : null;
-        const unmatchedShare = sub && sub.parent.netSalesCents !== 0 ? sub.coverage.unmatched.netSalesCents / sub.parent.netSalesCents : 0;
-        return <section id="category-subdivision-panel" className="panel table-panel category-subdivision-panel" aria-busy={subLoading}>
-          <div className="table-toolbar"><div><span className="eyebrow">CATEGORY SUBDIVISION</span><h2>品类细分</h2><p>按商品编码优先、商品名称次之，把父品类拆分为细分类型；细分合计等于父品类合计，未命中归“未细分”。</p></div>
-            <div className="category-subdivision-controls">
-              <div className="segmented" role="group" aria-label="细分父品类">{subParents.map((parent) => <button key={parent} type="button" className={activeSubParent === parent ? "active" : ""} onClick={() => setSubParent(parent)}>{parent}</button>)}</div>
-              <button type="button" className="row-action" disabled={subLoading} onClick={() => setSubRetry((value) => value + 1)}>刷新细分</button>
-            </div></div>
-          {subError && <div className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>品类细分读取失败</strong><p>{subError}{sub ? "；当前仍显示上一次成功结果。" : ""}</p></div></div>}
-          {!sub ? <div className="table-state" role="status">{subLoading ? "正在汇总品类细分…" : subError ? "品类细分暂不可用，请点击“刷新细分”重试。" : "暂无品类细分数据。"}</div> : <>
-            <div className="category-subdivision-summary">
-              <div><span>{sub.category}净销售额</span><strong>{formatCurrency(sub.parent.netSalesCents)}</strong></div>
-              <div><span>净销量</span><strong>{formatCount(sub.parent.netQuantity)}</strong></div>
-              <div><span>大毛利率</span><strong>{formatRate(sub.parent.grossMarginRate)}</strong></div>
-              <div><span>匹配覆盖</span><strong>编码命中 {formatCount(sub.coverage.code.productCount)} 个 / 名称命中 {formatCount(sub.coverage.name.productCount)} 个 / {sub.mapping.unmatchedLabel} {formatCount(sub.coverage.unmatched.productCount)} 个（占净额 {formatRate(unmatchedShare)}）</strong></div>
-            </div>
-            {sub.outsideParent.items.length > 0 && <section className="category-unclassified-notice" role="note"><span>!</span><div><strong>映射表商品不在“{sub.category}”品类</strong><p>映射表中有 {formatCount(sub.outsideParent.items.reduce((total, item) => total + item.productCount, 0))} 个商品当前不属于“{sub.category}”品类（{sub.outsideParent.items.map((item) => `${item.category} ${formatCurrency(item.netSalesCents)}`).join("、")}{sub.outsideParent.truncated ? " 等" : ""}），未计入细分。</p></div></section>}
-            <div className="data-table-wrap"><table className="data-table category-detail-table category-subdivision-table"><thead><tr><th>细分</th><th>净销售额</th><th>占比</th><th>净销量</th><th>退款金额</th><th>退货率</th><th>订单毛利</th><th>大毛利率</th><th>商品数</th><th>环比上周</th><th>同比</th></tr></thead><tbody>
-              {sub.items.map((item) => {
-                const open = subExpanded.includes(item.subdivision);
-                return <Fragment key={item.subdivision}>
-                  <tr className={item.subdivision === sub.mapping.unmatchedLabel ? "category-subdivision-unmatched" : ""}>
-                    <td><button type="button" className="category-subdivision-toggle" aria-expanded={open} onClick={() => toggleSubdivision(item.subdivision)}>{open ? "▾" : "▸"} <strong>{item.subdivision}</strong></button></td>
-                    <td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.netQuantity)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatRate(item.refundRate)}</td><td>{formatCurrency(item.grossProfitCents)}</td>
-                    <td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td>{formatCount(item.productCount)}</td>
-                    <td className={comparisonTone(item.weekOverWeekRate)} title={`近7天 ${formatCurrency(item.currentWeekNetSalesCents)}；此前7天 ${formatCurrency(item.previousWeekNetSalesCents)}`}>{formatComparison(item.weekOverWeekRate)}</td>
-                    <td className={comparisonTone(item.yearOverYearRate)} title={`去年同期 ${formatCurrency(item.yearAgoNetSalesCents)}`}>{formatComparison(item.yearOverYearRate)}</td>
-                  </tr>
-                  {open && <tr className="category-subdivision-products"><td colSpan={11}>
-                    {item.products.length === 0 ? <p className="muted-text">当前周期没有商品明细。</p> : <table className="data-table"><thead><tr><th>商品编码</th><th>商品名称</th><th>匹配方式</th><th>净销售额</th><th>净销量</th><th>大毛利率</th></tr></thead><tbody>
-                      {item.products.map((product) => <tr key={`${product.productCode}|${product.productName}`}><td>{product.productCode || "—"}</td><td>{product.productName || "—"}</td><td>{matchedByLabel[product.matchedBy]}</td><td>{formatCurrency(product.netSalesCents)}</td><td>{formatCount(product.netQuantity)}</td><td className={product.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(product.grossMarginRate)}</td></tr>)}
-                    </tbody></table>}
-                    {item.productsTruncated && <p className="muted-text">仅显示前 50 个商品。</p>}
-                  </td></tr>}
-                </Fragment>;
-              })}
-              {sub.items.length === 0 && <tr><td colSpan={11}>当前筛选下没有{sub.category}销售数据。</td></tr>}
-            </tbody></table></div>
-            <footer className="category-subdivision-note">映射来源：{sub.mapping.source.fileName}（SHA-256 {sub.mapping.source.sha256.slice(0, 8)}，{formatCount(sub.mapping.source.rowCount)} 条）；编码优先、名称次之，未命中归“{sub.mapping.unmatchedLabel}”；比较时统一全半角、去空白并忽略大小写。</footer>
-          </>}
-        </section>;
-      })()}
     </>}
     <section className="category-source-note"><strong>数据来源与口径</strong><span>品类：ERP 商品主数据优先，销售明细品类兜底，以商品编码关联；未命中归“未分类”。</span><span>销售：吉客云销售单明细账，排除“刷刷仓”；净销量沿用销售总览口径，排除配件、赠品配件、补差价专用和销售行未分类，退货率 = 退款金额 / 正向销售额。</span><span>同比：{data.comparisonPeriods.yearAgo.startDate} 至 {data.comparisonPeriods.yearAgo.endDate}；环比上周：近 7 天 {data.comparisonPeriods.weekOverWeek.current.startDate} 至 {data.comparisonPeriods.weekOverWeek.current.endDate}，对比此前 7 天 {data.comparisonPeriods.weekOverWeek.previous.startDate} 至 {data.comparisonPeriods.weekOverWeek.previous.endDate}。</span><span>品类趋势：按当前{data.details.trend.granularity === "day" ? "日" : data.details.trend.granularity === "week" ? "周" : "月"}粒度展示最近 {data.details.trend.periodLimit} 个有数据周期；数据截止 {data.dataCutoffDate ?? "暂无"}。</span></section>
   </>);

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>品类细分与货品细分映射演示（合成数据）</title>
+<style>
+  :root { --bg:#f4f7fb; --panel:#fff; --line:#e1e8f1; --text:#26364d; --muted:#7f8da0; --blue:#3f7be0; --blue-soft:#eaf1fd; --green:#188a61; --green-soft:#e8f7f0; --orange:#c57924; --orange-soft:#fff3e2; --red:#bd3043; --red-soft:#fff0f2; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:20px 16px 40px; background:var(--bg); color:var(--text); font:13px/1.6 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:1280px; margin:0 auto; display:grid; gap:14px; }
+  .banner { padding:8px 12px; border:1px dashed var(--orange); border-radius:8px; color:var(--orange); background:#fff8ef; font-size:12px; }
+  .switch { display:flex; gap:8px; flex-wrap:wrap; }
+  .switch button { padding:6px 14px; border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer; font:inherit; color:var(--text); }
+  .switch button.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:11px; box-shadow:0 3px 11px rgba(53,72,98,.04); }
+  .subnav { display:flex; gap:3px; padding:4px; border:1px solid var(--line); border-radius:9px; background:#fff; width:max-content; max-width:100%; overflow-x:auto; }
+  .subnav button { min-width:92px; height:34px; padding:0 14px; border:0; border-radius:6px; background:transparent; color:#536983; cursor:pointer; font:inherit; font-size:12px; }
+  .subnav button.active { color:#fff; background:var(--blue); box-shadow:0 4px 11px rgba(71,118,230,.2); }
+  .eyebrow { font-size:10px; letter-spacing:.08em; color:var(--blue); }
+  h2 { margin:0; font-size:15px; }
+  .settings { padding:16px 20px; display:grid; gap:10px; }
+  .settings p { margin:2px 0 0; color:var(--muted); font-size:12px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .chip { padding:6px 12px; border:1px solid var(--line); border-radius:7px; background:#fff; font-size:12px; }
+  .chip strong { margin-left:6px; color:var(--blue); }
+  .segmented { display:inline-flex; padding:3px; border-radius:7px; background:#f1f3f6; }
+  .segmented button { height:28px; padding:0 11px; border:0; border-radius:5px; background:transparent; color:#536983; cursor:pointer; font:inherit; font-size:12px; }
+  .segmented button.active { background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+  .kpis { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; }
+  .kpis article { padding:15px 16px; border:1px solid var(--line); border-radius:9px; background:#fff; }
+  .kpis article.warning { border-color:#f0d8b8; background:#fffaf3; }
+  .kpis span { color:var(--muted); font-size:11px; }
+  .kpis strong { display:block; margin:10px 0 6px; font-size:20px; font-variant-numeric:tabular-nums; }
+  .kpis small { color:#98a4b3; font-size:11px; }
+  .notice { display:flex; gap:12px; padding:13px 16px; border:1px solid #f0d7b5; border-radius:8px; background:#fffaf2; color:#805f35; font-size:12px; }
+  .notice > span { display:grid; place-items:center; flex:none; width:22px; height:22px; border-radius:50%; background:#f4a846; color:#fff; font-weight:800; }
+  .notice p { margin:3px 0 0; color:#a17b4c; }
+  .link { border:0; background:none; color:var(--blue); cursor:pointer; font:inherit; padding:0; }
+  .toolbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:14px 18px; border-bottom:1px solid var(--line); }
+  .toolbar p { margin:2px 0 0; color:var(--muted); font-size:12px; max-width:760px; }
+  .tag { padding:4px 9px; border-radius:12px; background:var(--blue-soft); color:var(--blue); font-size:11px; align-self:flex-start; }
+  .tablewrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { padding:9px 12px; border-top:1px solid var(--line); text-align:left; white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; font-size:11px; background:#fafbfc; border-top:0; }
+  th button { border:0; background:none; font:inherit; color:inherit; cursor:pointer; padding:0; }
+  td.num, th.num { text-align:right; }
+  tr.products > td { background:#f8fafd; padding:8px 18px 14px; }
+  tr.products table th, tr.products table td { padding:5px 10px; }
+  .detail-btn { padding:5px 10px; border:1px solid var(--line); border-radius:6px; background:var(--blue-soft); color:var(--blue); font-size:11px; cursor:pointer; }
+  .green { color:var(--green); } .orange { color:var(--orange); } .red { color:var(--red); } .muted { color:var(--muted); }
+  .trend svg { width:80px; height:24px; vertical-align:middle; } .trend polyline { fill:none; stroke-width:2.2; stroke-linejoin:round; stroke-linecap:round; }
+  .trend.up polyline { stroke:var(--green); } .trend.down polyline { stroke:var(--red); } .trend small { margin-left:4px; font-size:10px; }
+  .pager { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-top:1px solid var(--line); color:#536983; font-size:11px; }
+  .pager button { padding:6px 11px; border:1px solid var(--line); border-radius:6px; background:#fff; color:#536983; font-size:11px; }
+  .pager button:disabled { opacity:.45; }
+  .source { display:flex; gap:6px 18px; flex-wrap:wrap; padding:12px 15px; border:1px solid var(--line); border-radius:8px; background:#f8fafd; color:var(--muted); font-size:11px; }
+  .source strong { color:#536983; }
+  .overview { display:grid; grid-template-columns:minmax(260px,.75fr) minmax(560px,1.25fr); gap:24px; align-items:center; padding:19px 20px; background:linear-gradient(125deg,#fff 0%,var(--blue-soft) 100%); }
+  .overview p { margin:4px 0 0; color:var(--muted); font-size:12px; line-height:1.7; }
+  .summary { display:grid; grid-template-columns:repeat(5,minmax(100px,1fr)); gap:8px; }
+  .summary article { display:grid; gap:4px; padding:11px 12px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.9); }
+  .summary span, .summary small { color:var(--muted); font-size:11px; }
+  .summary strong { font-size:19px; }
+  .filters { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+  .filters label { display:grid; gap:2px; font-size:11px; color:var(--muted); }
+  .filters select, .filters input { height:30px; padding:0 8px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:12px; background:#fff; }
+  .status { display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; }
+  .s-mapped { color:var(--green); background:var(--green-soft); } .s-unclassified { color:var(--orange); background:var(--orange-soft); } .s-missing { color:var(--red); background:var(--red-soft); }
+  .sub-tag { padding:3px 8px; border-radius:6px; background:var(--blue-soft); color:var(--blue); font-size:11px; }
+  .hidden { display:none; }
+  @media (max-width:1100px) { .kpis { grid-template-columns:repeat(3,1fr); } .overview { grid-template-columns:1fr; } .summary { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:560px) { .kpis { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">合成演示数据：以下所有货品、金额与映射结果均为虚构，仅用于展示页面版式与交互，不请求任何接口，也不代表真实经营数据。</div>
+  <div class="switch" role="group" aria-label="切换演示视图">
+    <button type="button" data-view="ops" class="active">销售分析 › 品类分析 › 品类经营</button>
+    <button type="button" data-view="sub">销售分析 › 品类分析 › 品类细分</button>
+    <button type="button" data-view="map">系统设置 › 货品细分映射</button>
+  </div>
+
+  <!-- 品类经营 / 品类细分 共用三级 tab -->
+  <div id="category" class="wrap" style="padding:0">
+    <div class="subnav" role="tablist" aria-label="品类分析工作区">
+      <button type="button" role="tab" data-tab="ops" id="tab-ops">品类经营</button>
+      <button type="button" role="tab" data-tab="sub" id="tab-sub">品类细分</button>
+    </div>
+
+    <section id="pane-ops" class="wrap" style="padding:0">
+      <section class="panel settings"><div><span class="eyebrow">CATEGORY SETTINGS</span><h2>品类分析设置</h2><p>2026-08-01 至 2026-08-31 · 公共筛选已同步应用（合成数据）</p></div></section>
+      <section class="kpis">
+        <article><span>品类净销售额</span><strong>¥1,286,400</strong><small>销售额扣除退款，退款以负值参与</small></article>
+        <article><span>正向销量</span><strong>8,420</strong><small>仅数量大于 0 的销售行</small></article>
+        <article><span>退货量 / 退款</span><strong>312 件</strong><small>¥42,800</small></article>
+        <article><span>品类毛利额</span><strong>¥402,300</strong><small>毛利率 31.3%</small></article>
+        <article><span>未分类商品</span><strong>0</strong><small>¥0 · 占 0.0%</small></article>
+      </section>
+      <section class="panel">
+        <div class="toolbar"><div><h2>品类经营明细</h2><p>同比为去年同期净销售额变化；环比上周按截止日近 7 天对比此前 7 天。</p></div><span class="tag">显示 3 / 3</span></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>排名</th><th>品类</th><th class="num">净销售额</th><th class="num">贡献率</th><th class="num">净销量</th><th class="num">毛利率</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><strong>直饮机</strong></td><td class="num">¥712,000</td><td class="num">55.3%</td><td class="num">3,120</td><td class="num green">33.0%</td><td><button class="detail-btn" type="button">查看详情</button></td></tr>
+            <tr><td>2</td><td><strong>净水器</strong></td><td class="num">¥398,400</td><td class="num">31.0%</td><td class="num">2,760</td><td class="num green">29.8%</td><td><button class="detail-btn" type="button">查看详情</button></td></tr>
+            <tr><td>3</td><td><strong>滤芯</strong></td><td class="num">¥176,000</td><td class="num">13.7%</td><td class="num">2,540</td><td class="num green">28.4%</td><td><button class="detail-btn" type="button">查看详情</button></td></tr>
+          </tbody></table></div>
+      </section>
+    </section>
+
+    <section id="pane-sub" class="wrap" style="padding:0">
+      <section class="panel settings">
+        <div><span class="eyebrow">SUBDIVISION SETTINGS</span><h2>品类细分设置</h2><p>2026-08-01 至 2026-08-31 · 公共筛选（渠道、平台、店铺、商品搜索）已同步应用；顶部品类多选不作用于品类细分。</p></div>
+        <div class="row"><span class="chip">归类依据<strong>货品细分映射</strong></span><span class="chip">渠道<strong>全部</strong></span><button class="detail-btn" type="button">刷新品类细分</button><span class="muted">趋势粒度</span>
+          <div class="segmented"><button class="active" type="button">按日</button><button type="button">按周</button><button type="button">按月</button></div></div>
+      </section>
+      <section class="kpis">
+        <article><span>细分净销售额</span><strong>¥640,500</strong><small>已归类 4 个细分，退款以负值参与</small></article>
+        <article><span>净销量</span><strong>2,810</strong><small>退货 96 件 · 退款 ¥18,200</small></article>
+        <article><span>毛利额</span><strong>¥214,300</strong><small>毛利率 33.5%</small></article>
+        <article><span>已归类货品</span><strong>21</strong><small>编号命中 17 / 名称命中 4</small></article>
+        <article class="warning"><span>未归类货品</span><strong>3</strong><small>¥71,500 · 相当于已归类净额的 11.2%</small></article>
+      </section>
+      <section class="notice" role="note"><span>!</span><div><strong>存在未进入细分映射的货品</strong>
+        <p>直饮机 中有 3 个货品未进入细分映射（净销售额 ¥71,500），未计入细分。可到 系统设置 › 货品细分映射 查看。 <button class="link" type="button" id="toggle-un">展开货品</button></p>
+        <div id="un-list" class="tablewrap hidden"><table><thead><tr><th>货品编号</th><th>货品名称</th><th>吉客云分类</th><th>匹配方式</th><th class="num">净销售额</th><th class="num">净销量</th><th class="num">毛利率</th></tr></thead><tbody>
+          <tr><td>DEMO-N-001</td><td>演示 未映射直饮机甲</td><td>直饮机</td><td>未匹配</td><td class="num">¥38,000</td><td class="num">40</td><td class="num green">30.0%</td></tr>
+          <tr><td>DEMO-N-002</td><td>演示 未映射直饮机乙</td><td>直饮机</td><td>未匹配</td><td class="num">¥21,500</td><td class="num">26</td><td class="num green">27.5%</td></tr>
+          <tr><td>DEMO-N-003</td><td>演示 未映射直饮机丙</td><td>直饮机</td><td>未匹配</td><td class="num">¥12,000</td><td class="num">15</td><td class="num green">25.0%</td></tr>
+        </tbody></table></div></div></section>
+      <section class="panel">
+        <div class="toolbar"><div><h2>品类细分明细</h2><p>贡献率以已归类细分合计为分母，未归类不计入；同比为去年同期净销售额变化；环比上周按截止日近 7 天对比此前 7 天；退货率按退款金额 ÷ 正向销售额计算。</p></div><span class="tag">显示 4 / 4</span></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>排名</th><th>细分</th><th class="num"><button type="button">净销售额 ↓</button></th><th class="num">贡献率</th><th class="num">净销量</th><th class="num">退货率</th><th class="num">退款金额</th><th class="num">毛利额</th><th class="num">毛利率</th><th class="num">同比</th><th class="num">环比上周</th><th>细分趋势</th><th class="num">货品数</th><th>操作</th></tr></thead>
+          <tbody id="sub-rows"></tbody></table></div>
+        <footer class="pager"><span>第 1 页 · 每页 20 条</span><div><button type="button" disabled>上一页</button> <button type="button" disabled>下一页</button></div></footer>
+      </section>
+      <section class="source"><strong>数据来源与口径</strong>
+        <span>映射来源：直饮机分类规格匹配.xlsx（SHA-256 前 8 位 46a801de，603 条）。</span>
+        <span>货品编号优先、货品名称次之；命中映射即计入对应细分，不限吉客云分类；覆盖分类：直饮机，其中未进映射的货品归“未归类”。覆盖分类之外仅按映射原值精确命中。</span>
+        <span>趋势：按当前日粒度展示最近 24 个有数据周期；数据截止 2026-08-31。</span></section>
+    </section>
+  </div>
+
+  <!-- 系统设置 -->
+  <div id="settings" class="wrap" style="padding:0">
+    <div class="subnav" role="tablist" aria-label="系统设置工作区"><button type="button">系统参数</button><button type="button">主数据与映射</button><button type="button">仓库映射</button><button type="button" class="active">货品细分映射</button><button type="button">钉钉机器人</button><button type="button">数据库备份</button><button type="button">权限管理</button></div>
+    <section class="panel overview">
+      <div><span class="eyebrow">品类分析 · 品类细分</span><h2>货品细分映射</h2><p>映射来源《直饮机分类规格匹配.xlsx》（SHA-256 前 8 位 46a801de，603 条），随系统发布；调整归类请更新 Excel 后重新生成并发布，本页只读。规格代码与货品代码均取吉客云货品编号；货品编号优先、货品名称次之，命中映射即计入对应细分，不限吉客云分类。</p></div>
+      <div class="summary"><article><span>映射条数</span><strong>603</strong><small>映射表中的条目</small></article><article><span>细分数</span><strong>15</strong><small>去重后的细分名称</small></article><article><span>已归类货品</span><strong>7</strong><small>吉客云货品档案中命中映射</small></article><article><span>未归类货品</span><strong>2</strong><small>直饮机分类中未进映射</small></article><article><span>吉客云未找到</span><strong>1</strong><small>映射条目在货品档案中无对应货品</small></article></div>
+    </section>
+    <section class="panel">
+      <div class="toolbar"><div><h2>货品归类明细</h2><p id="map-count"></p></div>
+        <div class="filters">
+          <label>细分名称<select id="f-sub"><option value="">全部细分</option></select></label>
+          <label>状态<select id="f-status"><option value="all">全部状态</option><option value="mapped">已归类</option><option value="unclassified">未归类</option><option value="missing">吉客云未找到</option></select></label>
+          <label>搜索<input id="f-q" placeholder="货品编号、名称、规格、分类或细分" style="min-width:260px"></label>
+        </div></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>吉客云规格代码</th><th>吉客云货品代码</th><th>货品名称</th><th>规格</th><th>吉客云分类</th><th>细分名称</th><th>匹配方式</th><th>状态</th></tr></thead>
+        <tbody id="map-rows"></tbody></table></div>
+      <footer class="pager"><span>第 1 / 1 页 · 每页 20 条</span><div><button type="button" disabled>上一页</button> <button type="button" disabled>下一页</button></div></footer>
+    </section>
+  </div>
+</div>
+
+<script>
+  // 全部为合成演示数据。
+  const money = (v) => "¥" + v.toLocaleString("zh-CN");
+  const pct = (v) => (v * 100).toFixed(1) + "%";
+  const cmp = (v) => v === null ? "—" : (v > 0 ? "+" : "") + pct(v);
+  const tone = (v) => v === null || v === 0 ? "muted" : v > 0 ? "green" : "red";
+  const subs = [
+    { name: "柜式旋钮直饮机", net: 262000, share: .409, qty: 1020, refundRate: .021, refund: 5600, profit: 88000, margin: .336, yoy: .12, wow: .05, products: 6, trend: [4, 5, 5, 7, 6, 8, 9], items: [
+      ["DEMO-A-001", "演示 柜式旋钮直饮机 A", "直饮机", "货品编号", 98000, 380, .34], ["DEMO-A-002", "演示 柜式旋钮直饮机 B", "直饮机", "货品编号", 76000, 300, .33], ["DEMO-A-003", "演示 柜式旋钮直饮机 C", "家电", "货品名称", 88000, 340, .34]] },
+    { name: "柜式触控直饮机", net: 198500, share: .31, qty: 840, refundRate: .018, refund: 3900, profit: 66000, margin: .333, yoy: .08, wow: -.03, products: 7, trend: [6, 6, 5, 6, 5, 5, 4], items: [
+      ["DEMO-B-001", "演示 柜式触控直饮机 A", "直饮机", "货品编号", 120000, 500, .34], ["DEMO-B-002", "演示 柜式触控直饮机 B", "直饮机", "货品编号", 78500, 340, .32]] },
+    { name: "台式直饮机", net: 112000, share: .175, qty: 610, refundRate: .03, refund: 4800, profit: 36500, margin: .326, yoy: -.04, wow: .01, products: 5, trend: [3, 3, 4, 3, 3, 4, 3], items: [
+      ["DEMO-C-001", "演示 台式直饮机 A", "直饮机", "货品编号", 112000, 610, .33]] },
+    { name: "步进式直饮机", net: 68000, share: .106, qty: 340, refundRate: .045, refund: 3900, profit: 23800, margin: .35, yoy: null, wow: .2, products: 3, trend: [1, 1, 2, 2, 3, 3, 4], items: [
+      ["DEMO-D-001", "演示 步进式直饮机 A", "直饮机", "货品名称", 68000, 340, .35]] },
+  ];
+  function spark(values, dir) {
+    const min = Math.min(...values), span = Math.max(1, Math.max(...values) - min);
+    const pts = values.map((v, i) => `${3 + i / (values.length - 1) * 74},${22 - (v - min) / span * 19}`).join(" ");
+    return `<span class="trend ${dir}"><svg viewBox="0 0 80 24"><polyline points="${pts}"/></svg></span>`;
+  }
+  const subRows = document.getElementById("sub-rows");
+  const open = new Set();
+  function renderSub() {
+    subRows.innerHTML = subs.map((s, i) => {
+      const dir = s.trend.at(-1) > s.trend[0] ? "up" : "down";
+      const change = (s.trend.at(-1) - s.trend[0]) / s.trend[0];
+      const main = `<tr><td>${i + 1}</td><td><strong>${s.name}</strong></td><td class="num"><strong>${money(s.net)}</strong></td><td class="num">${pct(s.share)}</td><td class="num">${s.qty}</td><td class="num">${pct(s.refundRate)}</td><td class="num">${money(s.refund)}</td><td class="num">${money(s.profit)}</td><td class="num green">${pct(s.margin)}</td><td class="num ${tone(s.yoy)}">${cmp(s.yoy)}</td><td class="num ${tone(s.wow)}">${cmp(s.wow)}</td><td>${spark(s.trend, dir)}<small class="${tone(change)}">${cmp(change)}</small></td><td class="num">${s.products}</td><td><button class="detail-btn" data-open="${i}" type="button">${open.has(i) ? "收起货品" : "查看货品"}</button></td></tr>`;
+      const detail = open.has(i) ? `<tr class="products"><td colspan="14"><table><thead><tr><th>货品编号</th><th>货品名称</th><th>吉客云分类</th><th>匹配方式</th><th class="num">净销售额</th><th class="num">净销量</th><th class="num">毛利率</th></tr></thead><tbody>${s.items.map((p) => `<tr><td>${p[0]}</td><td>${p[1]}</td><td>${p[2]}</td><td>${p[3]}</td><td class="num">${money(p[4])}</td><td class="num">${p[5]}</td><td class="num green">${pct(p[6])}</td></tr>`).join("")}</tbody></table></td></tr>` : "";
+      return main + detail;
+    }).join("");
+  }
+  subRows.addEventListener("click", (e) => { const b = e.target.closest("[data-open]"); if (!b) return; const i = Number(b.dataset.open); open.has(i) ? open.delete(i) : open.add(i); renderSub(); });
+  renderSub();
+  document.getElementById("toggle-un").addEventListener("click", (e) => { const l = document.getElementById("un-list"); l.classList.toggle("hidden"); e.target.textContent = l.classList.contains("hidden") ? "展开货品" : "收起货品"; });
+
+  const mapRows = [
+    ["DEMO-A-001", "演示 柜式旋钮直饮机 A", "标准", "直饮机", "柜式旋钮直饮机", "货品编号", "mapped"],
+    ["DEMO-A-002", "演示 柜式旋钮直饮机 B", "标准", "直饮机", "柜式旋钮直饮机", "货品编号", "mapped"],
+    ["DEMO-A-003", "演示 柜式旋钮直饮机 C", "白色", "家电", "柜式旋钮直饮机", "货品名称", "mapped"],
+    ["DEMO-B-001", "演示 柜式触控直饮机 A", "标准", "直饮机", "柜式触控直饮机", "货品编号", "mapped"],
+    ["DEMO-B-002", "演示 柜式触控直饮机 B", "标准", "直饮机", "柜式触控直饮机", "货品编号", "mapped"],
+    ["DEMO-C-001", "演示 台式直饮机 A", "黑色", "直饮机", "台式直饮机", "货品编号", "mapped"],
+    ["DEMO-D-001", "演示 步进式直饮机 A", "标准", "直饮机", "步进式直饮机", "货品名称", "mapped"],
+    ["DEMO-N-001", "演示 未映射直饮机甲", "标准", "直饮机", null, "—", "unclassified"],
+    ["DEMO-N-002", "演示 未映射直饮机乙", "标准", "直饮机", null, "—", "unclassified"],
+    ["DEMO-M-001", "演示 映射表有但吉客云无的货品", "", "", "台式直饮机", "—", "missing"],
+  ];
+  const labels = { mapped: "已归类", unclassified: "未归类", missing: "吉客云未找到" };
+  const fs = document.getElementById("f-sub"), fst = document.getElementById("f-status"), fq = document.getElementById("f-q");
+  [...new Set(subs.map((s) => s.name))].forEach((n) => fs.insertAdjacentHTML("beforeend", `<option>${n}</option>`));
+  function renderMap() {
+    const q = fq.value.trim().toLowerCase();
+    const rows = mapRows.filter((r) => (fst.value === "all" || r[6] === fst.value) && (!fs.value || r[4] === fs.value) && (!q || r.join(" ").toLowerCase().includes(q)));
+    document.getElementById("map-count").textContent = `共 ${rows.length} 条符合条件（合成数据）`;
+    document.getElementById("map-rows").innerHTML = rows.map((r) => `<tr><td>${r[0]}</td><td>${r[0]}</td><td><strong>${r[1]}</strong></td><td>${r[2] || "—"}</td><td>${r[3] || "—"}</td><td>${r[4] ? `<span class="sub-tag">${r[4]}</span>` : "—"}</td><td>${r[5]}</td><td><span class="status s-${r[6]}">${labels[r[6]]}</span></td></tr>`).join("") || `<tr><td colspan="8" class="muted">没有符合当前条件的货品。</td></tr>`;
+  }
+  [fs, fst, fq].forEach((el) => el.addEventListener("input", renderMap));
+  renderMap();
+
+  const views = { ops: ["category", "ops"], sub: ["category", "sub"], map: ["settings", null] };
+  function show(view) {
+    const [root, tab] = views[view];
+    document.getElementById("category").classList.toggle("hidden", root !== "category");
+    document.getElementById("settings").classList.toggle("hidden", root !== "settings");
+    if (tab) {
+      document.getElementById("pane-ops").classList.toggle("hidden", tab !== "ops");
+      document.getElementById("pane-sub").classList.toggle("hidden", tab !== "sub");
+      document.getElementById("tab-ops").classList.toggle("active", tab === "ops");
+      document.getElementById("tab-sub").classList.toggle("active", tab === "sub");
+      document.getElementById("tab-ops").setAttribute("aria-selected", tab === "ops");
+      document.getElementById("tab-sub").setAttribute("aria-selected", tab === "sub");
+    }
+    document.querySelectorAll(".switch button").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+  }
+  document.querySelectorAll(".switch button").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
+  document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => show(b.dataset.tab)));
+  show("ops");
+</script>
+</body>
+</html>

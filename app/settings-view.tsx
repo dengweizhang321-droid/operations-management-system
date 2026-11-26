@@ -25,6 +25,7 @@ const { Component: LazyMarketWorkflowPanel } = createReloadableLazy<MarketWorkfl
 })));
 const { Component: LazyMarketAnnotationView } = createReloadableLazy("settings", () => import("./market-annotation-view"));
 const { Component: LazyWarehouseMappingSettings } = createReloadableLazy("settings", () => import("./warehouse-mapping-settings"));
+const { Component: LazyProductSubdivisionSettings } = createReloadableLazy("settings", () => import("./product-subdivision-settings"));
 const { Component: LazyDingTalkRobotSettings } = createReloadableLazy<{ canWrite: boolean }>("settings", () => import("./dingtalk-robot-settings"));
 const { Component: LazyAccessControlManagement } = createReloadableLazy<{ canManage: boolean }>("settings", () => import("./access-control-management"));
 
@@ -64,13 +65,14 @@ type NumericSettingKey = "targetDays" | "criticalDays" | "slowDays" | "stagnantD
 type BooleanSettingKey = "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory";
 export type MarketSettingsPane = "master-data" | "imports" | "annotation";
 
-const settingsTabs = ["parameters", "master", "warehouses", "dingtalk", "backups", "permissions"] as const satisfies readonly SettingsTab[];
+const settingsTabs = ["parameters", "master", "warehouses", "subdivisions", "dingtalk", "backups", "permissions"] as const satisfies readonly SettingsTab[];
 const marketSettingsPanes = ["master-data", "imports", "annotation"] as const satisfies readonly MarketSettingsPane[];
 
 const settingsTabLabels: Record<SettingsTab, string> = {
   parameters: "系统参数",
   master: "主数据与映射",
   warehouses: "仓库映射",
+  subdivisions: "货品细分映射",
   dingtalk: "钉钉机器人",
   permissions: "权限管理",
   backups: "数据库备份",
@@ -586,6 +588,17 @@ export default function SettingsView({
     >
       <Suspense fallback={<LoadingState>正在加载仓库映射</LoadingState>}>
         <LazyWarehouseMappingSettings canEdit={canEdit} />
+      </Suspense>
+    </section>}
+
+    {activeTab === "subdivisions" && <section
+      id="settings-panel-subdivisions"
+      role="tabpanel"
+      aria-labelledby="settings-tab-subdivisions"
+      tabIndex={0}
+    >
+      <Suspense fallback={<LoadingState>正在加载货品细分映射</LoadingState>}>
+        <LazyProductSubdivisionSettings />
       </Suspense>
     </section>}
 
