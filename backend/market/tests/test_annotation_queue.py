@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+import hashlib
 from threading import Barrier
 from unittest import skipUnless
 from unittest.mock import patch
@@ -39,7 +40,9 @@ class QueueFixtures:
             defaults={"concurrency": concurrency, "updated_by": PRINCIPAL.email})
         return job
 
-    def item(self, job, identifier, *, sku=None, month="2026-09", scope="全部", image_hash="a" * 64, **kwargs):
+    def item(self, job, identifier, *, sku=None, month="2026-09", scope="全部", image_hash=None, **kwargs):
+        # One image per SKU by default: the same image is one recognition across SKUs.
+        image_hash = image_hash or hashlib.sha256((sku or identifier).encode()).hexdigest()
         return MarketAnnotationItem.objects.create(id=identifier, job_id=job.id, category=job.category,
             scope=scope, sku_code=sku or identifier, month=month, image_content_sha256=image_hash, **kwargs)
 
@@ -121,8 +124,7 @@ class AnnotationQueueTests(QueueFixtures, TestCase):
         second = self.item(job, "two", sku="same", month="2026-09")
         different_scope = self.item(job, "three", sku="same", scope="另一榜单")
         task = self.claim(job)["task"]
-        another = self.claim(job)["task"]
-        self.assertEqual(another["itemId"], different_scope.id)
+        # The same image in another ranking list is the same recognition too.
         self.assertIsNone(self.claim(job)["task"])
         # A simulated downstream write failure preserves the original lease for completion replay.
         with patch("market.annotations._refresh_job", side_effect=RuntimeError("synthetic persistence failure")):
@@ -133,10 +135,12 @@ class AnnotationQueueTests(QueueFixtures, TestCase):
         self.assertEqual(first.status, "claimed")
         self.assertEqual(second.status, "queued")
         completed = self.complete(task)
-        self.assertEqual(completed["reusedCount"], 1)
+        self.assertEqual(completed["reusedCount"], 2)
         second.refresh_from_db()
+        different_scope.refresh_from_db()
         self.assertEqual(second.status, "review_pending")
         self.assertEqual(second.ai_image_price_cents, 10000)
+        self.assertEqual((different_scope.status, different_scope.ai_image_price_cents), ("review_pending", 10000))
         self.assertTrue(self.complete(task)["duplicate"])
 
     def test_unknown_expired_lease_quarantines_all_months_and_keeps_running_below_threshold(self):

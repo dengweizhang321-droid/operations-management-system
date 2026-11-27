@@ -90,7 +90,7 @@ class AnnotationPriorityTests(QueueFixtures, TestCase):
     def test_claim_exposes_only_matching_cache_and_rollbacks_preserve_mode_audits(self):
         job = self.job("cache")
         url = "https://img1.360buyimg.com/imgzone/test.jpg"
-        self.item(job, "one", source_image_url=url)
+        self.item(job, "one", source_image_url=url, image_hash="a" * 64)
         MarketImageCache.objects.create(source_url=url, status="ready", content_sha256="b" * 64)
         with transaction.atomic():
             task = self.claim(job)["task"]
@@ -178,7 +178,7 @@ class AnnotationPriorityTests(QueueFixtures, TestCase):
         from time import perf_counter
         job = self.job("scale", concurrency=12)
         items = [MarketAnnotationItem(id=f"scale-{n:05}", job_id=job.id, category=job.category, scope="全部",
-                    sku_code=str(n), month="2026-09", image_content_sha256="a" * 64,
+                    sku_code=str(n), month="2026-09", image_content_sha256=f"{n:064x}",
                     reviewed_segment="测试细分" if n < 9600 else "") for n in range(10000)]
         MarketAnnotationItem.objects.bulk_create(items, batch_size=500)
         started = perf_counter()
