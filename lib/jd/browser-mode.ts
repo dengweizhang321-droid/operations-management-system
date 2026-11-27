@@ -1,5 +1,6 @@
 import { closeChromeBrowser, launchDedicatedChrome, waitForChrome } from "../jackyun/cdp-client";
-import { jdManualVerifyWindowMarkerPath, recordJdManualVerifyWindow } from "./manual-verify-window";
+import { defaultJdManualVerifyWindowMarkerPath } from "./chromium-run-lock";
+import { recordJdManualVerifyWindow } from "./manual-verify-window";
 
 export type JdBrowserLaunchMode = { headless: boolean; visible: boolean; disableExtensions: boolean };
 
@@ -74,7 +75,7 @@ const defaultLifecycleDependencies: JdBrowserLifecycleDependencies = {
   waitForChrome,
   recordWindow: (options) => recordJdManualVerifyWindow(
     { port: options.port, storeKey: options.storeKey, shopName: options.shopName },
-    options.markerPath ?? jdManualVerifyWindowMarkerPath(),
+    options.markerPath ?? defaultJdManualVerifyWindowMarkerPath(),
   ),
 };
 
