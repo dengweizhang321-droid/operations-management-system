@@ -1,6 +1,5 @@
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { closeChromeBrowser, listChromeTargets, readChromeBrowserProcessId } from "../jackyun/cdp-client";
 
@@ -11,18 +10,19 @@ import { closeChromeBrowser, listChromeTargets, readChromeBrowserProcessId } fro
  * attached to, read or driven by automation; it is tracked by this marker next
  * to the global Chromium lock and released when the operator closes it or when
  * it has stayed open longer than the bounded period below.
+ *
+ * The marker path is always derived from a lock directory so it follows the
+ * reviewed (helper-rewritten) project root in `chromium-run-lock.ts`; this file
+ * must not resolve its own location.
  */
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 export const jdManualVerifyWindowMaxOpenMs = 30 * 60_000;
 /** Deliberately free of `manual_action` / `waiting_login` wording: a run blocked
  * by an open window is an ordinary failure the hourly retry may repeat later. */
 export const jdManualVerifyWindowOpenCode = "JD_VERIFY_WINDOW_OPEN";
 
-export function jdManualVerifyWindowMarkerPath(lockDirectory?: string) {
-  return lockDirectory
-    ? path.join(path.dirname(lockDirectory), "jd-manual-verify-window.json")
-    : path.join(projectRoot, ".runtime", "jd-manual-verify-window.json");
+export function jdManualVerifyWindowMarkerPath(lockDirectory: string) {
+  return path.join(path.dirname(lockDirectory), "jd-manual-verify-window.json");
 }
 
 export type JdManualVerifyWindowMarker = {
@@ -73,7 +73,7 @@ function parseMarker(raw: string): JdManualVerifyWindowMarker | null {
  * holds the global Chromium lock, after its own automated browser was closed. */
 export async function recordJdManualVerifyWindow(
   input: { port: number; storeKey?: string; shopName?: string },
-  markerPath = jdManualVerifyWindowMarkerPath(),
+  markerPath: string,
   dependencies: Pick<WindowDependencies, "readBrowserPid" | "now"> = defaultDependencies,
 ) {
   const browserPid = await dependencies.readBrowserPid(input.port).catch(() => null);
@@ -103,7 +103,7 @@ export async function recordJdManualVerifyWindow(
  * expired window to the locked check.
  */
 export async function assertNoJdManualVerifyWindowOpen(
-  markerPath = jdManualVerifyWindowMarkerPath(),
+  markerPath: string,
   dependencies: WindowDependencies = defaultDependencies,
   { readOnly = false }: { readOnly?: boolean } = {},
 ) {

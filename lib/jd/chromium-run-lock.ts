@@ -11,6 +11,10 @@ export function defaultJdChromiumRunLockDirectory(root = projectRoot) {
   return path.join(root, ".runtime", "jd-chromium-global.lock");
 }
 
+export function defaultJdManualVerifyWindowMarkerPath(root?: string) {
+  return jdManualVerifyWindowMarkerPath(defaultJdChromiumRunLockDirectory(root));
+}
+
 export async function withJdChromiumRunLock<T>(
   purpose: string,
   operation: () => Promise<T>,
