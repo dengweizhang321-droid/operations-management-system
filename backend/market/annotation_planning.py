@@ -27,6 +27,17 @@ HUMAN_REVIEW_ENTITY = "market_annotation_human_review"
 FORMAL_PRICE_TYPES = {"标准售价", "到手价", "券后价"}
 IDENTITY_FIELDS = ("category", "scope", "sku_code", "ranking_dimension")
 IMAGE_FIELDS = (*IDENTITY_FIELDS, "image_content_sha256")
+# Model-result reuse is keyed by the image alone inside one category; the
+# job-level prompt/executor/model filter supplies the rest of the identity.
+MODEL_IMAGE_FIELDS = ("category", "image_content_sha256")
+# Markers on items whose result was copied from an earlier model result of
+# the same image, prompt and model. They are never a human review.
+MODEL_REUSE_FULL = "model_same_image"
+MODEL_REUSE_PRICE = "model_same_image_price"
+MODEL_REUSE_MARKERS = (MODEL_REUSE_FULL, MODEL_REUSE_PRICE)
+MODEL_RESULT_STATUSES = ("review_pending", "approved", "committed", "rejected")
+MODEL_RESULT_FIELDS = ("ai_segment", "ai_image_price_cents", "ai_price_type", "ai_price_low_cents", "ai_price_high_cents",
+    "ai_confidence_bps", "ai_reason", "ai_raw_digest", "resolved_image_url", "image_source")
 
 
 def _key(row, fields=IDENTITY_FIELDS):
@@ -59,7 +70,7 @@ def _latest(query, fields, time_field="reviewed_at"):
 
 def _human(actor):
     return bool(actor and "@" in actor and actor not in {
-        "history_same_image", "history_same_sku_segment",
+        "history_same_image", "history_same_sku_segment", *MODEL_REUSE_MARKERS,
     })
 
 
@@ -163,6 +174,32 @@ def _clear_no_price(item, job, prompt, model_id, executor, local_model_name,
     return _trusted_review(item, job, event) or trusted_gold
 
 
+def _model_results(prompt, model_id, executor, local_model_name):
+    """Latest earlier model result per (category, image) on the same prompt and model.
+
+    Read once per plan through the job index. Two maps are returned: any
+    usable result (for price-only rows whose classification is already fixed)
+    and full-recognition results only (for rows that still need one). A latest
+    result a human rejected is not reused. Items without an AI segment never
+    produced a model result.
+    """
+    jobs = MarketAnnotationJob.objects.filter(category=prompt.category, prompt_version_id=prompt.id,
+        executor=executor).exclude(status__in=["deleted", "cancelled"])
+    jobs = jobs.filter(local_model_name=local_model_name) if executor == "local" else jobs.filter(model_id=model_id or None)
+    job_ids = list(jobs.values_list("id", flat=True))
+    if not job_ids:
+        return {}, {}
+    base = MarketAnnotationItem.objects.filter(job_id__in=job_ids, category=prompt.category,
+        status__in=MODEL_RESULT_STATUSES, ai_segment__in=[s for s in prompt.segments_json if s]).exclude(
+        image_content_sha256="").only("id", "category", "image_content_sha256", "status", "reviewed_by", "updated_at",
+        *MODEL_RESULT_FIELDS)
+    usable = lambda rows: {_key(row, MODEL_IMAGE_FIELDS): row for row in rows if row.status != "rejected"}
+    any_result = usable(_latest(base, MODEL_IMAGE_FIELDS, "updated_at"))
+    full_result = usable(_latest(base.exclude(reviewed_by__in=["history_same_sku_segment", MODEL_REUSE_PRICE]),
+        MODEL_IMAGE_FIELDS, "updated_at"))
+    return any_result, full_result
+
+
 def _bounded_context(rows, prompt):
     identity_filter = _predicate((_key(row) for row in rows), IDENTITY_FIELDS)
     snapshot_filter = _predicate(((*_key(row), row.period_end[:7]) for row in rows), (*IDENTITY_FIELDS, "month"))
@@ -203,6 +240,7 @@ def build_job_items(candidate_rows, prompt, job_id, *, model_id, executor,
     iterator = iter(candidate_rows.iterator(chunk_size=PLANNING_CHUNK_SIZE)
                     if hasattr(candidate_rows, "iterator") else candidate_rows)
     items = []
+    model_any, model_full = _model_results(prompt, model_id, executor, local_model_name)
     while rows := list(islice(iterator, PLANNING_CHUNK_SIZE)):
         snapshots, caches, annotations, fallback, histories, jobs, events, gold, blocked = _bounded_context(rows, prompt)
         for row in rows:
@@ -242,7 +280,12 @@ def build_job_items(candidate_rows, prompt, job_id, *, model_id, executor,
             formal_price = bool(history and history.status == "committed" and not newer_formal and history.reviewed_price_type in FORMAL_PRICE_TYPES
                 and history.reviewed_image_price_cents is not None)
             reused = bool(valid_segment and history and (formal_price or no_price))
-            if failed and (not reused or not history.reviewed_at or failed.updated_at >= history.reviewed_at):
+            # Same category, image, prompt and model already has a model result:
+            # copy it instead of paying for the same recognition again.
+            model_source = None
+            if not reused:
+                model_source = (model_any if valid_segment else model_full).get((row.category, image_hash))
+            if failed and model_source is None and (not reused or not history.reviewed_at or failed.updated_at >= history.reviewed_at):
                 # A later untrusted/sentinel row must not reopen an exhausted
                 # identity. Only a resolved later result that needs no new model
                 # call can pass this fence.
@@ -254,7 +297,9 @@ def build_job_items(candidate_rows, prompt, job_id, *, model_id, executor,
                 status="review_pending" if reused else "queued", reviewed_segment=valid_segment,
                 reviewed_by="history_same_image" if reused else "history_same_sku_segment" if valid_segment else "",
                 reviewed_at=now if reused else None)
-            if reused:
+            if model_source is not None:
+                _copy_model_result(item, model_source, valid_segment)
+            elif reused:
                 item.ai_segment = valid_segment
                 item.ai_confidence_bps, item.ai_reason = history.ai_confidence_bps, history.ai_reason
                 for suffix in ("image_price_cents", "price_type", "price_low_cents", "price_high_cents"):
@@ -265,3 +310,23 @@ def build_job_items(candidate_rows, prompt, job_id, *, model_id, executor,
         if len(items) >= limit:
             break
     return items
+
+
+def _copy_model_result(item, source, fixed_segment):
+    """Fill a planned item from an earlier model result, as a fresh completion would.
+
+    A fixed (formal or human) classification always wins over the copied one;
+    only the price evidence is taken from the earlier recognition then.
+    """
+    segment = fixed_segment or source.ai_segment
+    item.status = "review_pending"
+    item.reviewed_by = MODEL_REUSE_PRICE if fixed_segment else MODEL_REUSE_FULL
+    item.reviewed_at = None
+    item.ai_segment = segment
+    item.reviewed_segment = segment
+    for suffix in ("image_price_cents", "price_type", "price_low_cents", "price_high_cents"):
+        value = getattr(source, "ai_" + suffix)
+        setattr(item, "ai_" + suffix, value)
+        setattr(item, "reviewed_" + suffix, value)
+    item.ai_confidence_bps, item.ai_reason, item.ai_raw_digest = source.ai_confidence_bps, source.ai_reason, source.ai_raw_digest
+    item.resolved_image_url, item.image_source = source.resolved_image_url, source.image_source

@@ -21,7 +21,8 @@ from sales.auth import Principal
 
 from .annotation_runtime import FAILURE_MESSAGES, blocked_until, record_failure, record_success, record_unknown_expirations, retry_snapshot
 from . import annotation_activity
-from .annotation_planning import build_job_items, record_human_reviews, record_selected_reviews
+from .annotation_planning import (MODEL_REUSE_FULL, MODEL_REUSE_MARKERS, build_job_items, record_human_reviews,
+    record_selected_reviews)
 from teruisi_backend.automation_drain import AdmissionClosed, deployed_runtime, read_gate
 from .errors import MarketApiError
 from .models import (
@@ -309,11 +310,11 @@ def _record_recognition_modes(items, prompt, principal):
     for item in items:
         if getattr(item, "recognition_mode", ""):
             continue
-        fixed = item.reviewed_segment if item.reviewed_segment in prompt.segments_json else ""
+        fixed = item.reviewed_segment if item.reviewed_segment in prompt.segments_json and item.reviewed_by != MODEL_REUSE_FULL else ""
         records.append(MarketMasterAuditLog(actor_email=principal.email.lower(), actor_role=principal.role,
             action="market_annotation_recognition_mode", entity_type="market_annotation_mode", entity_id=item.id,
             after_json={"jobId": item.job_id, "recognitionMode": "price_only" if fixed else "full", "fixedSegment": fixed,
-                        "historyReused": item.reviewed_by == "history_same_image" and item.attempt_count == 0}))
+                        "historyReused": item.reviewed_by in {"history_same_image", *MODEL_REUSE_MARKERS} and item.attempt_count == 0}))
     MarketMasterAuditLog.objects.bulk_create(records, batch_size=500)
 
 
@@ -324,7 +325,7 @@ def _fixed_segment(item, prompt):
 
 def _queue_progress(base, prompt, now):
     completed = Q(status__in=["review_pending", "approved", "rejected", "committed"])
-    identity = ("category", "scope", "sku_code", "ranking_dimension", "image_content_sha256")
+    identity = INFERENCE_FIELDS
     queues = {key: {"pending": 0, "processing": 0, "completed": 0, "exception": 0} for key in ("A", "B")}
     # SQL first folds other months into one inference unit, just as claiming does.
     units = _recognition_items(base).values(*identity).annotate(
@@ -356,9 +357,9 @@ def _queue_progress(base, prompt, now):
 
 
 def _inference_identity(item: MarketAnnotationItem) -> dict:
-    return {name: getattr(item, name) for name in (
-        "job_id", "category", "scope", "sku_code", "ranking_dimension", "image_content_sha256",
-    )}
+    # The same image is recognized once per job; every SKU/month showing it
+    # shares that result (a fixed classification still wins, see completion).
+    return {name: getattr(item, name) for name in ("job_id", *INFERENCE_FIELDS)}
 
 
 def _lock_model(job: MarketAnnotationJob, *, wait: bool = True) -> bool:
@@ -422,7 +423,7 @@ def _locked_job(job_id: str, *, wait: bool = True, model_lock: bool = True) -> M
     return MarketAnnotationJob.objects.select_for_update(skip_locked=not wait).filter(id=job_id).first()
 
 
-INFERENCE_FIELDS = ("category", "scope", "sku_code", "ranking_dimension", "image_content_sha256")
+INFERENCE_FIELDS = ("category", "image_content_sha256")
 
 
 def _claim_candidates(job_id: str, prompt: MarketAnnotationPromptVersion, now, *, capacity: int = 50):
@@ -1233,6 +1234,7 @@ def _create_job(payload: dict[str, object], principal: Principal, *, owner_email
     job_id = f"market-annotation-job-{uuid.uuid4()}"
     candidates = _month_candidate_rows(category, month) if month else _candidate_rows(category)
     items = build_job_items(candidates, prompt, job_id, model_id=model_id, executor=executor, local_model_name=local_model, limit=limit)
+    runnable = any(item.status == "queued" for item in items)
     job = MarketAnnotationJob.objects.create(
         id=job_id,
         category=category,
@@ -1242,18 +1244,58 @@ def _create_job(payload: dict[str, object], principal: Principal, *, owner_email
         local_model_name=local_model,
         work_key=work_key,
         reuse_status="ready",
-        status="queued" if items else "review_ready",
+        # A plan fully satisfied by earlier results needs no model call and is ready at once,
+        # so it never holds the work key open against the next import.
+        status="queued" if runnable else "review_ready",
         total_count=len(items),
         completed_count=sum(1 for item in items if item.status == "review_pending"),
         created_by=(owner_email or principal.email).lower(),
-        completed_at=timezone.now() if not items else None,
+        completed_at=timezone.now() if not runnable else None,
     )
     MarketAnnotationItem.objects.bulk_create(items, batch_size=500)
     _record_recognition_modes(items, prompt, principal)
+    _publish_model_reuse_snapshots(items, prompt)
     if executor == "cloud":
-        MarketAnnotationCloudRun.objects.create(job_id=job.id, state="paused", retry_state_json={})
+        MarketAnnotationCloudRun.objects.create(job_id=job.id, state="paused" if runnable else "completed",
+            completed_at=None if runnable else job.completed_at, retry_state_json={})
     _audit(principal, "create_market_annotation_job", "market_annotation_job", job.id, {}, {"category": category, "promptVersionId": prompt_id, "executor": executor, "totalCount": len(items)})
     return {**_job_value(job), "reused": False}
+
+
+def _publish_model_reuse_snapshots(items, prompt) -> int:
+    """Write copied model prices to the matching current-image snapshots, as a completion does."""
+    reused = {(item.scope, item.sku_code, item.ranking_dimension, item.month): item for item in items
+              if item.status == "review_pending" and item.reviewed_by in MODEL_REUSE_MARKERS}
+    if not reused:
+        return 0
+    cache_hash = MarketImageCache.objects.filter(source_url=OuterRef("image_url"), status="ready").exclude(
+        content_sha256="",
+    ).values("content_sha256")[:1]
+    now = timezone.now()
+    changed = []
+    skus = sorted({key[1] for key in reused})
+    for start in range(0, len(skus), 500):
+        rows = MarketPriceSnapshot.objects.filter(
+            category=prompt.category, sku_code__in=skus[start:start + 500], confirmed_market_price_cents__isnull=True,
+        ).annotate(current_hash=Coalesce(Subquery(cache_hash), F("image_content_sha256")))
+        for row in rows:
+            item = reused.get((row.scope, row.sku_code, row.ranking_dimension, row.month))
+            if item is None or row.current_hash != item.image_content_sha256:
+                continue
+            row.ai_image_price_cents, row.ai_price_type = item.ai_image_price_cents, item.ai_price_type
+            row.ai_confidence_bps, row.ai_reason = item.ai_confidence_bps, item.ai_reason
+            row.confirmation_status, row.source_job_item_id, row.prompt_version_id = "ai_pending", item.id, prompt.id
+            if item.ai_price_low_cents is not None:
+                row.price_low_cents = item.ai_price_low_cents
+            if item.ai_price_high_cents is not None:
+                row.price_high_cents = item.ai_price_high_cents
+            row.updated_at = now
+            changed.append(row)
+    MarketPriceSnapshot.objects.bulk_update(changed, [
+        "ai_image_price_cents", "ai_price_type", "ai_confidence_bps", "ai_reason", "confirmation_status",
+        "source_job_item_id", "prompt_version_id", "price_low_cents", "price_high_cents", "updated_at",
+    ], batch_size=500)
+    return len(changed)
 
 
 def _set_concurrency(payload: dict[str, object], principal: Principal) -> dict[str, object]:
@@ -1961,6 +2003,10 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
     followers = _recognition_items(MarketAnnotationItem.objects.filter(**_inference_identity(item))).filter(
         Q(status="queued") | Q(status="failed", attempt_count__lt=3),
     ).exclude(id=item.id)
+    if fixed_segment:
+        # A price-only result was constrained to its own fixed classification;
+        # siblings that still need a full classification keep waiting for theirs.
+        followers = followers.exclude(fixed_segment="")
     follower_ids = list(followers.values_list("id", flat=True))
     copied = {field: getattr(item, field) for field in (
         "ai_segment", "ai_image_price_cents", "ai_price_type", "ai_price_low_cents", "ai_price_high_cents",
@@ -1978,28 +2024,31 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
             "resultRecordedAt": iso(timezone.now()), "lockWaitMs": lock_wait_ms})
     # All months publish together. Rollback leaves the original lease valid for replaying
     # the same completion payload; the caller must never re-run the model to retry this write.
-    affected = MarketAnnotationItem.objects.filter(id__in=[item.id, *follower_ids])
-    matching_result = affected.filter(month=OuterRef("month")).values("id")[:1]
+    affected_all = MarketAnnotationItem.objects.filter(id__in=[item.id, *follower_ids])
     cache_hash = MarketImageCache.objects.filter(source_url=OuterRef("image_url"), status="ready").exclude(
         content_sha256="",
     ).values("content_sha256")[:1]
-    ranking = MarketRankingEntry.objects.filter(
-        category=item.category, scope=item.scope, sku_code=item.sku_code, ranking_dimension=item.ranking_dimension,
-    ).annotate(snapshot_month=Substr("period_end", 1, 7)).filter(snapshot_month=OuterRef("month"))
-    snapshot_updates = {"ai_image_price_cents": price, "ai_price_type": price_type,
-                        "ai_confidence_bps": confidence, "ai_reason": reason, "confirmation_status": "ai_pending",
-                        "source_job_item_id": Subquery(matching_result), "prompt_version_id": prompt.id,
-                        "updated_at": timezone.now()}
-    if low is not None:
-        snapshot_updates["price_low_cents"] = low
-    if high is not None:
-        snapshot_updates["price_high_cents"] = high
-    MarketPriceSnapshot.objects.filter(
-        category=item.category, scope=item.scope, sku_code=item.sku_code, ranking_dimension=item.ranking_dimension,
-        month__in=affected.values("month"), confirmed_market_price_cents__isnull=True,
-    ).annotate(current_hash=Coalesce(Subquery(cache_hash), F("image_content_sha256"))).filter(
-        Exists(ranking), current_hash=item.image_content_sha256,
-    ).update(**snapshot_updates)
+    # One image may be shown by several market identities; publish each of them.
+    for scope, sku_code, dimension in list(affected_all.values_list("scope", "sku_code", "ranking_dimension").distinct()):
+        affected = affected_all.filter(scope=scope, sku_code=sku_code, ranking_dimension=dimension)
+        matching_result = affected.filter(month=OuterRef("month")).values("id")[:1]
+        ranking = MarketRankingEntry.objects.filter(
+            category=item.category, scope=scope, sku_code=sku_code, ranking_dimension=dimension,
+        ).annotate(snapshot_month=Substr("period_end", 1, 7)).filter(snapshot_month=OuterRef("month"))
+        snapshot_updates = {"ai_image_price_cents": price, "ai_price_type": price_type,
+                            "ai_confidence_bps": confidence, "ai_reason": reason, "confirmation_status": "ai_pending",
+                            "source_job_item_id": Subquery(matching_result), "prompt_version_id": prompt.id,
+                            "updated_at": timezone.now()}
+        if low is not None:
+            snapshot_updates["price_low_cents"] = low
+        if high is not None:
+            snapshot_updates["price_high_cents"] = high
+        MarketPriceSnapshot.objects.filter(
+            category=item.category, scope=scope, sku_code=sku_code, ranking_dimension=dimension,
+            month__in=affected.values("month"), confirmed_market_price_cents__isnull=True,
+        ).annotate(current_hash=Coalesce(Subquery(cache_hash), F("image_content_sha256"))).filter(
+            Exists(ranking), current_hash=item.image_content_sha256,
+        ).update(**snapshot_updates)
     if job.executor == "cloud":
         run = MarketAnnotationCloudRun.objects.select_for_update().get(job_id=job.id)
         retry = _run_retry_snapshot(run, _configured_concurrency(job))
