@@ -12,7 +12,8 @@ import { writeJsonAtomic, writeJsonDurable } from "../lib/jackyun/json-file";
 import { validateJdStoreRegistry } from "../lib/jd/store-registry";
 import { launchDedicatedChrome, closeChromeBrowser } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
-import { jdBrowserLaunchMode } from "../lib/jd/browser-mode";
+import { jdBrowserLaunchMode, isJdManualVerificationFailure, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
+import { isJdManualVerifyWindowOpenError, jdManualVerifyWindowMarkerPath, jdManualVerifyWindowOpenCode } from "../lib/jd/manual-verify-window";
 import { ensureJdStoreAuthenticatedSession, jdLoginGateReason } from "./jd-saved-login";
 import { assertCustomerServiceShop, exportCustomerServiceView, openCustomerServicePage, type CustomerServiceExportCheckpoint } from "./jd-customer-service-export";
 import { buildCustomerServiceDailyFiles } from "./jd-customer-service-daily-files";
@@ -43,6 +44,7 @@ export type CustomerServiceN8nPlan = {
 function reject(code: string): never { throw new JdCustomerServiceWorkflowError(code); }
 export function customerServiceFailureCode(error: unknown) {
   if (error instanceof JdCustomerServiceWorkflowError) return error.code;
+  if (isJdManualVerifyWindowOpenError(error)) return jdManualVerifyWindowOpenCode;
   if (error instanceof Error) {
     if (error.name === "TimeoutError") return /page\.(?:goto|reload)/.test(error.message) ? "CUSTOMER_SERVICE_NAVIGATION_TIMEOUT" : "CUSTOMER_SERVICE_CONTROL_TIMEOUT";
     if (/登录状态在有界等待后仍无法确认/.test(error.message)) return "CUSTOMER_SERVICE_LOGIN_PENDING";
@@ -112,7 +114,11 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
             } else await closeCustomerServicePreSubmitFailure(root, previous, previousBytes, executionId, files.directory);
           }
         }
-        catch { reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION"); }
+        catch (error) {
+          // An open verification window only delays the closure; keep it retryable.
+          if (isJdManualVerifyWindowOpenError(error)) throw error;
+          reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
+        }
         closedPreviousBytes = previousBytes;
       }
     }
@@ -164,6 +170,7 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
       if (plan.sourceRecovery?.kind !== "downloaded_pair") {
       let ownsBrowser = false;
       let browser: Awaited<ReturnType<typeof connectPlaywrightBrowser>> | undefined;
+      let revealVerifyWindow = false;
       try {
         ownsBrowser = Boolean(await launchDedicatedChrome({ executablePath: store.browser.executablePath,
           profileDirectory: store.browser.userDataDir, profileName: store.browser.profileName,
@@ -183,9 +190,20 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
           await exportCustomerServiceView({ page, period: plan.period, view, downloadDirectory, assertStore,
             checkpoint: async checkpoint => { plan.source[view] = { ...checkpoint, observedAt: new Date().toISOString() }; await save(); } });
         }
+      } catch (error) {
+        revealVerifyWindow = ownsBrowser && step === "open_customer_service_page" && isJdManualVerificationFailure(error);
+        throw error;
       } finally {
         try { await browser?.close(); }
         finally { if (ownsBrowser) { await closeChromeBrowser(store.browser.debugPort); browserClosed = true; } }
+        if (revealVerifyWindow && browserClosed) {
+          // Only for the operator to clear verification; the run still fails
+          // and nothing attaches to this window. Opening it is best effort.
+          await revealJdBrowserForInteractiveFailure({ executablePath: store.browser.executablePath,
+            profileDirectory: store.browser.userDataDir, profileName: store.browser.profileName,
+            port: store.browser.debugPort, startUrl: contract.entryUrl, storeKey: store.storeKey, shopName: store.shopName,
+            markerPath: jdManualVerifyWindowMarkerPath(defaultJdChromiumRunLockDirectory(root)) }).catch(() => undefined);
+        }
       }
       }
       const sessions = plan.source.list; const chats = plan.source.messages;
@@ -229,6 +247,8 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
     await save();
     // Do not let browser exceptions leak page text or signed download URLs.
     // The reason is a fixed token from a closed vocabulary, never remote text.
+    // A run blocked by an open verification window stays an ordinary failure.
+    if (plan.failureCode === jdManualVerifyWindowOpenCode) throw error;
     throw new JdCustomerServiceWorkflowError(plan.failureCode.endsWith("_MANUAL_ACTION") ? plan.failureCode : `${plan.failureCode}_MANUAL_ACTION`,
       failureReason, { cause: error });
   }

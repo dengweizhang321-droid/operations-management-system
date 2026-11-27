@@ -2,6 +2,8 @@ import { customerServiceRecoveryHeader, parseCustomerServiceRecoveryHeader } fro
 import { createHash, randomUUID } from "node:crypto";
 import { customerServiceStore, customerServiceStoreHeader, customerServiceStoreContextError } from "../lib/jd/customer-service-stores";
 import { JdCustomerServiceWorkflowError } from "../lib/jd/customer-service-workflow";
+import { defaultJdChromiumRunLockDirectory } from "../lib/jd/chromium-run-lock";
+import { assertNoJdManualVerifyWindowOpen, jdManualVerifyWindowMarkerPath } from "../lib/jd/manual-verify-window";
 import { customerServiceHelperError, planCustomerServiceRun, runCustomerServicePlan, verifyCustomerServicePlan, restoreAndVerifyCustomerServicePlan, publicCustomerServicePlan, type CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline";
 import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
@@ -1611,6 +1613,12 @@ async function serveCommand(argv: string[]) {
     busy = true;
     let tmallBrowserClosure: Awaited<ReturnType<typeof closeTmallWorkflowBrowser>> | null = null;
     try {
+      if ((isJd || isJdCustomerService || isJdMarket || isJdPromotion || isJdLogistics) && request.url?.endsWith("/plan")) {
+        // Fail before any plan state exists while a manual verification window
+        // still owns the shared Chromium user-data root; the hourly retry can
+        // repeat this cleanly once the operator has closed the window.
+        await assertNoJdManualVerifyWindowOpen(jdManualVerifyWindowMarkerPath(defaultJdChromiumRunLockDirectory(projectRoot)), undefined, { readOnly: true });
+      }
       if (isJdCustomerService) {
         if (restoreCustomerServiceVerify) {
           const result = await restoreAndVerifyCustomerServicePlan(projectRoot, requestExecutionId!, claimedJdCustomerServiceStoreKey!);

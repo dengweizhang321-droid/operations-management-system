@@ -36,7 +36,7 @@ import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getJdStore } from "../lib/jd/store-registry";
 import { assertJdNaturalDateRange } from "../lib/jd/date-range";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
-import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, jdBrowserLaunchMode, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
+import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, isJdManualVerificationFailure, jdBrowserLaunchMode, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
 import { ensureJdStoreAuthenticatedSession } from "./jd-saved-login";
 
@@ -971,7 +971,9 @@ async function run() {
     });
     client.close();
   } catch (error) {
-    revealInteractiveBrowser = options.visibleRecovery && !options.interactiveLogin && isJdInteractiveBrowserFailure(error);
+    // Strict silent copies open a window only for clearable login verification.
+    revealInteractiveBrowser = !options.interactiveLogin
+      && (options.visibleRecovery ? isJdInteractiveBrowserFailure(error) : isJdManualVerificationFailure(error));
     throw error;
   } finally {
     await browser?.close().catch(() => undefined);
@@ -984,8 +986,10 @@ async function run() {
           profileName: options.profileName,
           port: options.port,
           startUrl: targetUrl,
+          storeKey: options.storeKey,
+          shopName: options.shopName,
         });
-        console.error(`京东交互异常：已打开 ${options.shopName} 对应的 Chromium profile，请完成人工验证后从原任务清单续跑。`);
+        console.error(`京东交互异常：已打开 ${options.shopName} 对应的 Chromium profile，请完成人工验证后关闭窗口，再从原任务清单续跑。`);
       } catch (revealError) {
         const bounded = revealError instanceof Error ? revealError.message.slice(0, 500) : String(revealError).slice(0, 500);
         console.error(`京东交互异常，但可见 Chromium 打开失败：${bounded}`);
