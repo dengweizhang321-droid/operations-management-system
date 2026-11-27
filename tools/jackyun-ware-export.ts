@@ -19,7 +19,7 @@ import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getJdStore } from "../lib/jd/store-registry";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
-import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, launchJdWareBrowser, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
+import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, isJdManualVerificationFailure, launchJdWareBrowser, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 import { parseXlsxFirstSheet } from "../lib/imports/xlsx";
 import { ensureJdStoreAuthenticatedSession, inspectJdLoginPageState, inspectJdSessionSurfaceCounts, isJdLoginSurface } from "./jd-saved-login";
 import { JdWareQueryObservationError, jdWareQueryResponseTimeoutMs, observeJdWareInitialQuery, waitForJdWareLoginSurface, type JdWareQueryDiagnostics } from "./jd-ware-query-observer";
@@ -1457,7 +1457,10 @@ async function main() {
         : `JD_QUERY_INSPECTION_${isJdInteractiveBrowserFailure(error) ? "LOGIN_REQUIRED" : "FAILED"}`
       : error instanceof Error ? error.stack ?? error.message : String(error);
     const interactiveAttentionRequired = !options.interactiveLogin && isJdInteractiveBrowserFailure(error);
-    revealInteractiveBrowser = options.visibleRecovery && interactiveAttentionRequired;
+    // Strict silent copies stay windowless except for login verification a
+    // person can clear; that window is only for the operator, never driven.
+    revealInteractiveBrowser = !options.inspectQueryOnly && !options.interactiveLogin
+      && (options.visibleRecovery ? interactiveAttentionRequired : isJdManualVerificationFailure(error));
     if (error instanceof JdWareCreateExportRejectedError && error.definitiveNoTask && recovery && !recovery.taskId) {
       // JD explicitly confirmed that createExportJob failed, so this manifest
       // cannot own a remote task. Preserve it as evidence and allow an
@@ -1500,8 +1503,11 @@ async function main() {
         profileName: options.profileName,
         port: options.port,
         startUrl: targetUrl,
+        storeKey: options.storeKey,
+        shopName: options.shopName,
       });
-      console.error(`京东交互异常：已打开 ${options.shopName} 对应的 Chromium profile，请完成人工验证后从原审计续跑。`);
+      await persistAudit({ stage: "manual_verify_window_opened" });
+      console.error(`京东交互异常：已打开 ${options.shopName} 对应的 Chromium profile，请完成人工验证后关闭窗口，再从原审计续跑。`);
     } catch (revealError) {
       const bounded = revealError instanceof Error ? revealError.message.slice(0, 500) : String(revealError).slice(0, 500);
       await persistAudit({ stage: "interactive_attention_open_failed" });

@@ -1,4 +1,5 @@
 import { closeChromeBrowser, launchDedicatedChrome, waitForChrome } from "../jackyun/cdp-client";
+import { jdManualVerifyWindowMarkerPath, recordJdManualVerifyWindow } from "./manual-verify-window";
 
 export type JdBrowserLaunchMode = { headless: boolean; visible: boolean; disableExtensions: boolean };
 
@@ -21,6 +22,24 @@ export function isJdInteractiveBrowserFailure(error: unknown) {
   return /尚未登录|登录状态无效|请.{0,20}登录|验证码|人机验证|安全验证|安全校验|滑块验证|访问验证|访问受限|账号异常|业务码\s*601|未经京东授权的软件操作|店铺身份.{0,12}不一致|登录身份.{0,12}不一致/.test(message);
 }
 
+/** Login reasons a person can clear in a visible window. */
+const manualVerificationLoginReasons = new Set(["challenge_present", "post_submit_unconfirmed", "session_absent"]);
+
+/**
+ * Narrower than `isJdInteractiveBrowserFailure`: only login verification a
+ * person can clear (captcha, slider, SMS, security check, missing login or an
+ * unconfirmed automated submit). Strict silent copies open a window only for
+ * these; risk-control 601, identity mismatch, rejected credentials and rate
+ * limits stay silent failures.
+ */
+export function isJdManualVerificationFailure(error: unknown) {
+  const reason = typeof error === "object" && error !== null ? (error as { reason?: unknown }).reason : undefined;
+  if (typeof reason === "string") return manualVerificationLoginReasons.has(reason);
+  const message = error instanceof Error ? error.message : String(error);
+  if (/业务码\s*601|未经京东授权|身份.{0,12}不一致|凭据|过于频繁|操作受限|访问受限|账号异常/.test(message)) return false;
+  return /尚未登录|登录状态无效|请.{0,20}登录|验证码|人机验证|安全验证|安全校验|滑块验证|访问验证|自动提交后仍未完成登录/.test(message);
+}
+
 export function hasJdInteractivePageGate(pageText: string) {
   return /验证码|人机验证|安全验证|安全校验|滑块验证|访问验证/.test(pageText);
 }
@@ -34,16 +53,29 @@ export type JdInteractiveBrowserOptions = {
   keepWindowHidden?: boolean;
 };
 
+export type JdManualVerifyWindowOptions = JdInteractiveBrowserOptions & {
+  storeKey?: string;
+  shopName?: string;
+  /** Defaults to the marker next to the default global Chromium lock. */
+  markerPath?: string;
+};
+
 type JdBrowserLifecycleDependencies = {
   closeChromeBrowser: typeof closeChromeBrowser;
   launchDedicatedChrome: (options: Parameters<typeof launchDedicatedChrome>[0]) => Promise<unknown | null>;
   waitForChrome: typeof waitForChrome;
+  /** Records the opened window so later JD stages wait for it to close. */
+  recordWindow?: (options: JdManualVerifyWindowOptions) => Promise<unknown>;
 };
 
 const defaultLifecycleDependencies: JdBrowserLifecycleDependencies = {
   closeChromeBrowser,
   launchDedicatedChrome,
   waitForChrome,
+  recordWindow: (options) => recordJdManualVerifyWindow(
+    { port: options.port, storeKey: options.storeKey, shopName: options.shopName },
+    options.markerPath ?? jdManualVerifyWindowMarkerPath(),
+  ),
 };
 
 type JdWareBrowserDependencies = Pick<JdBrowserLifecycleDependencies, "closeChromeBrowser" | "launchDedicatedChrome"> & {
@@ -93,7 +125,7 @@ export async function launchJdWareBrowser(
 }
 
 export async function revealJdBrowserForInteractiveFailure(
-  options: JdInteractiveBrowserOptions,
+  options: JdManualVerifyWindowOptions,
   dependencies: JdBrowserLifecycleDependencies = defaultLifecycleDependencies,
 ) {
   // Close the headless process first: Chromium cannot safely open the same
@@ -108,4 +140,7 @@ export async function revealJdBrowserForInteractiveFailure(
   });
   if (!launched) throw new Error("京东交互浏览器端口被并发进程占用，未打开新的可见窗口。");
   await dependencies.waitForChrome(options.port);
+  // The window is only for the operator. Automation never attaches to it; the
+  // marker makes every later JD stage wait until it is closed or expires.
+  await dependencies.recordWindow?.(options);
 }

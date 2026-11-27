@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { unzipSync } from "fflate";
 import type { Page } from "playwright-core";
 
-import { jdBrowserLaunchMode, isJdInteractiveBrowserFailure, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
+import { jdBrowserLaunchMode, isJdInteractiveBrowserFailure, isJdManualVerificationFailure, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import {
   inspectJdPromotionCsv,
@@ -583,13 +583,15 @@ async function runUnlocked(options: JdPromotionExportOptions): Promise<JdPromoti
     client.close();
     return resultFrom(manifest, store, imported.inspection, imported.proof);
   } catch (error) {
-    revealInteractive = options.visibleRecovery && !options.interactiveLogin && isJdInteractiveBrowserFailure(error);
+    // Silent n8n runs open a window only for clearable login verification.
+    revealInteractive = !options.interactiveLogin
+      && (options.visibleRecovery ? isJdInteractiveBrowserFailure(error) : isJdManualVerificationFailure(error));
     throw error;
   } finally {
     await browser?.close().catch(() => undefined);
     if (ownsBrowser && !options.interactiveLogin) await closeChromeBrowser(store.browser.debugPort);
     if (revealInteractive) {
-      await revealJdBrowserForInteractiveFailure({ executablePath: store.browser.executablePath, profileDirectory: store.browser.userDataDir, profileName: store.browser.profileName, port: store.browser.debugPort, startUrl: jdPromotionReportListUrl }).catch(() => undefined);
+      await revealJdBrowserForInteractiveFailure({ executablePath: store.browser.executablePath, profileDirectory: store.browser.userDataDir, profileName: store.browser.profileName, port: store.browser.debugPort, startUrl: jdPromotionReportListUrl, storeKey: store.storeKey, shopName: store.shopName }).catch(() => undefined);
     }
   }
 }

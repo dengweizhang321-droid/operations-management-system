@@ -5,7 +5,9 @@ import path from "node:path";
 import { connect } from "node:net";
 import type { Browser, BrowserContext, Download, Frame, Locator, Page, Response } from "playwright-core";
 import { withJdChromiumRunLock, defaultJdChromiumRunLockDirectory } from "../lib/jd/chromium-run-lock";
-import { jdBrowserLaunchMode } from "../lib/jd/browser-mode";
+import { jdBrowserLaunchMode, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
+import { jdManualVerifyWindowMarkerPath } from "../lib/jd/manual-verify-window";
+import { jdCustomerServiceWorkflow } from "../lib/jd/customer-service-workflow";
 import { JD_LOGISTICS_MAX_FILE_BYTES } from "../lib/inventory/jd-logistics-workbook";
 import { parseJdLogisticsSourceFile } from "./jd-logistics-source-file";
 import { launchDedicatedChrome, closeChromeBrowser, waitForChrome } from "../lib/jackyun/cdp-client";
@@ -50,6 +52,13 @@ const flowQueryEndpoint = "https://api.jdl.com/bsc/batchStock/queryStockFlowList
 const flowExportEndpoint = "https://api.jdl.com/bsc/batchStock/exportStockFlow";
 function fail(code: string): never { throw new Error(code); }
 const logisticsCode = (error: unknown) => error instanceof Error && /^JD_LOGISTICS_[A-Z_]+$/.test(error.message);
+/** Login gates a person can clear in a visible window. Locked, rejected or
+ * mismatched sessions stay silent failures. */
+const manualVerifyLogisticsCodes = new Set([
+  "JD_LOGISTICS_LOGIN_CHALLENGE_MANUAL_ACTION",
+  "JD_LOGISTICS_LOGIN_NOT_COMPLETED_MANUAL_ACTION",
+  "JD_LOGISTICS_LOGIN_REQUIRED",
+]);
 /** Settles the single export click and its observed response. A raw Playwright
  * error here (click actionability or the 30 s response wait) used to reach the
  * pipeline as the generic PIPELINE_FAILED_MANUAL_ACTION, which hid whether this
@@ -758,6 +767,7 @@ export async function exportJdLogistics(options: JdLogisticsExportOptions): Prom
   return withJdChromiumRunLock(`jd-logistics:${options.runId}:${options.operationId}`, async () => {
     let browser: Browser | null = null; let owned = false; let result: JdLogisticsExportResult | undefined;
     let manifest: LogisticsExportManifest | undefined;
+    let revealVerifyWindow = false;
     try {
       await options.assertOwner();
       if (!(await stat(options.store.browser.profileDir)).isDirectory()) fail("JD_LOGISTICS_PROFILE_MISSING");
@@ -794,6 +804,9 @@ export async function exportJdLogistics(options: JdLogisticsExportOptions): Prom
         const exported = await exportFlowSource(page, context, business, options, manifestPath, identityHash, observedCodes);
         manifest = exported.manifest; result = exported.result;
       }
+    } catch (error) {
+      revealVerifyWindow = owned && error instanceof Error && manualVerifyLogisticsCodes.has(error.message);
+      throw error;
     } finally {
       await browser?.close().catch(() => undefined);
       if (owned) {
@@ -801,6 +814,20 @@ export async function exportJdLogistics(options: JdLogisticsExportOptions): Prom
           await closeChromeBrowser(options.store.browser.debugPort);
           if (!await logisticsDebugPortClosed(options.store.browser.debugPort)) fail("JD_LOGISTICS_BROWSER_CLEANUP_FAILED");
         } catch { fail("JD_LOGISTICS_BROWSER_CLEANUP_FAILED"); }
+      }
+      if (revealVerifyWindow) {
+        // Only for the operator to clear verification; the run still fails and
+        // nothing attaches to this window. Opening it is best effort.
+        await revealJdBrowserForInteractiveFailure({
+          executablePath: options.store.browser.executablePath,
+          profileDirectory: options.store.browser.userDataDir,
+          profileName: options.store.browser.profileName,
+          port: options.store.browser.debugPort,
+          startUrl: jdCustomerServiceWorkflow.entryUrl,
+          storeKey: options.store.storeKey,
+          shopName: options.store.shopName,
+          markerPath: jdManualVerifyWindowMarkerPath(defaultJdChromiumRunLockDirectory(options.root)),
+        }).catch(() => undefined);
       }
     }
     if (!result || !manifest) return fail("JD_LOGISTICS_EXPORT_RESULT_MISSING");
