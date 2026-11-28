@@ -1,9 +1,10 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useAiPageDetails } from "./ai-page-context-provider";
 import FinanceAnnualProgressView from "./finance-annual-progress-view";
 import { StableReadContent } from "./ui/stable-read-content";
 import { SearchableSelect } from "./ui/searchable-select";
+import { buildSmoothAreaPath, buildSmoothPath } from "./ui/charts/chart-utils";
 import { validFinanceAnalysis, validTargetList, validTargetOptions } from "@/lib/sales/view-response";
 import {
   decideFinanceDimensionReconciliation, financeAnalysisPayloadForRequest,
@@ -36,9 +37,11 @@ const formatFinanceWan = (value: number) => new Intl.NumberFormat("zh-CN", { max
 const financeProgressWidth = (value: number | null) => `${Math.max(0, Math.min(100, (value ?? 0) * 100))}%`;
 
 function FinanceTrendChart({ rows }: { rows: Array<{ month: string } & FinanceActualMetrics> }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const width = Math.max(760, rows.length * 92);
-  const height = 270;
-  const plot = { left: 42, right: width - 24, top: 38, bottom: 216 };
+  const height = 276;
+  const plot = { left: 42, right: width - 24, top: 38, bottom: 220 };
   const valuesFor = (key: "netSalesCents" | "profitCents") => rows.map((row) => row[key]);
   const coordinateSeries = (key: "netSalesCents" | "profitCents") => {
     const values = valuesFor(key);
@@ -53,17 +56,67 @@ function FinanceTrendChart({ rows }: { rows: Array<{ month: string } & FinanceAc
   };
   const salesPoints = coordinateSeries("netSalesCents");
   const profitPoints = coordinateSeries("profitCents");
-  const pointsText = (points: Array<{ x: number; y: number }>) => points.map((point) => `${point.x},${point.y}`).join(" ");
-  return <div className="finance-trend-chart">
+  const salesPath = buildSmoothPath(salesPoints);
+  const profitPath = buildSmoothPath(profitPoints);
+  const salesArea = buildSmoothAreaPath(salesPoints, plot.bottom);
+  const profitArea = buildSmoothAreaPath(profitPoints, plot.bottom);
+  const activeRow = hoveredIndex !== null ? rows[hoveredIndex] : null;
+  const activeX = hoveredIndex !== null ? salesPoints[hoveredIndex]?.x ?? plot.left : plot.left;
+  const activeXPercent = (activeX / width) * 100;
+  const flipTipLeft = activeXPercent > 62;
+  const slotW = rows.length <= 1 ? (plot.right - plot.left) : (plot.right - plot.left) / (rows.length - 1);
+  const animKey = `${rows[0]?.month ?? ""}-${rows.at(-1)?.month ?? ""}-${rows.length}`;
+
+  return <div className="finance-trend-chart ui-chart-stage" onPointerLeave={() => setHoveredIndex(null)}>
     <div className="finance-chart-legend"><span><i className="blue" />净销售额（万）</span><span><i className="green" />利润（万）</span></div>
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${width}px` }} role="img" aria-label="月度净销售额与利润趋势，节点单位万元">
-      {[0, 1, 2, 3, 4].map((index) => { const y = plot.top + (plot.bottom - plot.top) * index / 4; return <line key={index} x1={plot.left} x2={plot.right} y1={y} y2={y} className="finance-grid-line" />; })}
-      {salesPoints.length > 0 && <polyline points={pointsText(salesPoints)} className="finance-line sales" />}
-      {profitPoints.length > 0 && <polyline points={pointsText(profitPoints)} className="finance-line profit" />}
-      {salesPoints.map((point, index) => <g key={`sales-${rows[index].month}`}><circle cx={point.x} cy={point.y} r="4" className="finance-point sales"><title>{`${financeMonthLabel(rows[index].month)} 净销售额 ${formatCurrencyFromCents(point.value)}`}</title></circle><text x={point.x} y={Math.max(16, point.y - 10)} textAnchor="middle" className="finance-node-label sales">{formatFinanceWan(point.value)}</text></g>)}
-      {profitPoints.map((point, index) => <g key={`profit-${rows[index].month}`}><circle cx={point.x} cy={point.y} r="4" className="finance-point profit"><title>{`${financeMonthLabel(rows[index].month)} 利润 ${formatCurrencyFromCents(point.value)}`}</title></circle><text x={point.x} y={Math.min(234, point.y + 17)} textAnchor="middle" className="finance-node-label profit">{formatFinanceWan(point.value)}</text></g>)}
-      {rows.map((row, index) => { const x = rows.length <= 1 ? (plot.left + plot.right) / 2 : plot.left + (plot.right - plot.left) * index / (rows.length - 1); return <text key={row.month} x={x} y="258" textAnchor="middle" className="finance-axis-label">{row.month.slice(2)}</text>; })}
+    <svg key={animKey} viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${width}px` }} role="img" aria-label="月度净销售额与利润趋势，节点单位万元">
+      <defs>
+        <linearGradient id={`fin-sales-${uid}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#396149" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#396149" stopOpacity="0.01" />
+        </linearGradient>
+        <linearGradient id={`fin-profit-${uid}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#2d8a7e" stopOpacity="0.16" />
+          <stop offset="100%" stopColor="#2d8a7e" stopOpacity="0.01" />
+        </linearGradient>
+      </defs>
+      {[0, 1, 2, 3, 4].map((index) => { const y = plot.top + (plot.bottom - plot.top) * index / 4; return <line key={index} x1={plot.left} x2={plot.right} y1={y} y2={y} className={index === 4 ? "ui-chart-zero-axis" : "finance-grid-line ui-chart-grid"} />; })}
+      {hoveredIndex !== null && <line className="ui-chart-crosshair" x1={activeX} x2={activeX} y1={plot.top - 6} y2={plot.bottom} />}
+      {salesArea && <path d={salesArea} fill={`url(#fin-sales-${uid})`} className="ui-chart-area-anim" />}
+      {profitArea && <path d={profitArea} fill={`url(#fin-profit-${uid})`} className="ui-chart-area-anim" />}
+      {salesPath && <path d={salesPath} pathLength={100} className="finance-line sales ui-chart-line-anim" />}
+      {profitPath && <path d={profitPath} pathLength={100} className="finance-line profit ui-chart-line-anim" />}
+      {salesPoints.map((point, index) => <g key={`sales-${rows[index].month}`}><circle cx={point.x} cy={point.y} r={hoveredIndex === index ? 6 : 4} className="finance-point sales ui-chart-point-anim" style={{ animationDelay: `${Math.min(340, index * 36)}ms` }}><title>{`${financeMonthLabel(rows[index].month)} 净销售额 ${formatCurrencyFromCents(point.value)}`}</title></circle><text x={point.x} y={Math.max(16, point.y - 10)} textAnchor="middle" className="finance-node-label sales">{formatFinanceWan(point.value)}</text></g>)}
+      {profitPoints.map((point, index) => <g key={`profit-${rows[index].month}`}><circle cx={point.x} cy={point.y} r={hoveredIndex === index ? 6 : 4} className="finance-point profit ui-chart-point-anim" style={{ animationDelay: `${120 + Math.min(340, index * 36)}ms` }}><title>{`${financeMonthLabel(rows[index].month)} 利润 ${formatCurrencyFromCents(point.value)}`}</title></circle><text x={point.x} y={Math.min(238, point.y + 18)} textAnchor="middle" className="finance-node-label profit">{formatFinanceWan(point.value)}</text></g>)}
+      {rows.map((row, index) => {
+        const x = salesPoints[index].x;
+        return <g key={row.month}>
+          <text x={x} y="262" textAnchor="middle" className="finance-axis-label">{row.month.slice(2)}</text>
+          <rect className="ui-chart-hit" x={Math.max(plot.left - 16, x - slotW / 2)} y={plot.top - 10} width={Math.max(24, slotW)} height={plot.bottom - plot.top + 36} onPointerEnter={() => setHoveredIndex(index)} />
+        </g>;
+      })}
     </svg>
+    {activeRow && (
+      <div
+        className="ui-chart-tip"
+        style={
+          flipTipLeft
+            ? { left: `calc(${activeXPercent.toFixed(2)}% - 14px)`, transform: "translateX(-100%)", top: 36 }
+            : { left: `calc(${activeXPercent.toFixed(2)}% + 14px)`, top: 36 }
+        }
+      >
+        <span className="ui-chart-tip-title">{financeMonthLabel(activeRow.month)}</span>
+        <div className="ui-chart-tip-row">
+          <span className="ui-chart-tip-label"><i className="ui-chart-tip-dot" style={{ background: "#396149" }} />净销售额</span>
+          <span className="ui-chart-tip-value">{formatCurrencyFromCents(activeRow.netSalesCents)}</span>
+        </div>
+        <div className="ui-chart-tip-row">
+          <span className="ui-chart-tip-label"><i className="ui-chart-tip-dot" style={{ background: "#2d8a7e" }} />利润</span>
+          <span className="ui-chart-tip-value">{formatCurrencyFromCents(activeRow.profitCents)}</span>
+        </div>
+        <div className="ui-chart-tip-note">利润率 {formatFinanceBps(activeRow.profitMarginBps)} · 大毛利率 {formatFinanceBps(activeRow.grossMarginBps)}</div>
+      </div>
+    )}
   </div>;
 }
 

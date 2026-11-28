@@ -6,6 +6,7 @@ import { decodeBiCockpit, decodeBiFlowReply, flowData, inventoryData, operations
 import { salesRangeMap, type SalesRangeLabel, type CurrentUser } from "./module-view-shared";
 import styles from "./bi-cockpit-view.module.css";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
+import { AnimatedBarTrendChart } from "./ui/charts/AnimatedBarTrendChart";
 
 const count = (n: number | null | undefined) => n == null ? "—" : new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 0 }).format(n);
 const money = (n: number | null | undefined) => n == null ? "—" : new Intl.NumberFormat("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n / 100);
@@ -83,9 +84,13 @@ export default function BiCockpitView({ range, customStartDate, customEndDate, c
   const flowRows = dimension === "shop" ? flow?.shops.map(row => ({ name: row.shopName, platform: row.platform, metrics: row.metrics })) : flow?.platforms.map(row => ({ name: row.platform, platform: row.platform, metrics: row.metrics }));
   const change = (key: "netSalesCents" | "grossProfitCents" | "averageOrderValueCents") => <small>环比 <Trend value={relative(current, erp.sales.previous, key)} /> · 同比 <Trend value={relative(current, erp.sales.yearAgo, key)} /></small>;
   const action = (module: "workflow" | "sales" | "inventory" | "shop", text: string, view?: ModuleViewKey) => onNavigate && <button className={styles.link} onClick={() => onNavigate(module, undefined, view)}>{text} ›</button>;
-  const dailyMax = Math.max(0, ...erp.sales.daily.map(row => row.netSalesCents ?? 0));
-  const dailyMin = Math.min(0, ...erp.sales.daily.map(row => row.netSalesCents ?? 0));
-  const dailySpan = dailyMax - dailyMin || 1, zeroLevel = -dailyMin / dailySpan * 100;
+  const dailyBarItems = erp.sales.daily.map(day => ({
+    key: day.date,
+    label: day.date.slice(5),
+    value: day.netSalesCents ?? 0,
+    tooltipTitle: day.date,
+    tooltipValue: `${money(day.netSalesCents)} 元`,
+  }));
   return <div className={styles.root} aria-busy={loading}>
     <div className={styles.toolbar}><div><strong>综合经营驾驶舱</strong><small>经营周期 {erp.periods.current.startDate} — {erp.periods.current.endDate} · ERP日销售口径</small></div>{controls}</div>
     {error && <p className={styles.notice} role="alert">{error}；当前仍显示本范围上一次成功结果。</p>}
@@ -100,7 +105,7 @@ export default function BiCockpitView({ range, customStartDate, customEndDate, c
       <Card title={apiRange === "month" && erp.periods.current.startDate.slice(0, 7) === data.goals.periods.find(row => row.kind === "month")?.period ? "本月经营" : "本期经营"} hint="ERP日销售 · 金额单位：元" wide actions={action("sales", "查看销售明细")}>
         <div className={styles.metrics}><article><span>净销售额</span><strong>{compactMoney(current.netSalesCents)}</strong>{change("netSalesCents")}</article><article><span>大毛利</span><strong>{compactMoney(current.grossProfitCents)}</strong>{change("grossProfitCents")}</article><article><span>大毛利率</span><strong>{percent(current.grossMarginRate)}</strong><small>净销售额 − 销售成本</small></article><article><span>客单价</span><strong>{money(current.averageOrderValueCents)}</strong>{change("averageOrderValueCents")}<small>净销售额（剔除配件）/ 净数量</small></article><article><span>退款金额 / 比例</span><strong>{compactMoney(current.refundCents)}</strong><small>{percent(current.refundRate)} · 正向销售额为基数</small></article></div>
         {current.missingOrderNoRows !== null && current.missingOrderNoRows > 0 && <p className={styles.notice}>有 {count(current.missingOrderNoRows)} 行缺少可信原订单号，可信原订单组数暂不可用（不影响客单价）。</p>}
-        {erp.sales.daily.length > 0 && <div className={styles.chart} aria-label="ERP每日净销售趋势"><b className={styles.axis} style={{ bottom: `${zeroLevel}%` }} />{erp.sales.daily.map(day => <div key={day.date} title={`${day.date} 净销售 ${money(day.netSalesCents)} 元`}><i className={(day.netSalesCents ?? 0) < 0 ? styles.negative : ""} style={{ height: `${Math.abs(day.netSalesCents ?? 0) / dailySpan * 100}%`, bottom: `${zeroLevel - ((day.netSalesCents ?? 0) < 0 ? Math.abs(day.netSalesCents ?? 0) / dailySpan * 100 : 0)}%` }} /><small>{day.date.slice(5)}</small></div>)}</div>}
+        {dailyBarItems.length > 0 && <div style={{ margin: "20px 0 12px" }}><AnimatedBarTrendChart items={dailyBarItems} ariaLabel="ERP每日净销售趋势" seriesLabel="ERP净销售" height={176} formatAxisValue={(value) => compactMoney(value)} /></div>}
         <small className={styles.muted}>环比：{erp.periods.previous.startDate} — {erp.periods.previous.endDate}；同比：{erp.periods.yearAgo.startDate} — {erp.periods.yearAgo.endDate}。已导入 {current.coverage.observedDays}/{current.coverage.expectedDays} 个经营日期。</small>
       </Card>
       <Card title="店铺净销售同比下滑" hint="严重 ≤−20% · 预警 ≤−10%" actions={action("sales", "查看店铺经营")}><div className={styles.table}><table><thead><tr><th>店铺</th><th>本期净销售</th><th>同比</th></tr></thead><tbody>{declines.slice(0, 20).map(row => <tr key={row.key}><td>{row.name}<small>{row.platform}</small></td><td>{money(row.current.netSalesCents)}</td><td><Trend value={row.yoy} /></td></tr>)}</tbody></table></div>{!declines.length && <Missing text={unknownShops ? "当前可比较店铺暂无下滑；仍有店铺待核对" : "当前可比较店铺暂无同比下滑"} />}<small className={styles.muted}>下滑 {declines.length} 家 · 不可比 {unknownShops} 家{declines.length > 20 ? "；这里显示下滑最明显的20家" : ""}</small></Card>

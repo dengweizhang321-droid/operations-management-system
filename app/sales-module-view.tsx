@@ -9,6 +9,7 @@ import { validSalesSummary, type SalesSummaryProjection } from "@/lib/sales/summ
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import type { FinanceAnalysisView as FinanceAnalysisComponent, FinanceTargetSettingsView as FinanceTargetComponent } from "./sales-finance-views";
 import { ProductSalesTrend, ShopSalesDistribution } from "./module-view-business-ui";
+import { InteractiveDonutChart } from "./ui/charts/InteractiveDonutChart";
 import { createReloadableLazy } from "./shell/reloadable-lazy";
 import SalesFilterBar, { readSalesSharedFilters, writeSalesSharedFilters,
   type SalesSharedFilterOptions, type SalesSharedFilters } from "./sales-filter-bar";
@@ -352,18 +353,18 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
   const platforms = summary?.platforms?.length ? summary.platforms : channels;
   const salesFilterOptions = activeTab === "category" && categoryOptions?.key === categoryOptionsKey
     ? categoryOptions.payload : summary?.filterOptions ?? (filterMetadata?.key === filterMetadataKey ? filterMetadata.options : { platforms: [], shops: [], categories: [] });
+  const [hoveredChannelIndex, setHoveredChannelIndex] = useState<number | null>(null);
   const hasData = Boolean(current && (current.lineCount > 0 || current.orderCount > 0 || current.grossSalesCents !== 0 || current.netSalesCents !== 0));
-  const donutBackground = useMemo(() => {
-    if (!channels.length) return "#eef1f5";
-    let cursor = 0;
-    const stops = channels.map((channel, index) => {
-      const start = cursor;
-      cursor += Math.max(0, rateAsPercent(channel.shareRate));
-      return `${channelColors[index % channelColors.length]} ${start}% ${Math.min(cursor, 100)}%`;
-    });
-    if (cursor < 100) stops.push(`#eef1f5 ${cursor}% 100%`);
-    return `conic-gradient(${stops.join(",")})`;
-  }, [channels]);
+  const channelDonutSlices = useMemo(() => channels.map((channel, index) => ({
+    key: channel.groupKey || channel.name || String(index),
+    label: channel.name || "未分类",
+    value: Math.max(0, channel.netSalesCents),
+    color: channelColors[index % channelColors.length],
+    centerValue: formatRate(channel.shareRate),
+    centerSublabel: channel.name || "未分类",
+    centerBadge: formatCurrencyFromCents(channel.netSalesCents),
+    tooltip: `${channel.name || "未分类"}：${formatCurrencyFromCents(channel.netSalesCents)}（${formatRate(channel.shareRate)}）`,
+  })), [channels]);
   const salesSubnav = <SalesSubnav active={activeTab} onChange={changeSalesTab} />;
   const sharedFilterBar = (capabilities?: { categories?: boolean; product?: boolean }, options: SalesSharedFilterOptions = salesFilterOptions) => <SalesFilterBar filters={filters} scopeKey={filterMetadataKey} key="sales-shared-filters" options={options} capabilities={capabilities} updating={usesSalesSummary && loading} scopeLabel={activeTab === "finance" ? "财报分析" : activeTab === "category" ? "品类分析" : activeTab === "channel" ? "渠道分析" : "销售总览"} onChange={updateFilters} />;
 
@@ -442,8 +443,36 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
           <article className="panel">
             <SectionHeader title="渠道销售构成" note="按销售净额统计渠道占比，并展示各渠道净销售同比" />
             <div className="channel-chart">
-              <div className="donut" style={{ background: donutBackground }}><div><strong>{(current.netSalesCents / 1000000).toFixed(1)}</strong><small>万元净额</small></div></div>
-              <div className="channel-list channel-sales-list"><div className="channel-list-head"><span>渠道</span><strong>净销售额</strong><em>占比</em><small>净销售同比</small></div>{channels.map((item, index) => <div key={item.name}><span><Dot tone={channelTones[index % channelTones.length]} />{item.name || "未分类"}</span><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong><em>{formatRate(item.shareRate)}</em><small className={netSalesYearOverYearTone(item.salesYearOverYearRate)}>{formatNetSalesYearOverYear(item.salesYearOverYearRate)}</small></div>)}</div>
+              <InteractiveDonutChart
+                slices={channelDonutSlices}
+                size={180}
+                strokeWidth={24}
+                defaultCenterValue={(current.netSalesCents / 1000000).toFixed(1)}
+                defaultCenterLabel="万元净额"
+                activeIndex={hoveredChannelIndex}
+                onActiveIndexChange={setHoveredChannelIndex}
+                ariaLabel="渠道销售构成环形图"
+              />
+              <div className="channel-list channel-sales-list" onPointerLeave={() => setHoveredChannelIndex(null)}>
+                <div className="channel-list-head"><span>渠道</span><strong>净销售额</strong><em>占比</em><small>净销售同比</small></div>
+                {channels.map((item, index) => {
+                  const color = channelColors[index % channelColors.length];
+                  const isActive = hoveredChannelIndex === index;
+                  const isDim = hoveredChannelIndex !== null && !isActive;
+                  return (
+                    <div
+                      key={item.name}
+                      className={`ui-sync-row${isActive ? " is-active" : isDim ? " is-dim" : ""}`}
+                      onPointerEnter={() => setHoveredChannelIndex(index)}
+                    >
+                      <span><i className="dot" style={{ background: color }} />{item.name || "未分类"}</span>
+                      <strong>{formatCurrencyFromCents(item.netSalesCents)}</strong>
+                      <em>{formatRate(item.shareRate)}</em>
+                      <small className={netSalesYearOverYearTone(item.salesYearOverYearRate)}>{formatNetSalesYearOverYear(item.salesYearOverYearRate)}</small>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </article>
           <article className="panel">
@@ -451,7 +480,8 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
             <div className="progress-list">{channels.map((item, index) => {
               const margin = Math.max(0, Math.min(rateAsPercent(item.grossMarginRate), 100));
               const tone = channelTones[index % channelTones.length];
-              return <div key={item.name}><div><span>{item.name || "未分类"}<small>净销售同比 {formatNetSalesYearOverYear(item.salesYearOverYearRate)} · 退货率 {formatRate(item.refundRate)}</small></span><strong className="platform-margin"><b>{formatRate(item.grossMarginRate)}</b><small>大毛利率</small></strong></div><span className="progress-track"><i className={`bg-${tone}`} style={{ width: `${margin}%` }} /></span></div>;
+              const color = channelColors[index % channelColors.length];
+              return <div key={item.name}><div><span>{item.name || "未分类"}<small>净销售同比 {formatNetSalesYearOverYear(item.salesYearOverYearRate)} · 退货率 {formatRate(item.refundRate)}</small></span><strong className="platform-margin"><b>{formatRate(item.grossMarginRate)}</b><small>大毛利率</small></strong></div><span className="progress-track"><i className={`bg-${tone}`} style={{ width: `${margin}%`, background: color, animationDelay: `${index * 60}ms` }} /></span></div>;
             })}</div>
             <div className="insight-card"><span>数据口径</span><p>渠道构成与订单行数来自当前周期销售明细；大毛利率统一按（分摊后金额 − 货品成本）÷ 分摊后金额计算，不扣费用分摊。</p></div>
           </article>

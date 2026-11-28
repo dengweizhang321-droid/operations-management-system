@@ -942,7 +942,7 @@ export const salesRangeMap: Record<SalesRangeLabel, SalesRange> = {
 };
 
 export const channelTones = ["blue", "purple", "green", "orange"] as const;
-export const channelColors = ["#4776e6", "#8167d9", "#27a978", "#e99436"];
+export const channelColors = ["#396149", "#2d8a7e", "#d48a29", "#7c6bb8", "#4b7399", "#6c9a5e", "#c4714b", "#c84b58"];
 export const DIRECT_IMPORT_FILE_SIZE = 2 * 1024 * 1024;
 export const MAX_IMPORT_FILE_SIZE = 128 * 1024 * 1024;
 export const SALES_UPLOAD_CHUNK_SIZE = 2 * 1024 * 1024;

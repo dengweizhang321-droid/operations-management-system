@@ -1,0 +1,463 @@
+/* Forest-green lightweight GPU-composited dynamic charts */
+
+@keyframes ui-bar-rise {
+  from {
+    transform: scaleY(0);
+    opacity: 0.35;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ui-bar-drop {
+  from {
+    transform: scaleY(0);
+    opacity: 0.35;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ui-hbar-grow {
+  from {
+    transform: scaleX(0);
+    opacity: 0.45;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ui-line-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ui-area-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ui-point-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ui-donut-sweep {
+  from {
+    opacity: 0;
+    transform: rotate(-18deg) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes ui-risk-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(196, 58, 73, 0.34);
+  }
+  55% {
+    box-shadow: 0 0 0 5px rgba(196, 58, 73, 0);
+  }
+}
+
+/* Shared chart stage & glassmorphic forest-green tooltip */
+.ui-chart-stage {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  user-select: none;
+}
+
+.ui-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-chart-grid {
+  stroke: var(--color-border-default, #e4eae6);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.ui-chart-zero-axis {
+  stroke: var(--color-border-strong, #c5d3ca);
+  stroke-width: 1.25;
+}
+
+.ui-chart-axis-text {
+  fill: var(--color-text-muted, #6e7e74);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-chart-axis-title {
+  fill: var(--color-text-secondary, #4e6456);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ui-chart-hover-band {
+  fill: rgba(57, 97, 73, 0.08);
+  transition: opacity 140ms ease;
+  pointer-events: none;
+}
+
+.ui-chart-crosshair {
+  stroke: var(--color-brand-border, #abc4b4);
+  stroke-width: 1.25;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
+.ui-chart-bar-pos {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: ui-bar-rise 540ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: opacity 150ms ease, filter 150ms ease;
+}
+
+.ui-chart-bar-neg {
+  transform-box: fill-box;
+  transform-origin: center top;
+  animation: ui-bar-drop 540ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: opacity 150ms ease, filter 150ms ease;
+}
+
+.ui-chart-bar-dim {
+  opacity: 0.42;
+}
+
+.ui-chart-bar-active {
+  filter: brightness(1.08) drop-shadow(0 3px 6px rgba(36, 56, 44, 0.18));
+}
+
+.ui-chart-line-anim {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  animation: ui-line-draw 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ui-chart-area-anim {
+  pointer-events: none;
+  animation: ui-area-fade 620ms ease 180ms both;
+}
+
+.ui-chart-point-anim {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ui-point-pop 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: r 140ms ease, stroke-width 140ms ease;
+}
+
+.ui-chart-hit {
+  fill: transparent;
+  cursor: crosshair;
+}
+
+.ui-chart-hit-clickable {
+  cursor: pointer;
+}
+
+/* Floating deep forest-green glass tooltip */
+.ui-chart-tip {
+  position: absolute;
+  top: 10px;
+  z-index: var(--z-tooltip, 90);
+  min-width: 156px;
+  max-width: 248px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(24, 39, 30, 0.94);
+  border: 1px solid rgba(204, 232, 217, 0.18);
+  box-shadow: 0 12px 28px rgba(20, 34, 26, 0.24);
+  color: #f3f7f4;
+  font-size: 12px;
+  line-height: 1.5;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-variant-numeric: tabular-nums;
+  transition: left 120ms ease-out, top 120ms ease-out, opacity 120ms ease;
+}
+
+.ui-chart-tip-title {
+  display: block;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(204, 232, 217, 0.16);
+  color: #cce8d9;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ui-chart-tip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 3px;
+}
+
+.ui-chart-tip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(243, 247, 244, 0.84);
+  white-space: nowrap;
+}
+
+.ui-chart-tip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 8px;
+}
+
+.ui-chart-tip-value {
+  color: #ffffff;
+  font-weight: 650;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ui-chart-tip-note {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px dashed rgba(204, 232, 217, 0.16);
+  color: rgba(204, 232, 217, 0.78);
+  font-size: 11px;
+}
+
+/* Interactive Donut Chart */
+.ui-donut-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.ui-donut-svg {
+  display: block;
+  overflow: visible;
+  animation: ui-donut-sweep 580ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ui-donut-track {
+  fill: none;
+  stroke: var(--color-bg-app, #f5f7f6);
+}
+
+.ui-donut-arc {
+  fill: none;
+  cursor: pointer;
+  transition: stroke-width 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease,
+    filter 180ms ease;
+}
+
+.ui-donut-arc-active {
+  filter: drop-shadow(0 3px 8px rgba(36, 56, 44, 0.22));
+}
+
+.ui-donut-arc-dim {
+  opacity: 0.32;
+}
+
+.ui-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.ui-donut-center strong {
+  color: var(--color-brand-hover, #293f32);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-donut-center small {
+  margin-top: 3px;
+  max-width: 108px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted, #6e7e74);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.ui-donut-center em {
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-brand, #396149);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Interactive list-row sync states */
+.ui-sync-row {
+  border-radius: 7px;
+  transition: background-color 140ms ease, opacity 140ms ease, transform 140ms ease;
+}
+
+.ui-sync-row.is-active {
+  background: var(--color-brand-soft, #f3f7f4);
+}
+
+.ui-sync-row.is-dim {
+  opacity: 0.48;
+}
+
+/* Smooth GPU horizontal progress / distribution bars */
+.ui-hbar-anim {
+  transform-origin: left center;
+  animation: ui-hbar-grow 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.progress-track > i,
+.shop-distribution-name small i > b,
+.product-platform-share-list article > div i > b,
+.workflow-priority-chart b,
+.workflow-owner-chart b,
+.finance-progress-track > span,
+.health-stack > i {
+  transform-origin: left center;
+  animation: ui-hbar-grow 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Inventory health 6-status hover/focus linkage */
+.health-stack > i {
+  cursor: pointer;
+  transition: opacity 160ms ease, filter 160ms ease, transform 160ms ease;
+}
+
+.health-stack.has-hover > i:not(.is-hovered) {
+  opacity: 0.36;
+}
+
+.health-stack > i.is-hovered {
+  filter: brightness(1.08);
+  transform: scaleY(1.16);
+}
+
+.health-legend button.is-hovered {
+  border-color: var(--color-brand-border, #abc4b4);
+  background: var(--color-brand-soft, #f3f7f4);
+  transform: translateY(-1px);
+}
+
+.health-legend button.is-dim {
+  opacity: 0.52;
+}
+
+.health-swatch.is-risk-pulse {
+  animation: ui-risk-pulse 2.2s ease-out infinite;
+}
+
+/* ProductSalesTrend mode toggle pill */
+.trend-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--color-bg-app, #f5f7f6);
+  border: 1px solid var(--color-border-default, #e4eae6);
+}
+
+.trend-mode-toggle button {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary, #4e6456);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.trend-mode-toggle button.active {
+  background: var(--color-bg-surface, #ffffff);
+  color: var(--color-brand, #396149);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(31, 51, 39, 0.1);
+}
+
+/* Operations legend interactive highlight */
+.workflow-chart-legend > span {
+  padding: 4px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background-color 140ms ease, opacity 140ms ease;
+}
+
+.workflow-chart-legend > span.is-active {
+  background: var(--color-brand-soft, #f3f7f4);
+}
+
+.workflow-chart-legend > span.is-dim {
+  opacity: 0.45;
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .ui-chart-bar-pos,
+  .ui-chart-bar-neg,
+  .ui-chart-line-anim,
+  .ui-chart-area-anim,
+  .ui-chart-point-anim,
+  .ui-donut-svg,
+  .ui-hbar-anim,
+  .progress-track > i,
+  .shop-distribution-name small i > b,
+  .product-platform-share-list article > div i > b,
+  .workflow-priority-chart b,
+  .workflow-owner-chart b,
+  .finance-progress-track > span,
+  .health-stack > i,
+  .health-swatch.is-risk-pulse {
+    animation: none !important;
+    transition: none !important;
+  }
+}

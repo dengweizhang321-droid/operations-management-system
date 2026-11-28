@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "./shell/top-navigation.css";
 import "./styles/shared-theme.css";
+import "./ui/charts/charts.css";
 
 const title = "电商运营中台";
 const description = "销售、库存、商品与运营事务一体化管理平台。";

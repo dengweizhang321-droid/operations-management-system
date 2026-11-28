@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { InventoryKpiCard } from "./module-view-business-ui";
+import { AgeDualAxisChart } from "./ui/charts/AgeDualAxisChart";
 import GuangdongInventoryView from "./inventory-guangdong-view";
 import JdLogisticsCwarehouseView from "./jd-logistics-cwarehouse-view";
 import TmallWarehouseView from "./tmall-warehouse-view";
@@ -388,65 +389,16 @@ function inventoryThirtyDayCsvRows(samples: InventoryMappingItem[]): Array<Array
 }
 
 function InventoryAgeDistributionChart({ buckets, stockValueComplete }: { buckets: InventoryAgeDistributionBucket[]; stockValueComplete: boolean }) {
-  const width = 1200;
-  const height = 350;
-  const plotLeft = 66;
-  const plotRight = 1124;
-  const plotTop = 42;
-  const plotBottom = 292;
-  const plotWidth = plotRight - plotLeft;
-  const plotHeight = plotBottom - plotTop;
-  const quantityMaximum = niceChartMaximum(Math.max(0, ...buckets.map((bucket) => bucket.quantity)));
-  const valueMaximum = niceChartMaximum(Math.max(0, ...buckets.map((bucket) => bucket.valueCents / 100)));
-  const slotWidth = buckets.length > 0 ? plotWidth / buckets.length : plotWidth;
-  const barWidth = Math.min(64, slotWidth * 0.62);
-  const xFor = (index: number) => plotLeft + slotWidth * (index + 0.5);
-  const quantityY = (value: number) => plotBottom - Math.max(0, value) / quantityMaximum * plotHeight;
-  const valueY = (valueCents: number) => plotBottom - Math.max(0, valueCents / 100) / valueMaximum * plotHeight;
-  const linePoints = buckets.map((bucket, index) => `${xFor(index)},${valueY(bucket.valueCents)}`).join(" ");
-  const ticks = [0, 1, 2, 3, 4];
-
-  return <div className="age-distribution-chart" role="group" aria-label="库龄分布双轴组合图">
-    <div className="age-distribution-svg-wrap">
-      <svg className="age-distribution-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby="inventory-age-chart-title inventory-age-chart-description">
-        <title id="inventory-age-chart-title">库龄库存数量与库存金额分布</title>
-        <desc id="inventory-age-chart-description">蓝色柱形表示各库龄区间的可用库存数量，橙色折线表示按固定成本计算的库存金额。</desc>
-        <text className="age-chart-axis-title" x={plotLeft - 12} y={24}>数量（件）</text>
-        <text className="age-chart-axis-title" x={plotRight + 12} y={24} textAnchor="end">金额（元）</text>
-        {ticks.map((tick) => {
-          const y = plotBottom - plotHeight * tick / 4;
-          return <g key={tick}>
-            <line className="age-chart-grid-line" x1={plotLeft} x2={plotRight} y1={y} y2={y} />
-            <text className="age-chart-axis-label" x={plotLeft - 12} y={y + 4} textAnchor="end">{chartNumber(quantityMaximum * tick / 4)}</text>
-            <text className="age-chart-axis-label" x={plotRight + 12} y={y + 4}>{chartAmount(valueMaximum * tick / 4)}</text>
-          </g>;
-        })}
-        {buckets.map((bucket, index) => {
-          const center = xFor(index);
-          const top = quantityY(bucket.quantity);
-          const barHeight = Math.max(0, plotBottom - top);
-          const labelInside = barHeight >= 28;
-          return <g key={bucket.key}>
-            <title>{`${bucket.label}：库存数量 ${chartNumber(bucket.quantity)} 件；库存金额 ${formatCurrencyFromCents(bucket.valueCents)}；${chartNumber(bucket.count)} 个 SKU × 仓库`}</title>
-            <rect className="age-chart-bar" x={center - barWidth / 2} y={top} width={barWidth} height={barHeight} rx="2" />
-            {bucket.quantity > 0 && <text className={labelInside ? "age-chart-bar-label inside" : "age-chart-bar-label"} x={center} y={labelInside ? top + 20 : Math.max(plotTop + 11, top - 7)} textAnchor="middle">{chartNumber(bucket.quantity)}</text>}
-            <text className="age-chart-x-label" x={center} y={plotBottom + 24} textAnchor="middle">{bucket.label.replace(" 天", "天")}</text>
-          </g>;
-        })}
-        {buckets.length > 0 && <polyline className="age-chart-value-line" points={linePoints} />}
-        {buckets.map((bucket, index) => {
-          const x = xFor(index);
-          const y = valueY(bucket.valueCents);
-          const labelY = y > plotBottom - 28 ? plotBottom - 34 : Math.max(plotTop + 12, y - 10);
-          return <g key={`value-${bucket.key}`}>
-            <circle className="age-chart-value-point" cx={x} cy={y} r="4" />
-            <text className="age-chart-value-label" x={x} y={labelY} textAnchor="middle">{chartAmount(bucket.valueCents / 100)}</text>
-          </g>;
-        })}
-      </svg>
-    </div>
-    {!stockValueComplete && <p className="age-chart-coverage-note">库存金额仅统计已有可信固定成本的库存；缺失成本未按 0 元处理。</p>}
-  </div>;
+  return (
+    <AgeDualAxisChart
+      buckets={buckets}
+      stockValueComplete={stockValueComplete}
+      niceMaximum={niceChartMaximum}
+      formatNumber={chartNumber}
+      formatAmount={chartAmount}
+      formatCurrencyFromCents={formatCurrencyFromCents}
+    />
+  );
 }
 
 const inboundRiskMeta: Record<InventoryInboundMonitorResponse["items"][number]["risk"], { label: string; tone: string; dot: string }> = {
@@ -540,6 +492,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     : filters.ageStatuses;
   const [ageCard, setAgeCard] = useState<"" | "stagnant" | "aged90" | "zero_sales">("");
   const [inboundCard, setInboundCard] = useState<"" | "stale">("");
+  const [hoveredHealthStatus, setHoveredHealthStatus] = useState<InventoryHealthStatus | null>(null);
   useAiPageDetails("inventory", {
     period: null,
     blockedReason: activeTab === "inbound" ? "京东物流当前页面范围尚未接入AI取数，请移除页面上下文后提问。" : ((activeTab === "age" || activeTab === "stale") && ageCard) ? "当前统计卡片的精确条件尚未接入 AI 页面取数；请取消卡片筛选后提问，或移除页面上下文。" : undefined,
@@ -1713,17 +1666,43 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="inventory-diagnosis-grid">
           <article className="panel inventory-health-panel">
             <SectionHeader title="库存健康分布" note="仅统计京东仓、天猫仓、广东仓、自营仓" />
-            <div className="health-stack" aria-label="库存健康状态分布">
+            <div className={`health-stack${hoveredHealthStatus ? " has-hover" : ""}`} aria-label="库存健康状态分布" onPointerLeave={() => setHoveredHealthStatus(null)}>
               {([
                 ["no_stock", overview.health.noStock], ["urgent", overview.health.urgent], ["warning", overview.health.warning],
                 ["stale", overview.health.stale], ["slow", overview.health.slow], ["healthy", overview.health.healthy],
-              ] as [InventoryHealthStatus, number][]).map(([status, count]) => count > 0 && <i className={`health-${status}`} style={{ width: `${count / totalHealth * 100}%` }} title={`${inventoryStatusMeta[status].label} ${count}`} key={status} />)}
+              ] as [InventoryHealthStatus, number][]).map(([status, count], index) => count > 0 && (
+                <i
+                  className={`health-${status}${hoveredHealthStatus === status ? " is-hovered" : ""}`}
+                  style={{ width: `${count / totalHealth * 100}%`, animationDelay: `${index * 45}ms` }}
+                  title={`${inventoryStatusMeta[status].label} ${count}（占比 ${((count / totalHealth) * 100).toFixed(1)}%，点击筛选）`}
+                  onPointerEnter={() => setHoveredHealthStatus(status)}
+                  onClick={() => updateFilters({ ...filters, healthStatuses: toggleFilterGroup(filters.healthStatuses, [status]) })}
+                  key={status}
+                />
+              ))}
             </div>
-            <div className="health-legend">
+            <div className="health-legend" onPointerLeave={() => setHoveredHealthStatus(null)}>
               {([
                 ["no_stock", overview.health.noStock], ["urgent", overview.health.urgent], ["warning", overview.health.warning],
                 ["stale", overview.health.stale], ["slow", overview.health.slow], ["healthy", overview.health.healthy],
-              ] as [InventoryHealthStatus, number][]).map(([status, count]) => <button type="button" aria-pressed={filters.healthStatuses.length === 1 && filters.healthStatuses[0] === status} onClick={() => updateFilters({ ...filters, healthStatuses: toggleFilterGroup(filters.healthStatuses, [status]) })} key={status}><span className={`health-swatch health-${status}`} /><div><small>{inventoryStatusMeta[status].label}</small><strong>{formatCount(count)}</strong></div></button>)}
+              ] as [InventoryHealthStatus, number][]).map(([status, count]) => {
+                const isHovered = hoveredHealthStatus === status;
+                const isDim = hoveredHealthStatus !== null && !isHovered;
+                const isRiskPulse = count > 0 && (status === "no_stock" || status === "urgent");
+                return (
+                  <button
+                    type="button"
+                    className={isHovered ? "is-hovered" : isDim ? "is-dim" : undefined}
+                    aria-pressed={filters.healthStatuses.length === 1 && filters.healthStatuses[0] === status}
+                    onPointerEnter={() => setHoveredHealthStatus(status)}
+                    onClick={() => updateFilters({ ...filters, healthStatuses: toggleFilterGroup(filters.healthStatuses, [status]) })}
+                    key={status}
+                  >
+                    <span className={`health-swatch health-${status}${isRiskPulse ? " is-risk-pulse" : ""}`} />
+                    <div><small>{inventoryStatusMeta[status].label}</small><strong>{formatCount(count)}</strong></div>
+                  </button>
+                );
+              })}
             </div>
             <div className="inventory-health-note"><span>积压风险与低周转货值</span><strong>{formatCurrencyFromCents(overview.metrics.slowMovingValueCents)}</strong><small>低周转：库存周转大于 180 天；工厂代发仓不计入</small></div>
           </article>

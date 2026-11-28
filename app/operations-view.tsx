@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import Dialog from "./ui/dialog";
+import { InteractiveDonutChart } from "./ui/charts/InteractiveDonutChart";
 import NewProductLaunchView from "./new-product-launch-view";
 import NewProductSalesFollowupView from "./new-product-sales-followup-view";
 
@@ -754,6 +755,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   const [draft, setDraft] = useState<DraftTask>(EMPTY_TASK);
   const [taskEditorError, setTaskEditorError] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [hoveredTaskSlice, setHoveredTaskSlice] = useState<number | null>(null);
   const aiTaskStatusScope: Status[] = workCardStatuses(statusFilter);
   const aiTaskStatuses = taskStatuses.length > 0 ? aiTaskStatusScope.filter(value => taskStatuses.includes(value)) : aiTaskStatusScope;
   const aiCardDates = new URLSearchParams({ dueFrom: taskDueFrom, dueTo: taskDueTo ? calendarDateWithOffset(taskDueTo, 1) : "" });
@@ -1141,7 +1143,34 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
     </section>
 
     <section className="workflow-insight-grid">
-      <article className="panel workflow-chart-card"><header><div><h3>状态分布</h3><p>当前筛选上下文，服务端汇总</p></div><span>{counts.total} 项</span></header><div className="workflow-donut-layout"><div className="workflow-donut" style={{ background: `conic-gradient(#2f72ef 0 ${activeShare}%, #35b779 ${activeShare}% ${activeShare + completedShare}%, #d9dee7 ${activeShare + completedShare}% 100%)` }}><i><strong>{Math.round(completedShare)}%</strong><small>完成率</small></i></div><div className="workflow-chart-legend"><span><i className="legend-gray" />未开始 <strong>{counts.pending}</strong></span><span><i className="legend-blue" />进行中 <strong>{counts.active}</strong></span><span><i className="legend-green" />已完成 <strong>{counts.completed}</strong></span></div></div></article>
+      <article className="panel workflow-chart-card"><header><div><h3>状态分布</h3><p>当前筛选上下文，服务端汇总</p></div><span>{counts.total} 项</span></header><div className="workflow-donut-layout"><InteractiveDonutChart
+        size={150}
+        strokeWidth={22}
+        defaultCenterValue={`${Math.round(completedShare)}%`}
+        defaultCenterLabel="完成率"
+        activeIndex={hoveredTaskSlice}
+        onActiveIndexChange={setHoveredTaskSlice}
+        ariaLabel="工作计划状态分布环形图"
+        slices={[
+          { key: "pending", label: "未开始", value: counts.pending, color: "#c5d3ca", centerValue: `${counts.pending} 项`, centerSublabel: "未开始", centerBadge: counts.total ? `${Math.round(counts.pending / counts.total * 100)}%` : "0%" },
+          { key: "active", label: "进行中", value: counts.active, color: "#396149", centerValue: `${counts.active} 项`, centerSublabel: "进行中", centerBadge: `${Math.round(activeShare)}%` },
+          { key: "completed", label: "已完成", value: counts.completed, color: "#2d8a7e", centerValue: `${counts.completed} 项`, centerSublabel: "已完成", centerBadge: `${Math.round(completedShare)}%` },
+        ]}
+      /><div className="workflow-chart-legend" onPointerLeave={() => setHoveredTaskSlice(null)}>
+        {([
+          { idx: 0, label: "未开始", value: counts.pending, color: "#c5d3ca", cls: "legend-gray" },
+          { idx: 1, label: "进行中", value: counts.active, color: "#396149", cls: "legend-blue" },
+          { idx: 2, label: "已完成", value: counts.completed, color: "#2d8a7e", cls: "legend-green" },
+        ]).map((item) => (
+          <span
+            key={item.label}
+            className={hoveredTaskSlice === item.idx ? "is-active" : hoveredTaskSlice !== null ? "is-dim" : undefined}
+            onPointerEnter={() => setHoveredTaskSlice(item.idx)}
+          >
+            <i className={item.cls} style={{ background: item.color }} />{item.label} <strong>{item.value}</strong>
+          </span>
+        ))}
+      </div></div></article>
       <article className="panel workflow-chart-card"><header><div><h3>未完成 · 按紧急程度</h3><p>基于当前已加载清单</p></div><span>{openLoadedTasks.length} 项</span></header><div className="workflow-priority-chart">{prioritySummary.map((item) => <div key={item.priority}><label><span>{item.label}</span><strong>{item.count}</strong></label><i><b className={`priority-${item.priority}`} style={{ width: `${item.count / priorityMax * 100}%` }} /></i></div>)}</div></article>
       <article className="panel workflow-chart-card"><header><div><h3>按跟进人工作量</h3><p>当前已加载，最多 6 位</p></div><span>{ownerWorkload.length} 人</span></header><div className="workflow-owner-chart">{ownerWorkload.length > 0 ? ownerWorkload.map((item) => <div key={item.owner}><label><span title={item.owner}>{item.owner}</span><strong>{item.total}</strong></label><i><b className="owner-pending" style={{ width: `${item.pending / ownerWorkloadMax * 100}%` }} /><b className="owner-active" style={{ width: `${item.active / ownerWorkloadMax * 100}%` }} /><b className="owner-completed" style={{ width: `${item.completed / ownerWorkloadMax * 100}%` }} /></i></div>) : <p className="workflow-chart-empty">暂无跟进人数据</p>}</div><footer><span><i className="legend-gray" />未开始</span><span><i className="legend-blue" />进行中</span><span><i className="legend-green" />已完成</span></footer></article>
     </section>
