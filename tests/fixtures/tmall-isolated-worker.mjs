@@ -8,6 +8,7 @@ const server = createServer((request, response) => {
   }
   response.end("ok");
   if (request.url === "/finish") server.close(() => parentPort.postMessage({ type: "finished", clean: true }));
+  if (request.url === "/wait-release") server.close(() => parentPort.postMessage({ type: "finished", clean: true, waitRelease: true }));
   if (request.url === "/crash") setTimeout(() => process.exit(1), 10);
   if (request.url === "/throw") {
     parentPort.postMessage({type:"diagnostic_phase",phase:"master_browser_connect"});

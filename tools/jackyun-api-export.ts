@@ -118,6 +118,10 @@ export async function withJackyunApiSession<T>(callback: (http: JackyunHttpSessi
 }
 
 export async function runApiExports(options: ApiExportOptions, deps: { http?: JackyunHttpSession; tenantId?: string; templates?: ApiTemplates; taskTimeoutMs?: number; pollIntervalMs?: number; download?: Parameters<typeof downloadSignedOssExport>[1] } = {}) {
+  // Whole-request task-wait cut-off. 20 minutes plus one 5-minute bound download
+  // and the pre-export checks stays inside the 30-minute n8n B timeout; a pending
+  // task then returns the normal recovery wait instead of an n8n timeout.
+  const requestTaskDeadline = Date.now() + (deps.taskTimeoutMs === undefined ? 20 * 60_000 : Number.POSITIVE_INFINITY);
   const salesPeriod = jackyunSalesPeriod(options.asOfDate, options.salesStartDate);
   if (!/^[A-Za-z0-9._-]{1,96}$/.test(options.runId)
     || new Date(Date.parse(options.runDate + "T00:00:00Z") - 86400000).toISOString().slice(0, 10) !== options.asOfDate) throw new Error("API_RUN_SCOPE_INVALID");
@@ -229,7 +233,9 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
         await persist(statePath, state);
       }
       const taskWindowStartAt = apiTaskWindowStart(entry.serverClock, entry.exportIntentAt!);
-      const deadline = Date.now() + (deps.taskTimeoutMs ?? 300000);
+      // Absorb a slow platform export queue inside this request: up to twelve
+      // minutes per module, never past the whole-request cut-off above.
+      const deadline = Math.min(Date.now() + (deps.taskTimeoutMs ?? 720000), requestTaskDeadline);
       let selected: ReturnType<typeof selectNewWebSessionTask>["result"] = null;
       while (Date.now() < deadline) {
         options.signal?.throwIfAborted();

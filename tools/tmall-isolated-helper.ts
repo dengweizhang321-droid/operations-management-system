@@ -17,6 +17,8 @@ import { jdCustomerServiceStores } from "../lib/jd/customer-service-stores";
 
 export const isolatedHelperProtocol = "tmall-store-isolation-v1";
 export const isolatedHelperTokenHeader = "x-teruisi-helper-slot-token";
+// Matches the Jackyun task wait budget (config taskWaitMinutes, max 360 minutes).
+const waitReleaseLifetimeMs = 360 * 60_000;
 const storeHeader = "x-teruisi-tmall-store-key";
 const executionHeader = "x-teruisi-n8n-execution-id";
 const workflowHeader = "x-teruisi-workflow-key";
@@ -69,7 +71,7 @@ export type HelperThreadDiagnostic = {
 
 // Fixed labels only: no token, URL, header or credential ever enters this record.
 export type HelperClaimDiagnostic = {
-  event: "helper_claim_rejected" | "helper_idle_release_not_retired";
+  event: "helper_claim_rejected" | "helper_idle_release_not_retired" | "helper_wait_release_resumable";
   workflow: string; storeKey: string | null; executionId: string; reason: string;
 };
 
@@ -102,11 +104,16 @@ export function isolatedRequestIdentity(route: string, headers: IncomingHttpHead
 export class IsolatedHelperSlots {
   readonly slots = new Map<string, SlotRecord>();
   private readonly retired = new Set<string>();
+  // Jackyun executions whose slot closed cleanly right after replying with a
+  // durable recovery wait. The same n8n execution resumes after its Wait node;
+  // the persisted plan/controller, not this map, prevents any export replay.
+  private readonly waitReleased = new Map<string, { workflow: string; key: string; scheduledAt?: string; at: number }>();
   private closeReservation: string | null = null;
   constructor(private readonly allowedStores: ReadonlySet<string>, private readonly spawn: (
-    identity: SlotIdentity, finish: (clean: boolean) => void,
+    identity: SlotIdentity, finish: (clean: boolean, waitRelease?: boolean) => void,
   ) => Promise<HelperSlot>, private readonly draining: () => boolean = () => false,
-  private readonly report: (diagnostic: HelperClaimDiagnostic) => void = () => undefined) {}
+  private readonly report: (diagnostic: HelperClaimDiagnostic) => void = () => undefined,
+  private readonly now: () => number = Date.now) {}
 
   private diagnose(event: HelperClaimDiagnostic["event"], identity: SlotIdentity, reason: string) {
     try {
@@ -127,6 +134,17 @@ export class IsolatedHelperSlots {
     if (active?.executionId === identity.executionId && active.scheduledAt !== identity.scheduledAt) return { status: "rejected", reason: "execution_plan_anchor_changed_manual_action" };
     if (active?.status === "quarantined") return { status: "rejected", reason: "helper_slot_cleanup_requires_manual_action" };
     if (this.retired.has(identity.executionId)) return { status: "rejected", reason: "execution_already_finished" };
+    const released = this.waitReleased.get(identity.executionId);
+    if (released) {
+      // Bounded by the Jackyun task wait budget (360 minutes); older entries retire.
+      if (this.now() - released.at > waitReleaseLifetimeMs) {
+        this.waitReleased.delete(identity.executionId); this.retired.add(identity.executionId);
+        return { status: "rejected", reason: "execution_already_finished" };
+      }
+      if (released.workflow !== identity.workflow || released.key !== identity.key || released.scheduledAt !== identity.scheduledAt) {
+        return { status: "rejected", reason: "execution_plan_anchor_changed_manual_action" };
+      }
+    }
     for (const slot of this.slots.values()) {
       if (slot.executionId === identity.executionId && (slot.key !== identity.key || slot.workflow !== identity.workflow)) {
         return { status: "rejected", reason: "execution_store_context_mismatch" };
@@ -146,14 +164,23 @@ export class IsolatedHelperSlots {
     }
     // Refuse new work rather than discard replay protection after a very long
     // service lifetime. A controlled idle restart can reset this bounded cache.
-    if (this.retired.size >= 4096) return { status: "rejected", reason: "helper_replay_capacity_requires_manual_action" };
+    if (this.retired.size + this.waitReleased.size >= 4096) return { status: "rejected", reason: "helper_replay_capacity_requires_manual_action" };
     const slot = { ...identity, status: "starting", stage: "ready", instanceId: randomBytes(24).toString("hex"), exited: false, inFlight: 0, businessForwarded: false } as SlotRecord;
     this.slots.set(identity.key, slot); // synchronous reservation, before awaits
-    slot.ready = Promise.resolve().then(() => this.spawn(identity, clean => {
+    this.waitReleased.delete(identity.executionId); // single use: the new slot owns the execution again
+    slot.ready = Promise.resolve().then(() => this.spawn(identity, (clean, waitRelease) => {
       if (this.slots.get(identity.key) !== slot) return;
       slot.exited = true; // finish is emitted only by the actual Worker.exit.
       if (!clean) { this.retired.add(identity.executionId); slot.status = "quarantined"; slot.stage = "failed"; return; }
       this.slots.delete(identity.key);
+      if (slot.businessForwarded && waitRelease === true && identity.workflow === "jackyun") {
+        // The last reply was a durable recovery wait: n8n resumes this same
+        // execution after its Wait node, so keep it resumable instead of retired.
+        this.waitReleased.set(identity.executionId, { workflow: identity.workflow, key: identity.key,
+          ...(identity.scheduledAt ? { scheduledAt: identity.scheduledAt } : {}), at: this.now() });
+        this.diagnose("helper_wait_release_resumable", identity, "recovery_wait_release");
+        return;
+      }
       // A slot that only ever saw /coordination/claim ran nothing: its idle
       // reaper closed it while n8n waited out a slow claim. Retiring the
       // execution would turn the same-execution re-claim into a manual-action 409.
@@ -207,7 +234,9 @@ export class IsolatedHelperSlots {
         const assertExited = () => {
           if (this.closeReservation !== token || slot && (this.slots.get(slot.key) !== slot || !slot.exited || slot.inFlight !== 0 || slot.status !== "closing")) throw new Error("原执行单元退出见证已变化，暂不能闭合。");
         };
-        return { assertExited, complete: () => { assertExited(); completed = true; if (slot) { this.retired.add(slot.executionId); this.slots.delete(slot.key); } },
+        return { assertExited, complete: () => { assertExited(); completed = true; if (slot) { this.retired.add(slot.executionId); this.slots.delete(slot.key); }
+          // A closed execution must never resume from a recovery wait release.
+          for (const id of ids) if (this.waitReleased.delete(id)) this.retired.add(id); },
           release: () => { if (this.closeReservation === token) { if (slot && !completed && this.slots.get(slot.key) === slot) slot.status = previous!; this.closeReservation = null; } } };
       },
     };
@@ -215,7 +244,7 @@ export class IsolatedHelperSlots {
 }
 
 export function spawnIsolatedHelper(
-  entryFile: string, identity: SlotIdentity, finish: (clean: boolean) => void,
+  entryFile: string, identity: SlotIdentity, finish: (clean: boolean, waitRelease?: boolean) => void,
   report: (diagnostic: HelperThreadDiagnostic) => void = diagnostic => {
     process.stderr.write(`${JSON.stringify(diagnostic)}\n`);
   },
@@ -231,6 +260,7 @@ export function spawnIsolatedHelper(
     worker.stdout?.resume(); worker.stderr?.resume();
     let ready = false;
     let clean = false;
+    let waitRelease = false;
     let phase = "starting";
     let errorDiagnostic: ReturnType<typeof isolatedHelperErrorDiagnostic> | undefined;
     const diagnose = (event: HelperThreadDiagnostic["event"], exitCode?: number) => {
@@ -256,6 +286,7 @@ export function spawnIsolatedHelper(
         phase = message.phase;
       } else if (message?.type === "finished") {
         clean = message.clean === true;
+        waitRelease = clean && message.waitRelease === true;
         // Abort late promises (including a timed-out promotion) before allowing
         // a replacement execution to own this store.
         void worker.terminate();
@@ -270,7 +301,7 @@ export function spawnIsolatedHelper(
       clearTimeout(timer);
       if (!clean) diagnose("helper_thread_unclean_exit", code);
       if (!ready) reject(new Error("helper_slot_start_failed"));
-      finish(clean);
+      finish(clean, waitRelease);
     });
   });
 }

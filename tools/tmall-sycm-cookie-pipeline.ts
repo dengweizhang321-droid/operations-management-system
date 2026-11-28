@@ -1387,6 +1387,9 @@ async function serveCommand(argv: string[]) {
   let jdPromotionPlan: JdPromotionN8nPlan | null = null;
   let jdLogisticsPlan: JdLogisticsManifest | null = null;
   let jdLogisticsCleanupFailed = false;
+  // Set only when a Jackyun stage replies with a durable recovery wait. The
+  // parent then keeps this execution resumable instead of retiring it.
+  let jackyunWaitRelease = false;
   let tmallWarehousePlan: WarehousePlan | null = null;
   let tmallWarehouseCleanupFailed = false;
   let claimedTmallWarehouseExecutionId: string | null = null;
@@ -1686,8 +1689,11 @@ async function serveCommand(argv: string[]) {
             } }) });
         stage = action === "verify" && result.phase === "completed" ? "completed" : result.phase === "imported" ? "executed" : "planned";
         reply(200, result);
-        if (stage === "completed" || "recoveryDecision" in result && result.recoveryDecision === "wait") scheduleOneShotServerClose(server, 500);
-        else inactivityReaper?.arm();
+        if (stage === "completed") scheduleOneShotServerClose(server, 500);
+        else if ("recoveryDecision" in result && result.recoveryDecision === "wait") {
+          jackyunWaitRelease = true;
+          scheduleOneShotServerClose(server, 500);
+        } else inactivityReaper?.arm();
       } else if (request.url === "/tmall-warehouse/plan") {
         tmallWarehousePlan = await planTmallWarehouse({ root: projectRoot, executionId: requestExecutionId!, now: planTime });
         stage = "planned"; reply(200, publicWarehousePlan(tmallWarehousePlan)); inactivityReaper?.arm();
@@ -1969,7 +1975,7 @@ async function serveCommand(argv: string[]) {
     const timeout = setTimeout(() => parentPort?.postMessage({ type: "finished", clean: false }), 30_000);
     void finish().then(() => {
       clearTimeout(timeout);
-      parentPort?.postMessage({ type: "finished", clean: true });
+      parentPort?.postMessage({ type: "finished", clean: true, ...(jackyunWaitRelease ? { waitRelease: true } : {}) });
     }, () => {
       clearTimeout(timeout);
       parentPort?.postMessage({ type: "finished", clean: false });

@@ -88,6 +88,87 @@ test("clean release after a business route was forwarded still retires the execu
   assert.deepEqual(diagnostics, [{ event: "helper_claim_rejected", workflow: "tmall", storeKey: "tmall-masitu", executionId: "301", reason: "execution_already_finished" }]);
 });
 
+function jackyun(executionId: string, scheduledAt = "2026-11-28T16:10:00.438Z"): SlotIdentity {
+  return { key: "legacy", storeKey: null, workflow: "jackyun", executionId, scheduledAt };
+}
+function jackyunFixture(now = () => 0) {
+  const diagnostics: Array<Record<string, unknown>> = [];
+  const finishes: Array<(clean: boolean, waitRelease?: boolean) => void> = [];
+  const pool = new IsolatedHelperSlots(new Set(), async (_owner, finish) => {
+    finishes.push(finish);
+    return { port: 12345, token: "synthetic", stop: async () => undefined };
+  }, () => false, diagnostic => { diagnostics.push(diagnostic); }, now);
+  return { pool, finishes, diagnostics };
+}
+
+test("Jackyun recovery-wait release keeps the same execution resumable once, with the same anchor", async () => {
+  const { pool, finishes, diagnostics } = jackyunFixture();
+  const first = pool.claim(jackyun("12074"));
+  await first.slot!.ready;
+  assert.equal(pool.admitBusiness(jackyun("12074")), first.slot);
+  finishes[0](true, true);
+  assert.equal(pool.slots.size, 0);
+  assert.deepEqual(diagnostics, [{ event: "helper_wait_release_resumable", workflow: "jackyun", storeKey: null, executionId: "12074", reason: "recovery_wait_release" }]);
+  assert.equal(pool.claim(jackyun("12074", "2026-11-28T17:31:01.754Z")).reason, "execution_plan_anchor_changed_manual_action");
+  const resumed = pool.claim(jackyun("12074"));
+  assert.equal(resumed.status, "granted");
+  assert.notEqual(resumed.slot, first.slot);
+  await resumed.slot!.ready;
+  pool.admitBusiness(jackyun("12074"));
+  // A later ordinary clean finish (no wait) retires it as before.
+  finishes[1](true);
+  assert.equal(pool.claim(jackyun("12074")).reason, "execution_already_finished");
+});
+
+test("wait release is ignored for non-Jackyun workflows, unclean exits and expired entries", async () => {
+  const tmall = new Map<string, (clean: boolean, waitRelease?: boolean) => void>();
+  const tmallPool = new IsolatedHelperSlots(new Set(["tmall-lili"]), async (owner, finish) => {
+    tmall.set(owner.key, finish);
+    return { port: 12345, token: "synthetic", stop: async () => undefined };
+  });
+  await tmallPool.claim(identity("tmall-lili", "500")).slot!.ready;
+  tmallPool.admitBusiness(identity("tmall-lili", "500"));
+  tmall.get("tmall-lili")!(true, true);
+  assert.equal(tmallPool.claim(identity("tmall-lili", "500")).reason, "execution_already_finished");
+
+  const unclean = jackyunFixture();
+  await unclean.pool.claim(jackyun("501")).slot!.ready;
+  unclean.pool.admitBusiness(jackyun("501"));
+  unclean.finishes[0](false, true);
+  assert.equal(unclean.pool.claim(jackyun("501")).reason, "helper_slot_cleanup_requires_manual_action");
+
+  let clock = 0;
+  const expired = jackyunFixture(() => clock);
+  await expired.pool.claim(jackyun("502")).slot!.ready;
+  expired.pool.admitBusiness(jackyun("502"));
+  expired.finishes[0](true, true);
+  clock = 360 * 60_000 + 1;
+  assert.equal(expired.pool.claim(jackyun("502")).reason, "execution_already_finished");
+});
+
+test("real worker forwards waitRelease to finish only with a clean exit", async () => {
+  const fixture = fileURLToPath(new URL("fixtures/tmall-isolated-worker.mjs", import.meta.url));
+  const owner = jackyun("600");
+  for (const [route, expected] of [["/finish", [true, false]], ["/wait-release", [true, true]]] as const) {
+    let done!: (value: [boolean, boolean]) => void;
+    const finished = new Promise<[boolean, boolean]>(resolve => { done = resolve; });
+    const child = await spawnIsolatedHelper(fixture, owner, (clean, waitRelease) => done([clean, waitRelease === true]));
+    const response = await fetch(`http://127.0.0.1:${child.port}${route}`, { headers: { "x-teruisi-helper-slot-token": child.token, connection: "close" }, signal: AbortSignal.timeout(5000) });
+    await response.text();
+    assert.deepEqual(await finished, expected);
+  }
+});
+
+test("operator close retires a wait-released Jackyun execution", async () => {
+  const { pool, finishes } = jackyunFixture();
+  await pool.claim(jackyun("503")).slot!.ready;
+  pool.admitBusiness(jackyun("503"));
+  finishes[0](true, true);
+  const close = pool.closeCoordinator().freeze(["503"]);
+  close.complete(); close.release();
+  assert.equal(pool.claim(jackyun("503")).reason, "execution_already_finished");
+});
+
 test("admitBusiness marks only a matching running slot; a mismatched identity leaves a claim-only slot re-claimable", async () => {
   const { pool, finishes } = fixture();
   const claimed = pool.claim(identity("tmall-lili", "400"));
