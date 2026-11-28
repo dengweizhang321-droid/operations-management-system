@@ -61,10 +61,13 @@ test("uncertain refresh or failed token publication poisons the owner without a 
   });
 });
 
-test("only read-only transport failures retry once; exports, risk challenges and invalid responses never replay", async t => {
-  for (const mode of ["expired-export", "risk", "risk-with-success-code", "network-export", "network-tasks", "html", "oversize", "refresh-disabled"]) await t.test(mode, async () => {
+test("only replaySafe transport failures retry boundedly; exports, risk challenges and invalid responses never replay", async t => {
+  for (const mode of ["expired-export", "risk", "risk-with-success-code", "network-export", "network-tasks", "network-warehouses", "html", "oversize", "refresh-disabled"]) await t.test(mode, async () => {
     let calls = 0;
-    const client = new JackyunHttpSession(session, { allowRefresh: mode !== "refresh-disabled", publishSession: async () => assert.fail(),
+    const client = new JackyunHttpSession(session, {
+      allowRefresh: mode !== "refresh-disabled",
+      transportRetryDelaysMs: [0, 0],
+      publishSession: async () => assert.fail(),
       fetch: (async () => {
         calls++;
         if (mode.startsWith("network-")) throw new Error("signed URL and fixture-access");
@@ -75,8 +78,33 @@ test("only read-only transport failures retry once; exports, risk challenges and
         return expired();
       }) as typeof fetch,
     });
-    await assert.rejects(client.request(mode === "expired-export" || mode === "network-export" ? "submitExport" : "tasks", {}), e =>
+    const op = mode === "expired-export" || mode === "network-export"
+      ? "submitExport"
+      : mode === "network-warehouses"
+        ? "warehouses"
+        : "tasks";
+    await assert.rejects(client.request(op, {}), e =>
       e instanceof Error && /^JACKYUN_(HTTP_|EXPORT_)/.test(e.message) && !e.message.includes("fixture"));
-    assert.equal(calls, mode === "network-tasks" ? 2 : 1);
+    assert.equal(calls, mode === "network-tasks" || mode === "network-warehouses" ? 3 : 1);
   });
+});
+
+test("replaySafe operations recover when a transient transport failure clears within bounded retries", async () => {
+  let calls = 0;
+  const client = new JackyunHttpSession(session, {
+    transportRetryDelaysMs: [0, 0],
+    publishSession: async () => assert.fail(),
+    fetch: (async () => {
+      calls++;
+      if (calls <= 2) {
+        const err = new Error("fetch failed") as Error & { cause?: { code?: string } };
+        err.cause = { code: calls === 1 ? "UND_ERR_CONNECT_TIMEOUT" : "ECONNRESET" };
+        throw err;
+      }
+      return json({ code: 200, result: { total: 42 } });
+    }) as typeof fetch,
+  });
+  const result = await client.request<{ total: number }>("salesCount", { pageIndex: 0 });
+  assert.deepEqual(result, { total: 42 });
+  assert.equal(calls, 3);
 });

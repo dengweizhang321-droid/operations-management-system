@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm, readdir } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, readdir } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { reserveJackyunFailureRetry, claimJackyunAutomaticDispatch } from "../lib/jackyun/retry-budget";
+import { n8nJackyunRequiresRecoveryHeader } from "../lib/jackyun/n8n-preflight-evidence";
+import { DatabaseSync } from "node:sqlite";
 import { withJackyunRecoveryContract } from "../tools/n8n-jackyun-recovery-contract.mjs";
 import { attachHourlyRetryTarget, buildHourlyRetryErrorWorkflow } from "../tools/n8n-hourly-retry-policy.mjs";
 import { readFile } from "node:fs/promises";
@@ -84,4 +86,62 @@ test("manual recovery attempts retain the first logical anchor across repeated f
   }
   await assert.rejects(anchor.call(client, { first: () => ({ json: { originalScheduledAt: "2026-10-13T16:10:00.052Z",
     jackyunRecovery: { version: "jackyun-recovery-control-v1", kind: "retry", logicalExecutionId: "8548", failedExecutionId: "8556" } } }) }, { id: "8600" }), /original_anchor_changed_manual_action/);
+});
+
+test("n8nJackyunRequiresRecoveryHeader recognizes modern workflowData even when n8n omits meta", async t => {
+  const fakeHome = await mkdtemp(path.join(tmpdir(), "jackyun-n8n-meta-"));
+  const prevProfile = process.env.USERPROFILE;
+  const prevHome = process.env.HOME;
+  t.after(async () => {
+    if (prevProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = prevProfile;
+    if (prevHome === undefined) delete process.env.HOME; else process.env.HOME = prevHome;
+    await rm(fakeHome, { recursive: true, force: true });
+  });
+  await mkdir(path.join(fakeHome, ".n8n"), { recursive: true });
+  const dbPath = path.join(fakeHome, ".n8n", "database.sqlite");
+  const db = new DatabaseSync(dbPath);
+  try {
+    db.exec(`
+      CREATE TABLE execution_entity (id INTEGER PRIMARY KEY, workflowId TEXT, status TEXT, deletedAt TEXT);
+      CREATE TABLE execution_data (executionId INTEGER PRIMARY KEY, workflowData TEXT);
+    `);
+    const insertExec = db.prepare("INSERT INTO execution_entity (id, workflowId, status, deletedAt) VALUES (?, ?, ?, NULL)");
+    const insertData = db.prepare("INSERT INTO execution_data (executionId, workflowData) VALUES (?, ?)");
+    // 1. Live n8n shape: meta omitted, modern recovery-control markers present -> true
+    insertExec.run(11774, "J8kY2mQ5vR7sT4pN", "error");
+    insertData.run(11774, JSON.stringify({
+      id: "J8kY2mQ5vR7sT4pN",
+      nodes: [
+        { name: "固定原执行计划时间", parameters: { jsCode: "const v = 'jackyun-recovery-control-v1';" } },
+        { name: "A·固定采集日和销售日期", parameters: { headerParameters: { parameters: [{ name: "X-TERUISI-JACKYUN-RECOVERY" }] } } },
+      ],
+    }));
+    // 2. Legacy maintenance-coordinated workflowData: has 固定原执行计划时间 but lacks recovery-control markers -> false
+    insertExec.run(11775, "J8kY2mQ5vR7sT4pN", "error");
+    insertData.run(11775, JSON.stringify({
+      id: "J8kY2mQ5vR7sT4pN",
+      nodes: [
+        { name: "固定原执行计划时间", parameters: { jsCode: "const v = 'teruisi-retry-context-v1';" } },
+        { name: "A·固定采集日和销售日期", parameters: { headerParameters: { parameters: [{ name: "X-TERUISI-N8N-EXECUTION-ID" }] } } },
+      ],
+    }));
+    // 3. Explicit meta still recognized -> true
+    insertExec.run(11776, "J8kY2mQ5vR7sT4pN", "error");
+    insertData.run(11776, JSON.stringify({ id: "J8kY2mQ5vR7sT4pN", meta: { jackyunRecovery: "jackyun-recovery-control-v1" }, nodes: [] }));
+    // 4. Corrupt meta rejected -> throws
+    insertExec.run(11777, "J8kY2mQ5vR7sT4pN", "error");
+    insertData.run(11777, JSON.stringify({
+      id: "J8kY2mQ5vR7sT4pN",
+      meta: { jackyunRecovery: "unknown-v2" },
+      nodes: [{ name: "固定原执行计划时间", parameters: { jsCode: "jackyun-recovery-control-v1" } }],
+    }));
+  } finally {
+    db.close();
+  }
+  process.env.USERPROFILE = fakeHome;
+  process.env.HOME = fakeHome;
+  assert.equal(n8nJackyunRequiresRecoveryHeader("11774", true), true);
+  assert.equal(n8nJackyunRequiresRecoveryHeader("11775", true), false);
+  assert.equal(n8nJackyunRequiresRecoveryHeader("11776", true), true);
+  assert.throws(() => n8nJackyunRequiresRecoveryHeader("11777", true), /JACKYUN_ENTRY_MANUAL_ACTION/);
 });

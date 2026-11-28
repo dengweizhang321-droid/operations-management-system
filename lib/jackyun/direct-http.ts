@@ -67,9 +67,13 @@ type SessionOptions = {
   fetch?: typeof fetch;
   now?: () => number;
   allowRefresh?: boolean;
+  /** Bounded backoff delays (ms) for replaySafe transport failures only; never used for submitExport. */
+  transportRetryDelaysMs?: readonly number[];
   /** Must atomically verify the previous pair before replacing both tokens. Failure poisons this owner. */
   publishSession: (previous: Readonly<JackyunSession>, next: Readonly<JackyunSession>) => Promise<void>;
 };
+
+const DEFAULT_REPLAY_SAFE_TRANSPORT_RETRY_DELAYS_MS = [500, 1500] as const;
 
 /** One instance per held Jackyun run lock. No background timer or second refresh owner. */
 export class JackyunHttpSession {
@@ -81,6 +85,7 @@ export class JackyunHttpSession {
   #now: () => number;
   #publish: SessionOptions["publishSession"];
   #allowRefresh: boolean;
+  #transportRetryDelaysMs: readonly number[];
   #clock?: JackyunServerClock;
   get serverClock(): JackyunServerClock | undefined { return this.#clock && { ...this.#clock }; }
   constructor(session: JackyunSession, options: SessionOptions) {
@@ -90,6 +95,11 @@ export class JackyunHttpSession {
     this.#now = options.now ?? Date.now;
     this.#publish = options.publishSession;
     this.#allowRefresh = options.allowRefresh === true;
+    const rawDelays = options.transportRetryDelaysMs ?? DEFAULT_REPLAY_SAFE_TRANSPORT_RETRY_DELAYS_MS;
+    if (!Array.isArray(rawDelays) || rawDelays.some(ms => typeof ms !== "number" || !Number.isFinite(ms) || ms < 0)) {
+      throw new Error("JACKYUN_RETRY_DELAY_INVALID");
+    }
+    this.#transportRetryDelaysMs = [...rawDelays];
   }
 
   #headers(moduleCode = ""): Record<string, string> {
@@ -162,10 +172,12 @@ export class JackyunHttpSession {
   async request<T>(operation: JackyunHttpOperation, data: Record<string, unknown>, moduleCode = ""): Promise<T> {
     const spec = operations[operation];
     if (!spec || !/^[A-Za-z0-9_.-]{0,100}$/.test(moduleCode)) throw new Error("JACKYUN_OPERATION_INVALID");
-    if (this.#poisoned) throw new Error("JACKYUN_SESSION_RELOGIN_REQUIRED");
-    // A request starting during renewal must not send the superseded token.
-    if (this.#refreshing) await this.#refreshing;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    let refreshed = false;
+    let transportRetries = 0;
+    for (;;) {
+      if (this.#poisoned) throw new Error("JACKYUN_SESSION_RELOGIN_REQUIRED");
+      // A request starting or retrying during renewal must not send the superseded token.
+      if (this.#refreshing) await this.#refreshing;
       const generation = this.#generation;
       const form = signJackyunForm(data, this.#session, this.#now());
       const headers = this.#headers(moduleCode);
@@ -175,8 +187,9 @@ export class JackyunHttpSession {
           method: spec.method, headers, ...(spec.method === "POST" ? { body: form.toString() } : {}),
         }, operation === "submitExport" ? 120000 : 15000);
       } catch (error) {
-        if (operation === "tasks" && attempt === 0 && error instanceof JackyunHttpTransportFailure) {
-          await new Promise(resolve => setTimeout(resolve, 250));
+        if (spec.replaySafe && error instanceof JackyunHttpTransportFailure && transportRetries < this.#transportRetryDelaysMs.length) {
+          const delayMs = this.#transportRetryDelaysMs[transportRetries++];
+          if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
           continue;
         }
         throw error;
@@ -184,13 +197,13 @@ export class JackyunHttpSession {
       const { status, body } = response;
       if (["0190210000", "0190210006", "0031117002"].includes(String(body.subCode))) throw new Error("JACKYUN_HTTP_VERIFICATION_REQUIRED");
       if (status === 200 && body.code === 200 && body.result && typeof body.result === "object") return body.result as T;
-      if (status === 401 && body.subCode === "0190210003" && attempt === 0 && spec.replaySafe && this.#allowRefresh) {
+      if (status === 401 && body.subCode === "0190210003" && !refreshed && spec.replaySafe && this.#allowRefresh) {
+        refreshed = true;
         await this.#refresh(generation);
         continue;
       }
       // No replay after task submission, transport uncertainty, denial or risk verification.
       throw new Error(spec.replaySafe ? "JACKYUN_HTTP_REQUEST_REJECTED" : "JACKYUN_EXPORT_SUBMISSION_UNCONFIRMED");
     }
-    throw new Error("JACKYUN_SESSION_RELOGIN_REQUIRED");
   }
 }

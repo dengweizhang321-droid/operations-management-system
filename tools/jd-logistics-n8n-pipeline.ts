@@ -158,6 +158,15 @@ function fileFor(root: string, operation: JdLogisticsOperation) {
   return path.resolve(root, ...operation.export.relativePath.split("/"));
 }
 function code(error: unknown) { return error instanceof Error && /^JD_LOGISTICS_[A-Z_]+$/.test(error.message) ? error.message : "JD_LOGISTICS_PIPELINE_FAILED_MANUAL_ACTION"; }
+const allowedErrorNames = new Set(["Error", "TypeError", "RangeError", "TimeoutError"]);
+function failureDiagnostic(error: unknown, operation?: JdLogisticsOperation) {
+  const rawName = error instanceof Error ? error.name : "";
+  const errorName = (allowedErrorNames.has(rawName) ? rawName : "Other") as "Error" | "TypeError" | "RangeError" | "TimeoutError" | "Other";
+  return {
+    ...(operation ? { operationId: operation.operationId, sourceKind: operation.sourceKind } : {}),
+    errorName,
+  };
+}
 function stableReceipt(value: Record<string, unknown>) {
   const keys = ["batchId", "departmentId", "businessUnitCode", "sourceKind", "rangeStart", "rangeEnd", "warehouseCode", "rawFileHash", "contentHash", "rowCount",
     "status", "referenceBatchId", "scopeRevision", "origin", "storeKey", "collectedAt", "sourceAsOf", "collectorEvidence", "warningCount", "warnings", "sourceStatus"];
@@ -183,9 +192,11 @@ export async function runJdLogisticsN8nPlan(reference: Pick<JdLogisticsManifest,
     if (plan.stage !== "planned" || plan.operations.some(op => op.stage !== "planned")) throw new Error("JD_LOGISTICS_REPLAY_REQUIRES_MANUAL_ACTION");
     const rowsByOperation = new Map<string, ReturnType<typeof parseJdLogisticsSourceFile>>();
     const assertOwner = async () => { await lock.assertOwned(); await loadOwned(options, plan); await assertPolicy(options, plan); };
+    let activeOperation: JdLogisticsOperation | undefined;
     try {
       await assertOwner(); plan.stage = "running"; await persist(options.root, plan);
       for (const operation of plan.operations) {
+        activeOperation = operation;
         const current = await assertPolicy(options, plan); await assertOwner();
         operation.stage = "exporting"; await persist(options.root, plan);
         const downloadDirectory = path.join(paths(options.root).directory, "downloads", plan.runId, operation.operationId);
@@ -213,6 +224,7 @@ export async function runJdLogisticsN8nPlan(reference: Pick<JdLogisticsManifest,
       }
       // No import begins until every required source has crossed the full-file barrier.
       for (const operation of plan.operations) {
+        activeOperation = operation;
         await assertOwner();
         const bytes = await controlledBytes(options.root, plan, operation, fileFor(options.root, operation));
         if (logisticsRawHash(bytes.bytes) !== operation.export!.rawFileHash) throw new Error("JD_LOGISTICS_DOWNLOAD_CHANGED");
@@ -234,12 +246,13 @@ export async function runJdLogisticsN8nPlan(reference: Pick<JdLogisticsManifest,
           || operation.export!.sourceAsOf !== undefined && receipt.sourceAsOf !== operation.export!.sourceAsOf) throw new Error("JD_LOGISTICS_COLLECTOR_RECEIPT_MISMATCH");
         operation.receipt = receipt; operation.stage = "imported"; await persist(options.root, plan);
       }
+      activeOperation = undefined;
       plan.stage = "executed";
       const statuses = new Set(plan.operations.map(op => op.receipt!.status));
       plan.outcome = !plan.operations.length ? "disabled" : statuses.size > 1 ? "mixed" : statuses.has("imported") ? "imported" : "duplicate";
       await persist(options.root, plan); return publicJdLogisticsPlan(plan);
     } catch (error) {
-      plan.stage = "failed"; plan.failure = { code: code(error), stage: "run", at: new Date().toISOString() };
+      plan.stage = "failed"; plan.failure = { code: code(error), stage: "run", at: new Date().toISOString(), diagnostic: failureDiagnostic(error, activeOperation) };
       await persist(options.root, plan); throw new Error(plan.failure.code);
     }
   });
@@ -248,9 +261,11 @@ export async function verifyJdLogisticsN8nPlan(reference: Pick<JdLogisticsManife
   return withJackyunRunLock({ runId: reference.runId, purpose: "jd-logistics-verify", lockDirectory: paths(options.root).lock }, async lock => {
     const plan = await loadOwned(options, reference);
     if (!["executed", "verified", "completed"].includes(plan.stage)) throw new Error("JD_LOGISTICS_NOT_READY_FOR_VERIFICATION");
+    let activeOperation: JdLogisticsOperation | undefined;
     try {
       const current = await assertPolicy(options, plan);
       for (const operation of plan.operations) {
+        activeOperation = operation;
         await lock.assertOwned(); await loadOwned(options, plan);
         if (!operation.receipt || !["imported", "verified"].includes(operation.stage) || operation.parserVersion !== parserVersion) throw new Error("JD_LOGISTICS_EXACT_RECEIPT_MISSING");
         assertLogisticsExport(operation, { ...operation.export!, filePath: fileFor(options.root, operation) }, new Date(operation.export!.collectedAt), plan);
@@ -288,10 +303,11 @@ export async function verifyJdLogisticsN8nPlan(reference: Pick<JdLogisticsManife
         }
         operation.stage = "verified"; await persist(options.root, plan);
       }
+      activeOperation = undefined;
       await lock.assertOwned(); await loadOwned(options, plan); await assertPolicy(options, plan);
       plan.stage = plan.notification.stage === "notified" ? "completed" : "verified"; await persist(options.root, plan); return publicJdLogisticsPlan(plan);
     } catch (error) {
-      plan.stage = "failed"; plan.failure = { code: code(error), stage: "verify", at: new Date().toISOString() };
+      plan.stage = "failed"; plan.failure = { code: code(error), stage: "verify", at: new Date().toISOString(), diagnostic: failureDiagnostic(error, activeOperation) };
       await persist(options.root, plan); throw new Error(plan.failure.code);
     }
   });

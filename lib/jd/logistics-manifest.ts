@@ -17,6 +17,11 @@ export type JdLogisticsOperation = JdLogisticsSelection & {
   export?: Omit<JdLogisticsExportResult, "filePath"> & { relativePath: string; rawFileHash: string; bytes: number };
   parserVersion?: string; contentHash?: string; rowCount?: number; receipt?: JdLogisticsReceipt;
 };
+export type JdLogisticsFailureDiagnostic = {
+  operationId?: string;
+  sourceKind?: JdLogisticsSelection["sourceKind"];
+  errorName?: "Error" | "TypeError" | "RangeError" | "TimeoutError" | "Other";
+};
 export type JdLogisticsManifest = WorkflowCollectionDateContext & {
   protocolVersion: typeof jdLogisticsProtocol; workflowKey: "jd-logistics"; runId: string; executionId: string;
   createdAt: string; updatedAt: string; anchorAt: string; baseUrl: string; planHash: string;
@@ -24,7 +29,7 @@ export type JdLogisticsManifest = WorkflowCollectionDateContext & {
   outcome: "pending" | "disabled" | "imported" | "duplicate" | "mixed";
   notificationPlan: JdLogisticsNotificationPlan;
   notification: { stage: "pending" | "notifying" | "notified" | "unknown" | "failed"; requestHash?: string; response?: JdLogisticsNotificationResult; result?: JdLogisticsNotificationResult };
-  operations: JdLogisticsOperation[]; failure?: { code: string; stage: "run" | "verify" | "notify"; at: string };
+  operations: JdLogisticsOperation[]; failure?: { code: string; stage: "run" | "verify" | "notify"; at: string; diagnostic?: JdLogisticsFailureDiagnostic };
 };
 export type JdLogisticsNotificationResult = {
   status: "disabled" | "not_configured" | "empty" | "sent" | "duplicate" | "unknown";

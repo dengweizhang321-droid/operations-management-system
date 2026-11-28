@@ -3,7 +3,7 @@ import test from "node:test";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { chromium, type Frame, type Page } from "playwright-core";
-import { createJdLogisticsSessionGuard, isJdLogisticsLoginOrigin } from "../tools/jd-logistics-session";
+import { createJdLogisticsSessionGuard, isJdLogisticsLoginOrigin, isJdLogisticsRedirectTransitionOrigin } from "../tools/jd-logistics-session";
 import { autoLoginJdWithWindowsDpapiCredential, inspectJdLoginPageState, type JdSessionSurface } from "../tools/jd-saved-login";
 import { jdLogisticsSourceUrls } from "../lib/jd/logistics-policy";
 import { jdCustomerServiceWorkflow } from "../lib/jd/customer-service-workflow";
@@ -54,6 +54,46 @@ test("logistics login only trusts exact HTTPS JD passport origins", () => {
   assert.equal(isJdLogisticsLoginOrigin("https://passport.shop.jd.com/login"), true);
   for (const url of ["http://passport.jd.com/login", "https://passport.jd.com.evil/login", "https://passport.jd.com:8443/login",
     "https://u:p@passport.jd.com/login", "https://wl.jdl.com/login", "about:blank"]) assert.equal(isJdLogisticsLoginOrigin(url), false);
+});
+
+test("SSO redirect transition origins get bounded non-credential grace while foreign origins fail immediately", async () => {
+  assert.equal(isJdLogisticsRedirectTransitionOrigin("https://sso.jdl.com/auth"), true);
+  assert.equal(isJdLogisticsRedirectTransitionOrigin("https://wl.jdl.com/"), true);
+  assert.equal(isJdLogisticsRedirectTransitionOrigin("about:blank"), true);
+  for (const bad of ["http://sso.jdl.com/auth", "https://sso.jdl.com:8443/auth", "https://u:p@sso.jdl.com/auth", "https://eviljdl.com/", "https://jdl.com.evil/", "https://evil.example/"]) {
+    assert.equal(isJdLogisticsRedirectTransitionOrigin(bad), false);
+  }
+  // A transition origin embedding a passport login frame must still fail credential authorization immediately
+  const embedded = fixture();
+  embedded.set("https://sso.jdl.com/embed", [embedded.login]);
+  await assert.rejects(createJdLogisticsSessionGuard(store, embedded.own, embedded.deps)(embedded.page, "flow"), /LOGIN_ORIGIN_REJECTED/);
+  assert.equal(embedded.stats().reads, 0);
+
+  // Transient JD/JDL SSO bounce settles onto business frame within grace window
+  const f = fixture();
+  f.set("https://sso.jdl.com/redirect", []);
+  let hops = 0;
+  f.page.waitForTimeout = async () => { if (++hops === 3) f.setCurrent(jdLogisticsSourceUrls.flow, [f.business]); };
+  assert.equal(await createJdLogisticsSessionGuard(store, f.own, f.deps)(f.page, "flow"), f.business);
+  assert.equal(hops, 3);
+  assert.equal(f.stats().calls, 0);
+
+  // Stuck JD/JDL transition origin still fails closed after bounded grace
+  const stuck = fixture();
+  stuck.set("https://sso.jdl.com/stuck", []);
+  let stuckWaits = 0;
+  stuck.page.waitForTimeout = async () => { stuckWaits++; };
+  await assert.rejects(createJdLogisticsSessionGuard(store, stuck.own, stuck.deps)(stuck.page, "flow"), /LOGIN_ORIGIN_REJECTED/);
+  assert.equal(stuckWaits, 15);
+  assert.equal(stuck.stats().reads, 0);
+
+  // Foreign origin without login frame still fails immediately with zero grace
+  const foreign = fixture();
+  foreign.set("https://evil.example/landing", []);
+  let foreignWaits = 0;
+  foreign.page.waitForTimeout = async () => { foreignWaits++; };
+  await assert.rejects(createJdLogisticsSessionGuard(store, foreign.own, foreign.deps)(foreign.page, "flow"), /LOGIN_ORIGIN_REJECTED/);
+  assert.equal(foreignWaits, 0);
 });
 
 test("existing logistics session requires its business frame and produces zero credential actions", async () => {

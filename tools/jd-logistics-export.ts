@@ -289,12 +289,12 @@ export async function confirmLogisticsSourceReadiness(page: Page, surface: Surfa
     return;
   }
   let stable = 0;
-  for (let attempt = 0; attempt < 30; attempt++) {
+  for (let attempt = 0; attempt < 60; attempt++) {
     let count: number | undefined;
     try { count = await sourceRowCount(surface); } catch { /* Initial Vue render may still show the preceding count. */ }
     if (count === expected && await fullScopeReadback(surface, options) === scopeHash) stable++; else stable = 0;
     if (stable >= 2) return;
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(250);
   }
   fail("JD_LOGISTICS_SOURCE_COUNT_UNSTABLE");
 }

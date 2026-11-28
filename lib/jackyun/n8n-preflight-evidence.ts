@@ -384,10 +384,25 @@ export function n8nJackyunRequiresRecoveryHeader(executionId: string, allowTermi
     if (!row || row.workflowId !== jackyunWorkflowId || row.deletedAt !== null || !allowTerminal && row.status !== "running") throw new Error("JACKYUN_ENTRY_MANUAL_ACTION：完整工作流执行身份无法确认。");
     const raw = db.prepare("SELECT workflowData FROM execution_data WHERE executionId=? AND length(workflowData)<=2097152").get(executionId)?.workflowData;
     if (typeof raw !== "string") throw new Error("JACKYUN_ENTRY_MANUAL_ACTION：原工作流定义缺失或超限，禁止降级为旧入口。");
-    const definition = JSON.parse(raw) as { id?: string; meta?: { jackyunRecovery?: string } };
+    type SnapshotNode = {
+      name?: unknown;
+      parameters?: { jsCode?: unknown; headerParameters?: { parameters?: Array<{ name?: unknown }> } };
+    };
+    const definition = JSON.parse(raw) as { id?: string; meta?: { jackyunRecovery?: string }; nodes?: SnapshotNode[] };
     if (!definition || definition.id !== jackyunWorkflowId || definition.meta?.jackyunRecovery !== undefined
       && definition.meta.jackyunRecovery !== "jackyun-recovery-control-v1") throw new Error("JACKYUN_ENTRY_MANUAL_ACTION：原工作流定义或恢复协议身份异常。");
-    return definition.meta?.jackyunRecovery === "jackyun-recovery-control-v1";
+    if (definition.meta?.jackyunRecovery === "jackyun-recovery-control-v1") return true;
+    // n8n omits `meta` when snapshotting `execution_data.workflowData`, so
+    // require both modern recovery-control markers inside the same snapshot
+    // (legacy maintenance-coordinated flows also have `固定原执行计划时间` but
+    // lack `jackyun-recovery-control-v1` and `X-TERUISI-JACKYUN-RECOVERY`).
+    if (!Array.isArray(definition.nodes)) return false;
+    const hasAnchor = definition.nodes.some(node => node?.name === "固定原执行计划时间"
+      && typeof node.parameters?.jsCode === "string" && node.parameters.jsCode.includes("jackyun-recovery-control-v1"));
+    const hasHeader = definition.nodes.some(node => node?.name === "A·固定采集日和销售日期"
+      && Array.isArray(node.parameters?.headerParameters?.parameters)
+      && node.parameters.headerParameters.parameters.some(param => param?.name === "X-TERUISI-JACKYUN-RECOVERY"));
+    return hasAnchor && hasHeader;
   } finally { db.close(); }
 }
 

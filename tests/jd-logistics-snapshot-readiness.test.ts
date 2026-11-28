@@ -52,10 +52,24 @@ test("snapshot exports ignore the rendered list count while retaining complete s
       const activeHash = assertLogisticsFullScope(activeControls, options);
       await page.setContent(activeForm + "共600条"); waits = 0;
       await assert.rejects(confirmLogisticsSourceReadiness(clock, page, options, 900, activeHash), /SOURCE_COUNT_UNSTABLE/);
-      assert.equal(waits, 30);
+      assert.equal(waits, 60);
       await page.setContent(activeForm + "共900条"); waits = 0;
       await confirmLogisticsSourceReadiness(clock, page, options, 900, activeHash);
       assert.equal(waits, 1);
     }
+  });
+  await t.test("slow Vue count render settling within 15s (60 polls) succeeds instead of false unstable error", async () => {
+    const options = { ...scope, sourceKind: "realtime_inventory" as const };
+    const activeHash = assertLogisticsFullScope(controls, options);
+    await page.setContent(form + '<div id="count">共600条</div>');
+    let ticks = 0;
+    const delayedClock = {
+      waitForTimeout: async () => {
+        ticks++;
+        if (ticks === 35) await page.locator("#count").evaluate(el => { el.textContent = "共900条"; });
+      },
+    } as unknown as Page;
+    await confirmLogisticsSourceReadiness(delayedClock, page, options, 900, activeHash);
+    assert.equal(ticks, 36);
   });
 });

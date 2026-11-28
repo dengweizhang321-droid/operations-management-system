@@ -25,6 +25,18 @@ export function isJdLogisticsLoginOrigin(url: string) {
   } catch { return false; }
 }
 
+/** Allowed non-credential-submission bounce origins while SSO redirects settle.
+ * Never used to authorize credential entry; loginOrigins remains exact. */
+export function isJdLogisticsRedirectTransitionOrigin(url: string) {
+  if (url === "about:blank") return true;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port) return false;
+    const host = parsed.hostname.toLowerCase();
+    return host === "jdl.com" || host.endsWith(".jdl.com") || host === "jd.com" || host.endsWith(".jd.com");
+  } catch { return false; }
+}
+
 /** One browser operation, one credential attempt. Never retries an export or
  * treats the generic merchant shell as logistics authentication evidence. */
 export function createJdLogisticsSessionGuard(
@@ -62,6 +74,7 @@ export function createJdLogisticsSessionGuard(
     // merchant authentication. JH cold returns reuse it without another login.
     await navigate();
     let restoredTarget = false;
+    let transitionHops = 0;
     for (let attempt = 0; attempt < 100; attempt++) {
       const expectedPortal = origin(targetUrl());
       const state = await browserStep(() => dependencies.inspect(page));
@@ -125,7 +138,14 @@ export function createJdLogisticsSessionGuard(
           continue;
         }
         if (/验证码|扫码登录|短信验证|安全验证|密码登录/.test(text)) fail("LOGIN_REQUIRED");
-        if (origin(page.url()) !== expectedPortal) fail("LOGIN_ORIGIN_REJECTED");
+        if (origin(page.url()) !== expectedPortal) {
+          if (isJdLogisticsRedirectTransitionOrigin(page.url()) && ++transitionHops <= 15) {
+            await browserStep(() => page.waitForTimeout(400));
+            continue;
+          }
+          fail("LOGIN_ORIGIN_REJECTED");
+        }
+        transitionHops = 0;
         if (!merchantPhase && businesses.length === 1 && await businesses[0].locator("body").isVisible().catch(() => false)) {
           // Existing precise department identity verification still follows.
           await assertOwner();
