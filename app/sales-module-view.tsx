@@ -419,25 +419,45 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
 
   return withSalesContent(
     <>
-      <div className="sales-period-note">
-        <span><Dot tone="green" />已加载真实明细</span>
-        <strong>{rangeNote}</strong>
-        {sourceNote && <small title={sourceNote}>{sourceNote}</small>}
+      <div className="sales-period-note sales-status-strip" role="status" aria-live="polite">
+        <div className="sales-status-strip-left">
+          <span><Dot tone="green" />已加载真实明细</span>
+          <strong>{rangeNote}</strong>
+          {sourceNote && <small title={sourceNote}>{sourceNote}</small>}
+        </div>
+        <div className="sales-status-strip-right">
+          <span className="sales-sync-state">{loading ? readStatus : error ? "更新未完成" : "全部区域已更新"}</span>
+          <button type="button" className="row-action" disabled={loading} onClick={() => setRetryKey((value) => value + 1)}>刷新销售数据</button>
+        </div>
       </div>
-      <div className="sales-period-note" role="status" aria-live="polite"><span>{loading ? readStatus : error ? "更新未完成" : "全部区域已更新"}</span><button type="button" className="row-action" disabled={loading} onClick={() => setRetryKey((value) => value + 1)}>刷新销售数据</button></div>
       {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>销售数据刷新失败</strong><p>{error}；已成功的同范围区域仍保留。</p></div><button className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></section>}
       {activeTab === "channel" ? (
         <div className="data-refresh-region" aria-busy={loading}>{summaryComplete ? <ChannelAnalysisView channels={salesChannels} platforms={platforms} current={current} pagination={{ channel: summary.groupPagination?.shops, platform: summary.groupPagination?.platforms }} /> : <section className="panel data-state" role="status">{error ? "渠道明细未完成，请重试。" : "核心指标已就绪，正在读取渠道明细…"}</section>}</div>
       ) : <>
-        <section className="metrics-grid sales-metrics-grid data-refresh-region" aria-busy={loading}>
-          <MetricCard label="销售额（GMV）" value={formatCurrencyFromCents(current.grossSalesCents)} change={formatChange(current.grossSalesCents, previous?.grossSalesCents)} hint={comparisonHint(current.grossSalesCents, previous?.grossSalesCents, yearAgo?.grossSalesCents)} tone="blue" />
+        <section className="metrics-grid sales-metrics-grid sales-metrics-primary data-refresh-region" aria-busy={loading}>
           <MetricCard label="销售净额" value={formatCurrencyFromCents(current.netSalesCents)} change={formatChange(current.netSalesCents, previous?.netSalesCents)} hint={comparisonHint(current.netSalesCents, previous?.netSalesCents, yearAgo?.netSalesCents)} tone="green" />
+          <MetricCard label="销售额（GMV）" value={formatCurrencyFromCents(current.grossSalesCents)} change={formatChange(current.grossSalesCents, previous?.grossSalesCents)} hint={comparisonHint(current.grossSalesCents, previous?.grossSalesCents, yearAgo?.grossSalesCents)} tone="blue" />
           <MetricCard label="订单毛利" value={formatCurrencyFromCents(current.grossProfitCents)} change={formatChange(current.grossProfitCents, previous?.grossProfitCents)} hint={comparisonHint(current.grossProfitCents, previous?.grossProfitCents, yearAgo?.grossProfitCents)} tone="purple" />
-          <MetricCard label="退货金额" value={formatCurrencyFromCents(current.refundAmountCents)} change={formatChange(current.refundAmountCents, previous?.refundAmountCents)} hint={comparisonHint(current.refundAmountCents, previous?.refundAmountCents, yearAgo?.refundAmountCents)} tone="orange" />
-          <MetricCard label="净销量" value={formatCount(current.netQuantity)} change={formatChange(current.netQuantity, previous?.netQuantity)} hint={comparisonHint(current.netQuantity, previous?.netQuantity, yearAgo?.netQuantity)} tone="blue" />
-          <MetricCard label="客单价" value={formatCurrencyFromCents(current.averageOrderValueCents)} change={formatChange(current.averageOrderValueCents, previous?.averageOrderValueCents)} hint={comparisonHint(current.averageOrderValueCents, previous?.averageOrderValueCents, yearAgo?.averageOrderValueCents)} tone="purple" />
-          <MetricCard label="退货率" value={formatRate(current.refundRate)} change={formatChange(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate))} hint={comparisonHint(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate), rateAsPercent(yearAgo?.refundRate))} tone="orange" />
           <MetricCard label="大毛利率" value={formatRate(current.grossMarginRate)} change={formatChange(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate))} hint={comparisonHint(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate), rateAsPercent(yearAgo?.grossMarginRate))} tone="green" />
+        </section>
+        <section className="sales-secondary-ribbon data-refresh-region" aria-label="销售辅助诊断指标" aria-busy={loading}>
+          {[
+            { label: "净销量", value: formatCount(current.netQuantity), change: formatChange(current.netQuantity, previous?.netQuantity), hint: comparisonHint(current.netQuantity, previous?.netQuantity, yearAgo?.netQuantity) },
+            { label: "客单价", value: formatCurrencyFromCents(current.averageOrderValueCents), change: formatChange(current.averageOrderValueCents, previous?.averageOrderValueCents), hint: comparisonHint(current.averageOrderValueCents, previous?.averageOrderValueCents, yearAgo?.averageOrderValueCents) },
+            { label: "退货金额", value: formatCurrencyFromCents(current.refundAmountCents), change: formatChange(current.refundAmountCents, previous?.refundAmountCents), hint: comparisonHint(current.refundAmountCents, previous?.refundAmountCents, yearAgo?.refundAmountCents) },
+            { label: "退货率", value: formatRate(current.refundRate), change: formatChange(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate)), hint: comparisonHint(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate), rateAsPercent(yearAgo?.refundRate)) },
+          ].map((metric) => (
+            <article key={metric.label} className="sales-ribbon-item">
+              <div>
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+              </div>
+              <div className="sales-ribbon-meta">
+                {metric.change && <b className={metric.change.startsWith("-") ? "down" : metric.change.startsWith("+") ? "up" : ""}>{metric.change}</b>}
+                <small>{metric.hint}</small>
+              </div>
+            </article>
+          ))}
         </section>
         {summaryComplete ? <><section className="split-panels data-refresh-region" aria-busy={loading}>
           <article className="panel">

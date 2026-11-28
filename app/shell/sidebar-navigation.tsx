@@ -35,7 +35,17 @@ export default function SidebarNavigation({
   onToggleCollapsed,
   onPrepareModule,
 }: SidebarNavigationProps) {
+  const navRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [tooltip, setTooltip] = useState<{
+    id: string;
+    label: string;
+    description: string;
+    top: number;
+    left: number;
+  } | null>(null);
+
   useEffect(() => {
     const viewport = scrollRef.current;
     if (!viewport) return;
@@ -53,13 +63,23 @@ export default function SidebarNavigation({
     observer.observe(viewport);
     return () => observer.disconnect();
   }, [active, activeView, collapsed]);
-  const [tooltip, setTooltip] = useState<{
-    id: string;
-    label: string;
-    description: string;
-    top: number;
-    left: number;
-  } | null>(null);
+
+  useEffect(() => {
+    if (!openGroup) return;
+    const closeOutside = (event: globalThis.PointerEvent) => {
+      if (!navRef.current?.contains(event.target as Node)) setOpenGroup(null);
+    };
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setOpenGroup(null);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [openGroup]);
+
   const showTooltip = (element: HTMLElement, item: NavItem, id: string) => {
     if (!collapsed) return;
     const navRect = element.closest("nav")?.getBoundingClientRect();
@@ -77,28 +97,76 @@ export default function SidebarNavigation({
     setTooltip(null);
   };
   const dismissTooltip = (event: KeyboardEvent<HTMLAnchorElement>) => {
-    if (event.key === "Escape") setTooltip(null);
+    if (event.key === "Escape") {
+      setTooltip(null);
+      setOpenGroup(null);
+    }
   };
 
+  const aiChatSelected = active === "ai" && activeView === "assistant";
+
   return (
-    <nav className="main-nav sidebar-navigation" aria-label="主导航">
+    <nav ref={navRef} className="main-nav sidebar-navigation" aria-label="主导航">
       <div ref={scrollRef} className="sidebar-navigation-scroll" onScroll={() => setTooltip(null)}>
         <ul className="sidebar-navigation-groups">
+          <li className="nav-standalone-ai">
+            <a
+              href={hrefForModule("ai", "assistant")}
+              className={`sidebar-navigation-link nav-ai-direct${aiChatSelected ? " active" : ""}`}
+              aria-current={aiChatSelected ? "page" : undefined}
+              title="AI 对话 · 小特对话工作台"
+              aria-label="AI 对话"
+              onClick={(event) => {
+                setOpenGroup(null);
+                onPrepareModule?.("ai");
+                onNavigate(event, "ai", "assistant");
+              }}
+              onMouseEnter={() => onPrepareModule?.("ai")}
+            >
+              <span className="nav-icon" aria-hidden="true"><ShellModuleIcon moduleKey="ai" /></span>
+              <span className="nav-copy"><b>AI 对话</b><small>小特对话工作台</small></span>
+            </a>
+          </li>
+
           {navGroups.map((group, groupIndex) => {
             const groupLabelId = `sidebar-navigation-group-${groupIndex}`;
+            const activeItemInGroup = group.keys
+              .map((key) => navItemsByKey.get(key))
+              .find((item) => item && active === item.key && (item.key !== "ai" || activeView !== "assistant"));
+            const groupActive = Boolean(activeItemInGroup);
+            const isOpen = openGroup === group.label;
+
             return (
-              <li className="nav-group" key={group.label}>
+              <li
+                className={`nav-group${groupActive ? " has-active" : ""}${isOpen ? " is-open" : ""}`}
+                key={group.label}
+                onMouseLeave={(event) => {
+                  if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+                  if (isOpen) setOpenGroup(null);
+                }}
+              >
                 <p id={groupLabelId} aria-hidden={collapsed || undefined}>{group.label}</p>
+                <button
+                  type="button"
+                  className={`nav-group-trigger${groupActive ? " active" : ""}`}
+                  aria-expanded={isOpen}
+                  aria-haspopup="true"
+                  onClick={() => setOpenGroup((current) => (current === group.label ? null : group.label))}
+                  onMouseEnter={() => {
+                    for (const key of group.keys) onPrepareModule?.(key);
+                  }}
+                >
+                  <span className="nav-group-title">{group.label}</span>
+                  {activeItemInGroup && (
+                    <span className="nav-group-current">{activeItemInGroup.label}</span>
+                  )}
+                  <span className="nav-group-caret" aria-hidden="true">▾</span>
+                </button>
                 <ul
+                  className="nav-group-menu"
                   aria-label={collapsed ? group.label : undefined}
                   aria-labelledby={collapsed ? undefined : groupLabelId}
                 >
-                  {groupIndex === 0 && <li><a href={hrefForModule("ai", "assistant")}
-                    className={`sidebar-navigation-link${active === "ai" && activeView === "assistant" ? " active" : ""}`}
-                    aria-current={active === "ai" && activeView === "assistant" ? "page" : undefined}
-                    title="AI 对话" aria-label="AI 对话" onClick={event => onNavigate(event, "ai", "assistant")}
-                  ><span className="nav-icon" aria-hidden="true"><ShellModuleIcon moduleKey="ai" /></span>
-                    <span className="nav-copy"><b>AI 对话</b><small>小特对话工作台</small></span></a></li>}
                   {group.keys.map((moduleKey) => {
                     const item = navItemsByKey.get(moduleKey);
                     if (!item) return null;
@@ -117,6 +185,7 @@ export default function SidebarNavigation({
                           title={collapsed ? `${item.label} · ${item.description}` : undefined}
                           onClick={(event) => {
                             setTooltip(null);
+                            setOpenGroup(null);
                             onPrepareModule?.(moduleKey);
                             onNavigate(event, moduleKey, moduleKey === "ai" ? "agents" : undefined);
                           }}
