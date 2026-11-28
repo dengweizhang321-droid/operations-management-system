@@ -2316,6 +2316,7 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .category-subdivision-edit-error { color: var(--red); }
 .category-detail-table tfoot td { border-top: 2px solid var(--color-border-default); background: #f8fafd; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .category-major-select { min-width: 150px; }
+.category-subdivision-level { flex: 0 0 auto; }
 .modal-backdrop:has(.category-outlet-drawer) { z-index: 120; align-items: stretch; justify-content: flex-end; padding-top: 0; background: rgba(21,34,52,.34); backdrop-filter: blur(2px); }
 .category-outlet-drawer { display: flex; flex-direction: column; width: min(840px,92vw); height: 100%; overflow: hidden; background: #f5f7fb; box-shadow: -18px 0 50px rgba(25,41,64,.2); }
 .category-outlet-drawer > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 22px 16px; border-bottom: 1px solid #e1e7ef; background: #fff; }
@@ -3152,6 +3153,13 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .warehouse-mapping-filters select,.warehouse-mapping-filters input { height: 34px; padding: 0 10px; border: 1px solid var(--color-border-default); border-radius: 7px; outline: 0; color: var(--color-text-secondary); background: #fff; font-size: 9px; }
 .warehouse-mapping-filters select:focus,.warehouse-mapping-filters input:focus { border-color: var(--color-brand-border); box-shadow: 0 0 0 3px rgba(43,143,105,.12); }
 .warehouse-mapping-search { width: 220px; }
+.warehouse-mapping-select-field { min-width: 200px; display: grid; gap: 4px; color: var(--color-text-secondary); font-size: 8px; font-weight: 700; }
+.warehouse-mapping-select-field .searchable-select { min-width: 200px; }
+.warehouse-mapping-select-field .searchable-select-menu { width: max(100%,320px); max-width: min(380px,calc(100vw - 24px)); }
+.warehouse-mapping-edit-select { min-width: 220px; }
+.warehouse-mapping-edit-select .searchable-select-menu { width: max(100%,320px); max-width: min(380px,calc(100vw - 24px)); left: 0; right: auto; }
+/* The scrolling table wrap would clip the open picker of the row being edited. */
+.data-table-wrap.warehouse-mapping-editing { padding-bottom: 300px; }
 .warehouse-mapping-table { min-width: 1040px; }
 .warehouse-mapping-table th:first-child,.warehouse-mapping-table td:first-child { padding-left: 18px; }
 .warehouse-mapping-table th:last-child,.warehouse-mapping-table td:last-child { padding-right: 18px; }

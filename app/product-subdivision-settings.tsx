@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { requestJson } from "@/lib/http/api-client";
+import { SearchableSelect, type SearchableSelectOption } from "@/app/ui/searchable-select";
 import { SUBDIVISION_MATCH_LABELS, validProductSubdivisions, type ProductSubdivisionStatus } from "@/lib/sales/product-subdivision-contract";
 
 type MappingRow = {
@@ -14,6 +15,7 @@ type MappingRow = {
   productStatus: string;
   majorCategory: string | null;
   subdivision: string | null;
+  parentSubdivision?: string | null;
   defaultSubdivision: string | null;
   matchedBy: string;
   status: ProductSubdivisionStatus;
@@ -23,13 +25,13 @@ type MappingRow = {
 
 type MappingResponse = {
   mapping: {
-    sources: Array<{ fileName: string; sha256: string; rowCount: number }>;
+    sources: Array<{ fileName: string; sha256: string; rowCount: number; majorCategory?: string }>;
     coveredCategories: string[];
     unclassifiedLabel: string;
-    majorCategories: Array<{ name: string; coveredCategories: string[]; labels: Array<{ name: string; source: string; sortOrder: number }> }>;
+    majorCategories: Array<{ name: string; coveredCategories: string[]; hasLevels?: boolean; labels: Array<{ name: string; source: string; sortOrder: number; parent?: string }> }>;
   };
   totals: { mapped: number; unclassified: number; missing: number; entries: number; subdivisions: number };
-  subdivisions: Array<{ label: string; majorCategory: string; productCount: number }>;
+  subdivisions: Array<{ label: string; majorCategory: string; parent?: string; productCount: number }>;
   items: MappingRow[];
   pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
 };
@@ -41,6 +43,35 @@ const apiPath = "/api/settings/product-subdivisions";
 const statusLabels: Record<ProductSubdivisionStatus, string> = { mapped: "已归类", unclassified: "未归类", missing: "吉客云未找到" };
 const statusClasses: Record<ProductSubdivisionStatus, string> = { mapped: "status-success", unclassified: "status-warning", missing: "status-danger" };
 const rowKey = (row: MappingRow) => `${row.status}|${row.specCode}|${row.productName}`;
+/** 二级 › 三级 for a leaf under another 二级类目, else the name alone. */
+const labelPath = (name: string, parent?: string | null) => (parent && parent !== name ? `${parent} › ${name}` : name);
+
+/** Filter options: a 二级类目 with 三级 children is selectable on its own (all its children), then each leaf. */
+function subdivisionFilterOptions(items: MappingResponse["subdivisions"], showMajor: boolean): SearchableSelectOption[] {
+  const options: SearchableSelectOption[] = [{ value: "", label: "全部细分" }];
+  const groups = new Map<string, { count: number; children: number }>();
+  for (const item of items) {
+    const parent = item.parent ?? item.label;
+    const group = groups.get(parent) ?? { count: 0, children: 0 };
+    group.count += item.productCount;
+    if (parent !== item.label) group.children += 1;
+    groups.set(parent, group);
+  }
+  const listed = new Set<string>();
+  const leafNames = new Set(items.map((item) => item.label));
+  for (const item of items) {
+    const parent = item.parent ?? item.label;
+    const prefix = showMajor ? `${item.majorCategory} · ` : "";
+    const group = groups.get(parent);
+    // A 二级类目 that is also a leaf name is reached through that leaf option instead.
+    if (group && group.children > 0 && !listed.has(parent) && !leafNames.has(parent)) {
+      listed.add(parent);
+      options.push({ value: parent, label: `${prefix}${parent}（二级全部 · ${group.count}）`, searchText: `${item.majorCategory} ${parent}` });
+    }
+    options.push({ value: item.label, label: `${prefix}${labelPath(item.label, parent)}（${item.productCount}）`, searchText: `${item.majorCategory} ${parent} ${item.label}` });
+  }
+  return options;
+}
 
 function matchedByText(row: MappingRow) {
   if (row.status === "missing") return row.matchedBy === "code" ? "仍计入：按代码" : "仍计入：按名称兜底";
@@ -113,7 +144,12 @@ export default function ProductSubdivisionSettings({ canEdit }: { canEdit: boole
   const updateSubdivision = (value: string) => { setSubdivision(value); setPage(1); };
   const updateStatus = (value: StatusFilter) => { setStatus(value); setPage(1); };
   const majors = data?.mapping.majorCategories ?? [];
-  const labelsOf = (row: MappingRow) => (majors.find((item) => item.name === (row.majorCategory ?? majors[0]?.name))?.labels ?? []).map((item) => item.name);
+  const labelsOf = (row: MappingRow) => majors.find((item) => item.name === (row.majorCategory ?? majors[0]?.name))?.labels ?? [];
+  const editOptions = (row: MappingRow): SearchableSelectOption[] => [
+    { value: "", label: data?.mapping.unclassifiedLabel ?? "未归类" },
+    ...labelsOf(row).map((item) => ({ value: item.name, label: labelPath(item.name, item.parent), searchText: item.parent ?? "" })),
+  ];
+  const filterOptions = subdivisionFilterOptions(data?.subdivisions ?? [], !major);
   const needsCode = (row: MappingRow) => row.status === "missing" && !row.specCode;
 
   const beginEdit = (row: MappingRow) => {
@@ -156,7 +192,7 @@ export default function ProductSubdivisionSettings({ canEdit }: { canEdit: boole
     void submit({ action: "reset_assignment", productCode: row.specCode }, "已恢复默认归类");
   };
 
-  const source = data?.mapping.sources[0];
+  const sources = data?.mapping.sources ?? [];
   const covered = data?.mapping.coveredCategories.join("、") ?? "";
   const pagination = data?.pagination;
   const pageCount = pagination ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize)) : 1;
@@ -167,13 +203,14 @@ export default function ProductSubdivisionSettings({ canEdit }: { canEdit: boole
         <span className="warehouse-mapping-eyebrow">品类分析 · 品类细分</span>
         <h2>货品细分映射</h2>
         <p>
-          {source ? `映射默认来自《${source.fileName}》（SHA-256 前 8 位 ${source.sha256.slice(0, 8)}，${source.rowCount.toLocaleString("zh-CN")} 条），` : ""}
+          {sources.length > 0 ? `映射默认来自${sources.map((item) => `《${item.fileName}》${item.majorCategory ? `${item.majorCategory}部分` : ""}（SHA-256 前 8 位 ${item.sha256.slice(0, 8)}，${item.rowCount.toLocaleString("zh-CN")} 条）`).join("、")}；` : ""}
+          一级类目即大类目，二级、三级类目来自映射表（只有一层细分的大类目不显示三级）；
           可在此手动调整，手动归类优先；规格代码即吉客云货品编号。只有名称的条目先在吉客云货品档案中找规格代码，找不到再到吉客云历史销售明细中按名称精确查找；名称不完全一致的不会自动归类，可手动补规格代码。供应链名称优先取货品档案的供应商，为空时取销售明细中最近一次的“货品默认供应商”。
         </p>
       </div>
       <div className="warehouse-mapping-summary" aria-label="货品细分映射汇总">
         <SummaryCard label="映射条数" value={data?.totals.entries ?? 0} note="映射表中的条目" />
-        <SummaryCard label="细分数" value={data?.totals.subdivisions ?? 0} note="当前大类目下的细分名称" />
+        <SummaryCard label="细分数" value={data?.totals.subdivisions ?? 0} note="当前一级类目下可选的细分名称" />
         <SummaryCard label="已归类货品" value={data?.totals.mapped ?? 0} note="吉客云货品档案中命中映射" />
         <SummaryCard label="未归类货品" value={data?.totals.unclassified ?? 0} note={covered ? `${covered}分类中未进映射` : "覆盖分类中未进映射"} />
         <SummaryCard label="吉客云未找到" value={data?.totals.missing ?? 0} note="档案中无对应货品，仍按代码或名称计入" />
@@ -192,14 +229,13 @@ export default function ProductSubdivisionSettings({ canEdit }: { canEdit: boole
       <div className="table-toolbar warehouse-mapping-toolbar">
         <div><h2>货品归类明细</h2><p>{pagination ? `共 ${pagination.total.toLocaleString("zh-CN")} 条符合条件` : "正在读取吉客云货品档案…"}</p></div>
         <div className="warehouse-mapping-filters">
-          <label><span>大类目</span><select aria-label="大类目" value={major} onChange={(event) => updateMajor(event.target.value)}>
-            <option value="">全部大类目</option>
+          <label><span>一级类目</span><select aria-label="一级类目" value={major} onChange={(event) => updateMajor(event.target.value)}>
+            <option value="">全部一级类目</option>
             {majors.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
           </select></label>
-          <label><span>细分名称</span><select aria-label="细分名称" value={subdivision} onChange={(event) => updateSubdivision(event.target.value)}>
-            <option value="">全部细分</option>
-            {(data?.subdivisions ?? []).map((item) => <option key={`${item.majorCategory}|${item.label}`} value={item.label}>{item.label}（{item.productCount}）</option>)}
-          </select></label>
+          <div className="warehouse-mapping-select-field"><span>细分名称</span><SearchableSelect ariaLabel="细分名称" className="warehouse-mapping-subdivision-select"
+            value={subdivision} options={filterOptions.some((item) => item.value === subdivision) ? filterOptions : [...filterOptions, { value: subdivision, label: subdivision }]}
+            searchPlaceholder="搜索二级或三级细分" onChange={updateSubdivision} /></div>
           <label><span>状态</span><select aria-label="归类状态" value={status} onChange={(event) => updateStatus(event.target.value as StatusFilter)}>
             <option value="all">全部状态</option>
             <option value="mapped">已归类</option>
@@ -210,9 +246,9 @@ export default function ProductSubdivisionSettings({ canEdit }: { canEdit: boole
         </div>
       </div>
       {!canEdit && <p className="warehouse-mapping-readonly">当前账号可查看映射；只有管理员可以手动归类。</p>}
-      <div className="data-table-wrap">
+      <div className={`data-table-wrap${editingKey ? " warehouse-mapping-editing" : ""}`}>
         <table className="data-table warehouse-mapping-table">
-          <thead><tr><th>吉客云规格代码</th><th>货品名称</th><th>规格</th><th>供应链名称</th><th>吉客云分类</th><th>大类目</th><th>细分名称</th><th>匹配方式</th><th>状态</th><th>操作</th></tr></thead>
+          <thead><tr><th>吉客云规格代码</th><th>货品名称</th><th>规格</th><th>供应链名称</th><th>吉客云分类</th><th>一级类目</th><th>二级类目</th><th>三级类目</th><th>匹配方式</th><th>状态</th><th>操作</th></tr></thead>
           <tbody>
             {(data?.items ?? []).map((row) => {
               const key = rowKey(row);
@@ -224,12 +260,14 @@ export default function ProductSubdivisionSettings({ canEdit }: { canEdit: boole
                 <td><strong>{row.productName || "—"}</strong></td><td>{row.specification || "—"}</td><td>{row.supplier || "—"}</td>
                 <td>{row.erpCategory || "—"}</td>
                 <td>{row.majorCategory || "—"}</td>
-                <td>{editing
-                  ? <select aria-label={`${row.productName || row.specCode}细分`} value={draftLabel} disabled={saving} onChange={(event) => setDraftLabel(event.target.value)}>
-                    <option value="">{data?.mapping.unclassifiedLabel ?? "未归类"}</option>
-                    {labelsOf(row).map((name) => <option key={name} value={name}>{name}</option>)}
-                  </select>
-                  : <>{row.subdivision ? <span className="warehouse-category-tag">{row.subdivision}</span> : "—"}{row.overridden && <small className="cell-note">默认：{row.defaultSubdivision ?? "未归类"}</small>}</>}</td>
+                {editing
+                  ? <td colSpan={2}><SearchableSelect ariaLabel={`${row.productName || row.specCode}细分`} className="warehouse-mapping-edit-select" value={draftLabel}
+                    options={editOptions(row)} disabled={saving} searchPlaceholder="搜索二级或三级细分" onChange={setDraftLabel} /></td>
+                  : <>
+                    <td>{row.subdivision ? <span className="warehouse-category-tag">{row.parentSubdivision ?? row.subdivision}</span> : "—"}</td>
+                    <td>{row.subdivision && row.parentSubdivision && row.parentSubdivision !== row.subdivision ? <span className="warehouse-category-tag">{row.subdivision}</span> : "—"}
+                      {row.overridden && <small className="cell-note">默认：{row.defaultSubdivision ?? "未归类"}</small>}</td>
+                  </>}
                 <td>{matchedByText(row)}</td>
                 <td><span className={`status ${statusClasses[row.status]}`}>{statusLabels[row.status]}</span></td>
                 <td><div className="warehouse-mapping-row-actions">{editing
@@ -237,9 +275,9 @@ export default function ProductSubdivisionSettings({ canEdit }: { canEdit: boole
                   : <><button type="button" className="row-action" disabled={!canEdit || saving} onClick={() => beginEdit(row)}>编辑</button>{row.overridden && row.specCode && <button type="button" className="secondary-button" disabled={!canEdit || saving} onClick={() => resetAssignment(row)}>恢复默认</button>}</>}</div></td>
               </tr>;
             })}
-            {data && data.items.length === 0 && <tr><td colSpan={10}><div className="table-state">没有符合当前条件的货品。</div></td></tr>}
-            {!data && !error && <tr><td colSpan={10}><div className="table-state" role="status">正在读取货品细分映射…</div></td></tr>}
-            {!data && error && <tr><td colSpan={10}><div className="table-state" role="alert">货品细分映射暂不可用，请重试。</div></td></tr>}
+            {data && data.items.length === 0 && <tr><td colSpan={11}><div className="table-state">没有符合当前条件的货品。</div></td></tr>}
+            {!data && !error && <tr><td colSpan={11}><div className="table-state" role="status">正在读取货品细分映射…</div></td></tr>}
+            {!data && error && <tr><td colSpan={11}><div className="table-state" role="alert">货品细分映射暂不可用，请重试。</div></td></tr>}
           </tbody>
         </table>
       </div>

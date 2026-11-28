@@ -132,6 +132,7 @@ type SubdivisionProduct = {
 type SubdivisionMetric = CategoryDetailMetric & {
   subdivision: string;
   labelSource?: "static" | "custom";
+  parent?: string;
   products: SubdivisionProduct[];
   productsTruncated: boolean;
 };
@@ -149,8 +150,9 @@ type CategorySubdivisionsResponse = {
     unclassifiedLabel: string;
     selectedMajorCategory: string;
     configVersion: string;
-    majorCategories: Array<{ name: string; coveredCategories: string[]; labels: Array<{ name: string; source: "static" | "custom"; sortOrder: number }> }>;
+    majorCategories: Array<{ name: string; coveredCategories: string[]; hasLevels?: boolean; labels: Array<{ name: string; source: "static" | "custom"; sortOrder: number; parent?: string }> }>;
   };
+  level?: SubdivisionLevel;
   summary: {
     grossSalesCents: number; refundAmountCents: number; netSalesCents: number;
     positiveQuantity: number; returnQuantity: number; netQuantity: number;
@@ -381,18 +383,21 @@ const sortableColumns: Array<{ key: CategorySortKey; label: string }> = [
   { key: "weekOverWeekRate", label: "环比上周" },
 ];
 
+/** "parent" rolls 三级 labels up into their 二级类目; single-level majors look the same either way. */
+type SubdivisionLevel = "parent" | "leaf";
+
 function CategorySubdivisionTab({ identity, startDate, endDate, filters, onFiltersChange, channelOptions }: {
   identity?: unknown; startDate: string; endDate: string; filters: SalesSharedFilters;
   onFiltersChange: (filters: SalesSharedFilters) => void; channelOptions: string[];
 }) {
   const scopeKey = JSON.stringify([startDate, endDate, filters.channels, filters.platforms, filters.outletKeys, filters.productQuery.trim()]);
-  const [view, setView] = useState<{ majorCategory: string; sortBy: SubdivisionSortKey; direction: SortDirection; page: number; scope: string }>(
-    { majorCategory: "直饮机", sortBy: "netSalesCents", direction: "desc", page: 1, scope: scopeKey });
+  const [view, setView] = useState<{ majorCategory: string; level: SubdivisionLevel; sortBy: SubdivisionSortKey; direction: SortDirection; page: number; scope: string }>(
+    { majorCategory: "直饮机", level: "parent", sortBy: "netSalesCents", direction: "desc", page: 1, scope: scopeKey });
   // A changed filter scope always starts from the first page without an extra effect.
   const page = view.scope === scopeKey ? view.page : 1;
   const pageSize = 20;
-  const { majorCategory, sortBy, direction } = view;
-  const requestKey = JSON.stringify([scopeKey, majorCategory, sortBy, direction, page]);
+  const { majorCategory, level, sortBy, direction } = view;
+  const requestKey = JSON.stringify([scopeKey, majorCategory, level, sortBy, direction, page]);
   const [result, setResult] = useState<{ key: string; payload: CategorySubdivisionsResponse } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -421,7 +426,7 @@ function CategorySubdivisionTab({ identity, startDate, endDate, filters, onFilte
       setLoading(true);
       setError("");
       try {
-        const query = new URLSearchParams({ startDate, endDate, majorCategory, sortBy, direction, page: String(page), pageSize: String(pageSize) });
+        const query = new URLSearchParams({ startDate, endDate, majorCategory, level, sortBy, direction, page: String(page), pageSize: String(pageSize) });
         filters.channels.forEach((value) => query.append("channel", value));
         filters.platforms.forEach((value) => query.append("platform", value));
         filters.outletKeys.forEach((value) => query.append("outlet", value));
@@ -439,7 +444,7 @@ function CategorySubdivisionTab({ identity, startDate, endDate, filters, onFilte
       }
     })();
     return () => { window.clearTimeout(timeout); controller.abort(); };
-  }, [startDate, endDate, filters.channels, filters.platforms, filters.outletKeys, filters.productQuery, majorCategory, sortBy, direction, page, retryKey, requestKey]);
+  }, [startDate, endDate, filters.channels, filters.platforms, filters.outletKeys, filters.productQuery, majorCategory, level, sortBy, direction, page, retryKey, requestKey]);
 
   const patchView = (patch: Partial<typeof view>) => setView({ ...view, page: 1, ...patch, scope: scopeKey });
   const toggleExpanded = (label: string) => {
@@ -474,6 +479,11 @@ function CategorySubdivisionTab({ identity, startDate, endDate, filters, onFilte
     void submitEdit({ action: "add_label", majorCategory, name }, "新增细分失败");
   };
   const majorOptions = (shown?.mapping.majorCategories ?? []).map((item) => ({ value: item.name, label: item.name }));
+  // 二级/三级 only matter for a map with a 三级 level (开水器); add/delete edits the finest labels, so only there.
+  const hasLevels = Boolean(shown?.mapping.majorCategories.find((item) => item.name === majorCategory)?.hasLevels);
+  const shownLevel: SubdivisionLevel = shown?.level ?? level;
+  const canEditLabels = canEdit && (!hasLevels || shownLevel === "leaf");
+  const levelName = !hasLevels ? "细分" : shownLevel === "parent" ? "二级类目" : "三级类目";
   const sortHeader = (key: SubdivisionSortKey, label: string) => {
     const active = sortBy === key;
     return <th key={key} aria-sort={active ? (direction === "desc" ? "descending" : "ascending") : "none"}>
@@ -495,6 +505,10 @@ function CategorySubdivisionTab({ identity, startDate, endDate, filters, onFilte
           <SearchableSelect ariaLabel="大类目" className="category-major-select" value={majorCategory}
             options={majorOptions.length > 0 ? majorOptions : [{ value: majorCategory, label: majorCategory }]}
             onChange={(value) => { setExpanded([]); setEditing(""); patchView({ majorCategory: value }); }} />
+          {hasLevels && <div className="segmented category-subdivision-level" role="group" aria-label="细分层级">
+            {([["parent", "按二级"], ["leaf", "按三级"]] as const).map(([key, label]) => <button type="button" key={key} className={level === key ? "active" : ""} aria-pressed={level === key}
+              onClick={() => { setExpanded([]); setEditing(""); patchView({ level: key }); }}>{label}</button>)}
+          </div>}
           {filters.channels.length > 0 && <button type="button" className="secondary-button category-filter-reset" onClick={() => onFiltersChange({ ...filters, channels: [] })}>清空渠道</button>}
         </div>
       </div>
@@ -536,12 +550,12 @@ function CategorySubdivisionTab({ identity, startDate, endDate, filters, onFilte
 
         {shown.details.pagination.total === 0 ? <section className="panel data-state" role="status"><span className="state-symbol">∅</span><strong>该大类目下还没有细分</strong><p>可在 系统设置 › 货品细分映射 查看映射；系统不会用模拟数据填充空结果。</p></section> : <section className="panel table-panel category-detail-panel">
           <div className="table-toolbar"><div><h2>品类细分明细</h2><p>贡献率以已归类细分合计为分母，未归类不计入；同比为去年同期净销售额变化；环比上周按截止日近 7 天对比此前 7 天；退货率按退款金额 ÷ 正向销售额计算。点击表头可在降序、升序间切换。</p></div><span className="soft-tag">显示 {formatCount(shown.details.pagination.returned)} / {formatCount(shown.details.pagination.total)}{shown.details.pagination.truncated ? " · 后续页未加载" : ""}</span></div>
-          <div className="data-table-wrap"><table className="data-table category-detail-table"><thead><tr><th>排名</th>{sortHeader("subdivision", "细分")}{sortableColumns.map((column) => sortHeader(column.key, column.label))}<th>细分趋势</th>{sortHeader("productCount", "货品数")}<th>操作</th></tr></thead><tbody>
+          <div className="data-table-wrap"><table className="data-table category-detail-table"><thead><tr><th>排名</th>{sortHeader("subdivision", levelName)}{sortableColumns.map((column) => sortHeader(column.key, column.label))}<th>细分趋势</th>{sortHeader("productCount", "货品数")}<th>操作</th></tr></thead><tbody>
             {shown.details.items.map((item, index) => {
               const open = expanded.includes(item.subdivision);
               const editingRow = editing === item.subdivision;
               return <Fragment key={item.subdivision}>
-                <tr><td>{(shown.details.pagination.page - 1) * shown.details.pagination.pageSize + index + 1}</td><td><strong>{item.subdivision}</strong></td><td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.netQuantity)}</td><td>{formatRate(item.refundRate)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatCurrency(item.grossProfitCents)}</td><td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td className={comparisonTone(item.yearOverYearRate)} title={`去年同期 ${formatCurrency(item.yearAgoNetSalesCents)}`}>{formatComparison(item.yearOverYearRate)}</td><td className={comparisonTone(item.weekOverWeekRate)} title={`近7天 ${formatCurrency(item.currentWeekNetSalesCents)}；此前7天 ${formatCurrency(item.previousWeekNetSalesCents)}`}>{formatComparison(item.weekOverWeekRate)}</td><td><CategoryDetailTrend item={item} /></td><td>{formatCount(item.productCount)}</td><td><div className="category-subdivision-actions"><button type="button" className="category-detail-button" aria-expanded={open} onClick={() => toggleExpanded(item.subdivision)}>{open ? "收起货品" : "查看货品"}</button>{canEdit && <button type="button" className="category-detail-button" aria-expanded={editingRow} onClick={() => toggleEditing(item.subdivision)}>{editingRow ? "收起编辑" : "编辑"}</button>}</div></td></tr>
+                <tr><td>{(shown.details.pagination.page - 1) * shown.details.pagination.pageSize + index + 1}</td><td><strong>{item.subdivision}</strong>{hasLevels && shownLevel === "leaf" && item.parent && item.parent !== item.subdivision && <small className="cell-note">二级：{item.parent}</small>}</td><td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.netQuantity)}</td><td>{formatRate(item.refundRate)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatCurrency(item.grossProfitCents)}</td><td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td className={comparisonTone(item.yearOverYearRate)} title={`去年同期 ${formatCurrency(item.yearAgoNetSalesCents)}`}>{formatComparison(item.yearOverYearRate)}</td><td className={comparisonTone(item.weekOverWeekRate)} title={`近7天 ${formatCurrency(item.currentWeekNetSalesCents)}；此前7天 ${formatCurrency(item.previousWeekNetSalesCents)}`}>{formatComparison(item.weekOverWeekRate)}</td><td><CategoryDetailTrend item={item} /></td><td>{formatCount(item.productCount)}</td><td><div className="category-subdivision-actions"><button type="button" className="category-detail-button" aria-expanded={open} onClick={() => toggleExpanded(item.subdivision)}>{open ? "收起货品" : "查看货品"}</button>{canEditLabels && <button type="button" className="category-detail-button" aria-expanded={editingRow} onClick={() => toggleEditing(item.subdivision)}>{editingRow ? "收起编辑" : "编辑"}</button>}</div></td></tr>
                 {open && !editingRow && <tr className="category-subdivision-products"><td colSpan={14}>{productTable(item.products, item.productsTruncated)}</td></tr>}
                 {editingRow && <tr className="category-subdivision-products category-subdivision-edit"><td colSpan={14}>
                   <p>细分：<strong>{item.subdivision}</strong>（{item.labelSource === "custom" ? "自定义" : "静态"}）</p>

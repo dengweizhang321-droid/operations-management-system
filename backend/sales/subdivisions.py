@@ -34,7 +34,7 @@ from .auth import Principal
 from .calculation_cache import reuse
 from .models import ErpProductMaster, SalesOrderLine, SalesProductSubdivisionOverride, SalesSubdivisionLabel
 from .query import SalesRequestError, binary_text_key, revision_token
-from .subdivision_maps import water_dispenser
+from .subdivision_maps import water_boiler, water_dispenser, water_purifier
 
 UNCLASSIFIED_LABEL = "未归类"
 MATCH_ORDER = ["manual", "product_code", "name_to_code", "sales_name_to_code", "name_fallback"]
@@ -47,7 +47,12 @@ LABEL_LIMIT = 200
 # Registration order decides conflicts: the earlier source wins.
 SUBDIVISION_SOURCES: tuple[dict[str, Any], ...] = (
     {"module": water_dispenser, "majorCategory": "直饮机", "coveredCategories": ("直饮机",)},
+    {"module": water_purifier, "majorCategory": "净水器", "coveredCategories": ("净水器", "售水机")},
+    {"module": water_boiler, "majorCategory": "开水器",
+     "coveredCategories": ("开水器", "数控开水器", "数显开水器", "步进式开水器", "水尺开水器")},
 )
+# A map module may carry PARENTS (细分 -> 二级类目). A label without a parent is its own 二级类目,
+# so single-level maps (直饮机、净水器) and custom labels behave exactly as before.
 
 _WHITESPACE = re.compile(r"\s+")
 
@@ -63,7 +68,7 @@ def static_version() -> str:
 def map_sources() -> list[dict[str, Any]]:
     return [
         {"fileName": s["module"].SOURCE["fileName"], "sha256": s["module"].SOURCE["sha256"],
-         "rowCount": int(s["module"].SOURCE["rowCount"])}
+         "rowCount": int(s["module"].SOURCE["rowCount"]), "majorCategory": s["majorCategory"]}
         for s in SUBDIVISION_SOURCES
     ]
 
@@ -197,17 +202,20 @@ def _build_data() -> dict[str, Any]:
         for category in source["coveredCategories"]:
             if category not in major["covered"]:
                 major["covered"].append(category)
+    parents = {source["majorCategory"]: dict(getattr(source["module"], "PARENTS", {})) for source in SUBDIVISION_SOURCES}
     for _code, _name, label, major_name in entries:
         labels = majors[major_name]["labels"]
         if label not in labels:
-            labels[label] = {"source": "static", "sortOrder": len(labels) * 10, "deleted": False}
+            labels[label] = {"source": "static", "sortOrder": len(labels) * 10, "deleted": False,
+                             "parent": parents.get(major_name, {}).get(label) or label}
     for row in SalesSubdivisionLabel.objects.order_by("id").values("major_category", "name", "sort_order", "is_deleted"):
         major = majors.get(row["major_category"])
         if major is None:
             continue
         existing = major["labels"].get(row["name"])
         if existing is None:
-            major["labels"][row["name"]] = {"source": "custom", "sortOrder": int(row["sort_order"]), "deleted": bool(row["is_deleted"])}
+            major["labels"][row["name"]] = {"source": "custom", "sortOrder": int(row["sort_order"]), "deleted": bool(row["is_deleted"]),
+                                            "parent": row["name"]}
         else:
             existing["sortOrder"] = int(row["sort_order"])
             existing["deleted"] = bool(row["is_deleted"])
@@ -303,7 +311,7 @@ class EffectiveMapping:
 
     def labels(self, major: str, *, include_deleted: bool = False) -> list[dict[str, Any]]:
         items = [
-            {"name": name, "source": meta["source"], "sortOrder": meta["sortOrder"], "deleted": meta["deleted"]}
+            {"name": name, "source": meta["source"], "sortOrder": meta["sortOrder"], "deleted": meta["deleted"], "parent": meta["parent"]}
             for name, meta in self._majors[major]["labels"].items()
             if include_deleted or not meta["deleted"]
         ]
@@ -316,6 +324,25 @@ class EffectiveMapping:
 
     def is_live(self, major: str, label: str) -> bool:
         return (major, label) in self._live
+
+    def parent_of(self, major: str | None, label: str | None) -> str | None:
+        """The 二级类目 of a label; a label without one is its own 二级类目."""
+        if not major or not label or major not in self._majors:
+            return label
+        meta = self._majors[major]["labels"].get(label)
+        return meta["parent"] if meta else label
+
+    def has_levels(self, major: str) -> bool:
+        """True when some live label of the major sits under a different 二级类目 (a 三级 map)."""
+        return any(item["parent"] != item["name"] for item in self.labels(major))
+
+    def parent_labels(self, major: str) -> list[dict[str, Any]]:
+        """Distinct 二级类目 of the live labels, in label order."""
+        seen: dict[str, dict[str, Any]] = {}
+        for item in self.labels(major):
+            seen.setdefault(item["parent"], {"name": item["parent"], "source": item["source"],
+                                             "sortOrder": item["sortOrder"], "deleted": False, "parent": item["parent"]})
+        return list(seen.values())
 
     @property
     def version(self) -> str:
@@ -389,8 +416,9 @@ class EffectiveMapping:
     def major_payload(self) -> list[dict[str, Any]]:
         return [
             {
-                "name": name, "coveredCategories": list(self._majors[name]["covered"]),
-                "labels": [{"name": item["name"], "source": item["source"], "sortOrder": item["sortOrder"]} for item in self.labels(name)],
+                "name": name, "coveredCategories": list(self._majors[name]["covered"]), "hasLevels": self.has_levels(name),
+                "labels": [{"name": item["name"], "source": item["source"], "sortOrder": item["sortOrder"], "parent": item["parent"]}
+                           for item in self.labels(name)],
             }
             for name in self._majors
         ]

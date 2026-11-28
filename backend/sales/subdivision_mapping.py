@@ -26,7 +26,7 @@ def _row(code: str, name: str, **extra: Any) -> dict[str, Any]:
     return {
         "specCode": code, "productName": name, "specification": "", "supplier": "", "erpCategory": "",
         "productStatus": "", "majorCategory": None, "subdivision": None, "matchedBy": "none", "status": "unclassified",
-        "overridden": False, "defaultSubdivision": None, "sourceName": "", **extra,
+        "overridden": False, "defaultSubdivision": None, "sourceName": "", "parentSubdivision": None, **extra,
     }
 
 
@@ -118,6 +118,9 @@ def _compute(mapping: subdivisions.EffectiveMapping) -> dict[str, Any]:
             defaultSubdivision=live_label, sourceName=name if not code else "",
         ))
 
+    for r in rows:
+        # 二级类目 of the effective label (a single-level label is its own 二级类目).
+        r["parentSubdivision"] = mapping.parent_of(r["majorCategory"], r["subdivision"]) if r["subdivision"] else None
     order = {(major, item["name"]): index for major in mapping.major_categories() for index, item in enumerate(mapping.labels(major))}
     major_order = {major: index for index, major in enumerate(mapping.major_categories())}
     rows.sort(key=lambda r: (
@@ -143,7 +146,9 @@ def get_product_subdivisions(params: dict[str, Any], principal: Principal) -> di
     if major and major not in mapping.major_categories():
         raise SalesRequestError("majorCategory 无效")
     subdivision = params["subdivision"].strip()
-    if subdivision and subdivision not in mapping.label_names(major or None):
+    shown_majors = [major] if major else mapping.major_categories()
+    parent_names = {item["parent"] for name in shown_majors for item in mapping.labels(name)}
+    if subdivision and subdivision not in mapping.label_names(major or None) and subdivision not in parent_names:
         raise SalesRequestError("subdivision 无效")
     computed = reuse(
         "product-subdivisions", {"mapVersion": mapping.version, "configVersion": mapping.config_version}, principal,
@@ -156,18 +161,19 @@ def get_product_subdivisions(params: dict[str, Any], principal: Principal) -> di
     for r in in_major:
         if r["status"] == "mapped":
             per_label[(r["majorCategory"], r["subdivision"])] = per_label.get((r["majorCategory"], r["subdivision"]), 0) + 1
-    shown_majors = [major] if major else mapping.major_categories()
     subdivision_list = [
-        {"label": item["name"], "majorCategory": name, "productCount": per_label.get((name, item["name"]), 0)}
+        {"label": item["name"], "majorCategory": name, "parent": item["parent"], "productCount": per_label.get((name, item["name"]), 0)}
         for name in shown_majors for item in mapping.labels(name)
     ]
     needle = query.casefold()
     selected = [
         r for r in in_major
         if (status == "all" or r["status"] == status)
-        and (not subdivision or r["subdivision"] == subdivision)
+        and (not subdivision or r["subdivision"] == subdivision or r["parentSubdivision"] == subdivision)
         and (not needle or needle in " ".join(
-            str(r[key] or "") for key in ("specCode", "productName", "specification", "supplier", "erpCategory", "majorCategory", "subdivision")
+            str(r[key] or "") for key in (
+                "specCode", "productName", "specification", "supplier", "erpCategory", "majorCategory", "parentSubdivision", "subdivision",
+            )
         ).casefold())
     ]
     page, page_size = params["page"], params["pageSize"]

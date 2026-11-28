@@ -7,6 +7,8 @@ category is covered by the selected major category but that are not mapped form
 the separate "unclassified" bucket, which never enters the subdivision table and
 is not part of the share denominator. Every effective label of the major
 category is listed, with zeros when it has no sales. The trend is always daily.
+With ``level="parent"`` every label is rolled up into its 二级类目 (maps that
+carry a 三级 level, such as 开水器); single-level maps are unchanged.
 """
 from __future__ import annotations
 
@@ -51,6 +53,7 @@ _SUMMARY_KEYS = {
 }
 _COVERAGE_BUCKETS = ("manual", "code", "name_to_code", "sales_name_to_code", "name", "unclassified")
 _CODE_SOURCES = {"manual", "code", "name_to_code", "sales_name_to_code"}
+LEVELS = ("leaf", "parent")
 
 
 def candidate_filter(mapping: subdivisions.EffectiveMapping, major: str) -> Q:
@@ -62,7 +65,7 @@ def candidate_filter(mapping: subdivisions.EffectiveMapping, major: str) -> Q:
     )
 
 
-def _subdivision_case(mapping: subdivisions.EffectiveMapping, major: str, pairs: Sequence[tuple[str, str]]):
+def _subdivision_case(mapping: subdivisions.EffectiveMapping, major: str, pairs: Sequence[tuple[str, str]], level: str = "leaf"):
     covered = mapping.covered_categories(major)
     codes: dict[str, set[str]] = defaultdict(set)
     names: dict[str, set[str]] = defaultdict(set)
@@ -71,6 +74,8 @@ def _subdivision_case(mapping: subdivisions.EffectiveMapping, major: str, pairs:
     blocked_codes: set[str] = set()
     for code, name in pairs:
         label, owner, matched_by = mapping.resolve(code, name)
+        if label and level == "parent" and owner == major:
+            label = mapping.parent_of(major, label)
         if matched_by is not None and owner is not None and owner != major:
             # Mapped to another major category: never counted here, not even as unclassified.
             if matched_by == "name":
@@ -115,13 +120,13 @@ def _top_products(items: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], bo
 
 
 def _compute(params: dict[str, Any], principal: Principal, comparisons: dict[str, Any],
-             mapping: subdivisions.EffectiveMapping, major: str) -> dict[str, Any]:
+             mapping: subdivisions.EffectiveMapping, major: str, level: str) -> dict[str, Any]:
     union_queryset, scope_mode = _comparison_queryset(params, principal, comparisons)
     union_queryset = union_queryset.filter(candidate_filter(mapping, major))
     pair_rows = [tuple(pair) for pair in union_queryset.order_by().values_list("product_code", "product_name").distinct()[: PAIR_LIMIT + 1]]
     if len(pair_rows) > PAIR_LIMIT:
         raise SalesRequestError(f"品类细分商品数超过 {PAIR_LIMIT}，暂不支持")
-    case = _subdivision_case(mapping, major, pair_rows)
+    case = _subdivision_case(mapping, major, pair_rows, level)
     group_rows = list(
         union_queryset.annotate(subdivision=case).exclude(subdivision="")
         .order_by().values("subdivision").annotate(**_comparison_aggregates(params, comparisons))
@@ -214,7 +219,10 @@ def get_subdivision_analysis(params: dict[str, Any], principal: Principal) -> di
     major = (params.get("majorCategory") or "").strip() or mapping.major_categories()[0]
     if major not in mapping.major_categories():
         raise SalesRequestError("majorCategory 无效")
-    labels = mapping.labels(major)
+    level = (params.get("level") or "leaf").strip()
+    if level not in LEVELS:
+        raise SalesRequestError("level 必须是 leaf 或 parent")
+    labels = mapping.parent_labels(major) if level == "parent" else mapping.labels(major)
     if len(labels) > subdivisions.LABEL_LIMIT:
         raise SalesRequestError(f"细分数量超过 {subdivisions.LABEL_LIMIT}，暂不支持")
     # The third tab is not narrowed by the category multi-select.
@@ -225,7 +233,8 @@ def get_subdivision_analysis(params: dict[str, Any], principal: Principal) -> di
     # configVersion is read fresh on every request, so an edit invalidates this scope at once.
     scope["configVersion"] = mapping.config_version
     scope["majorCategory"] = major
-    computed = reuse("category-subdivisions", scope, principal, lambda: _compute(params, principal, comparisons, mapping, major))
+    scope["level"] = level
+    computed = reuse("category-subdivisions", scope, principal, lambda: _compute(params, principal, comparisons, mapping, major, level))
 
     unclassified_label = subdivisions.UNCLASSIFIED_LABEL
     rows_by_label = {row["subdivision"]: row for row in computed["rows"]}
@@ -236,7 +245,7 @@ def get_subdivision_analysis(params: dict[str, Any], principal: Principal) -> di
     mapped_net = int(summary["netSalesCents"] or 0)
     metrics = [{
         **_serialize_category({**rows_by_label.get(item["name"], {}), "resolved_category": item["name"]}, mapped_net),
-        "subdivision": item["name"], "labelSource": item["source"],
+        "subdivision": item["name"], "labelSource": item["source"], "parent": item["parent"],
     } for item in labels]
 
     ordered = _order(metrics, params["sortBy"], params["direction"])
@@ -245,7 +254,7 @@ def get_subdivision_analysis(params: dict[str, Any], principal: Principal) -> di
 
     trend_by_label: dict[str, list[dict[str, Any]]] = defaultdict(list)
     if page_items:
-        case = _subdivision_case(mapping, major, computed["pairs"])
+        case = _subdivision_case(mapping, major, computed["pairs"], level)
         for row in _trend_rows(params, principal, [item["subdivision"] for item in page_items], mapping, major, case):
             trend_by_label[row["subdivision"]].append(row)
     empty_products = {"products": [], "productsTruncated": False}
@@ -265,6 +274,7 @@ def get_subdivision_analysis(params: dict[str, Any], principal: Principal) -> di
         "comparisonPeriods": comparisons,
         "dataCutoffDate": data_cutoff,
         "mapping": mapping.mapping_info(major),
+        "level": level,
         "summary": summary,
         "coverage": computed["coverage"],
         "unclassified": {

@@ -313,6 +313,7 @@ def category_subdivisions(request: HttpRequest) -> JsonResponse:
             {
                 # granularity is accepted but ignored (the trend is always daily), so cached old pages keep working.
                 "majorCategory": (_first(inner.GET, "majorCategory", "") or "").strip(),
+                "level": (_first(inner.GET, "level", "leaf") or "leaf").strip(),
                 "sortBy": _first(inner.GET, "sortBy", "netSalesCents") or "netSalesCents",
                 "direction": direction,
                 "page": _bounded_integer(_first(inner.GET, "page"), 1, "page", 10_000),
