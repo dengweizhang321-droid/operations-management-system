@@ -9,7 +9,7 @@
   gap: 16px;
   padding: 10px 18px;
   background: var(--nav);
-  box-shadow: 0 3px 12px #1f2d4410;
+  box-shadow: 0 3px 12px rgba(24, 41, 31, 0.14);
 }
 .top-navigation-shell .workspace { margin-left: 0; min-height: 0; }
 .top-navigation-shell .masthead-tools { position: relative; z-index: 3; flex: 0 0 auto; }
@@ -17,7 +17,7 @@
 .top-navigation-shell .topbar-actions { min-width: 0; gap: 8px; }
 .top-navigation-shell .title-area { display: contents; }
 .top-navigation-shell .shell-page-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.top-navigation-shell .ai-context-button { min-height: 36px; color: #e1e7f0; border-color: #ffffff25; background: #ffffff0c; white-space: nowrap; }
+.top-navigation-shell .ai-context-button { min-height: 36px; color: var(--color-brand-tint); border-color: rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.06); white-space: nowrap; }
 .top-navigation-shell .date-selector { min-width: 146px; color: var(--text); }
 .top-navigation-shell .date-selector .searchable-select { min-width: 90px; }
 .top-navigation-shell .shell-masthead .date-selector > .stat-period-picker { position: fixed; top: calc(var(--app-sticky-offset) + 8px); right: 18px; width: min(804px, calc(100vw - 36px)); max-height: calc(100dvh - var(--app-sticky-offset) - 24px); overflow: auto; }
@@ -37,7 +37,7 @@
   box-shadow: none;
 }
 .top-navigation-shell .main-nav { min-width: 0; align-items: center; gap: 8px; }
-.top-navigation-shell .sidebar-navigation-scroll { min-width: 0; padding: 3px 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: #53637d transparent; }
+.top-navigation-shell .sidebar-navigation-scroll { min-width: 0; padding: 3px 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--color-brand-border) transparent; }
 .top-navigation-shell .sidebar-navigation-scroll::-webkit-scrollbar { display: block; height: 4px; }
 .top-navigation-shell .sidebar-navigation-groups { display: flex; flex-wrap: nowrap; gap: 2px; }
 .top-navigation-shell .nav-group, .top-navigation-shell .nav-group > ul { display: contents; }
@@ -61,14 +61,14 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  border-color: #ffffff25;
-  background: #ffffff0c;
-  color: #d8e0ee;
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-brand-tint);
   box-shadow: none;
 }
 .top-navigation-shell .sidebar-navigation-tooltip { width: 220px; transform: none; }
 .shell-account { display: flex; align-items: center; padding-left: 4px; }
-.shell-account-avatar { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; color: #385aaa; background: #d9e5ff; font-size: 14px; }
+.shell-account-avatar { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; color: var(--color-brand-hover); background: var(--color-brand-tint); font-size: 14px; font-weight: 600; }
 .shell-account-popover { position: fixed; inset: calc(var(--app-sticky-offset) + 6px) 18px auto auto; margin: 0; padding: 6px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface); box-shadow: var(--shadow-overlay); }
 .shell-account-popover > button { min-width: 112px; min-height: 40px; padding: 8px 14px; border: 0; border-radius: 6px; background: transparent; }
 .shell-account-popover > button:hover { background: var(--surface-soft); }
@@ -82,7 +82,7 @@
   z-index: var(--z-sticky);
   align-self: start;
   background: var(--surface);
-  box-shadow: 0 4px 10px #1f2d4410;
+  box-shadow: 0 4px 10px rgba(24, 41, 31, 0.08);
 }
 /* The chat panel is hosted after this tabs-only stage, so it cannot bound sticky. */
 .top-navigation-shell .module-stage.module-stage-ai-chat { display: contents; }

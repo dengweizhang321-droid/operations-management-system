@@ -7,19 +7,19 @@
 .actions, .heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .heading { justify-content: space-between; margin-bottom: 16px; }
 .distribution { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.riskCard { display: grid; gap: 9px; text-align: left; padding: 18px; border: 1px solid #e2e8f0; border-top: 3px solid var(--risk-color); border-radius: 12px; background: white; color: #334155; cursor: pointer; }
-.riskCard[aria-pressed="true"] { outline: 2px solid var(--risk-color); outline-offset: 2px; }
-.riskCard b { font-size: 24px; color: #0f172a; }
-.riskCard small { font-size: 12px; font-weight: 400; }
+.riskCard { display: grid; gap: 9px; text-align: left; padding: 18px; border: 1px solid var(--color-border-default); border-top: 3px solid var(--risk-color); border-radius: 12px; background: var(--color-bg-surface); color: var(--color-text-secondary); cursor: pointer; }
+.riskCard[aria-pressed="true"] { outline: 2px solid var(--risk-color); outline-offset: 2px; background: var(--color-brand-soft); }
+.riskCard b { font-size: 24px; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+.riskCard small { font-size: 12px; font-weight: 400; color: var(--color-text-muted); }
 .riskCard progress { width: 100%; height: 7px; accent-color: var(--risk-color); }
-.riskCard progress::-webkit-progress-bar { background: #f1f5f9; border-radius: 4px; }
+.riskCard progress::-webkit-progress-bar { background: var(--color-bg-subtle); border-radius: 4px; }
 .riskCard progress::-webkit-progress-value { background: var(--risk-color); border-radius: 4px; }
 .no_stock { --risk-color: #b91c1c; }
-.urgent { --risk-color: #ef4444; }
-.warning { --risk-color: #d97706; }
-.stale { --risk-color: #8b5cf6; }
-.unknown { --risk-color: #64748b; }
-.healthy { --risk-color: #059669; }
+.urgent { --risk-color: #dc4c59; }
+.warning { --risk-color: #d48a29; }
+.stale { --risk-color: #7c6bb8; }
+.unknown { --risk-color: #6e7e74; }
+.healthy { --risk-color: #16825d; }
 .note { font-size: 12px; margin-bottom: 0; }
 .warning { border-radius: 8px; }
 p.warning { padding: 12px 16px; background: #fff7ed; color: #9a3412; }
@@ -47,7 +47,8 @@ p.warning { padding: 12px 16px; background: #fff7ed; color: #9a3412; }
 @media (max-width: 900px) { .distribution { grid-template-columns: repeat(2, minmax(0, 1fr)); } .editorGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .reasonField { grid-column: span 1; } }
 @media (max-width: 540px) { .distribution, .editorGrid { grid-template-columns: 1fr; } }
 /* 广东入仓型号明细：横向滚动时冻结「商品」「规格编码」两列（外层 .data-table-wrap 已是 overflow-x: auto）。 */
-.detailTable th:nth-child(1), .detailTable td:nth-child(1) { width: 180px; min-width: 180px; max-width: 180px; position: sticky; left: 0; z-index: 2; background: #fff; white-space: normal; }
-.detailTable th:nth-child(2), .detailTable td:nth-child(2) { width: 150px; min-width: 150px; max-width: 150px; position: sticky; left: 180px; z-index: 2; background: #fff; border-right: 1px solid #e8edf4; box-shadow: 4px 0 6px -4px rgba(22, 34, 54, .18); }
-.detailTable thead th:nth-child(-n+2) { z-index: 4; background: #fafbfc; }
-.detailTable tbody tr:hover td:nth-child(-n+2) { background: #fbfcfe; }
+.detailTable { font-variant-numeric: tabular-nums; }
+.detailTable th:nth-child(1), .detailTable td:nth-child(1) { width: 180px; min-width: 180px; max-width: 180px; position: sticky; left: 0; z-index: 2; background: var(--color-bg-surface); white-space: normal; }
+.detailTable th:nth-child(2), .detailTable td:nth-child(2) { width: 150px; min-width: 150px; max-width: 150px; position: sticky; left: 180px; z-index: 2; background: var(--color-bg-surface); border-right: 1px solid var(--color-border-default); box-shadow: 4px 0 6px -4px rgba(31, 51, 39, .16); }
+.detailTable thead th:nth-child(-n+2) { z-index: 4; background: var(--color-bg-subtle); }
+.detailTable tbody tr:hover td:nth-child(-n+2) { background: #f8fbf9; }

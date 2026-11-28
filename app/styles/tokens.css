@@ -1,6 +1,11 @@
 :root {
   color-scheme: light;
 
+  /* Typography (Plan A: Segoe UI Variable + Noto Sans SC) */
+  --font-family-sans: "Segoe UI Variable Text", "Segoe UI", "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", system-ui, -apple-system, sans-serif;
+  --font-family-heading: "Segoe UI Variable Display", "Segoe UI", "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", system-ui, -apple-system, sans-serif;
+  --font-family-mono: "Cascadia Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+
   /* Brand */
   --color-brand: #396149;
   --color-brand-hover: #293f32;
@@ -18,34 +23,51 @@
   --color-bg-inverse: #293f32;
 
   /* Text */
-  --color-text-primary: #33453a;
-  --color-text-secondary: #526959;
-  --color-text-muted: #7b8780;
+  --color-text-primary: #2a3b31;
+  --color-text-secondary: #4e6456;
+  --color-text-muted: #6e7e74;
   --color-text-inverse: #f3f7f4;
   --color-text-link: #396149;
 
   /* Borders and focus */
-  --color-border-default: #e7ebe9;
-  --color-border-strong: #c9d6ce;
-  --color-focus-ring: rgba(103, 157, 131, 0.35);
+  --color-border-default: #e4eae6;
+  --color-border-strong: #c5d3ca;
+  --color-focus-ring: rgba(57, 97, 73, 0.28);
 
   /* System feedback */
-  --color-success: #16825d;
-  --color-success-soft: #eaf8f3;
-  --color-warning: #a96518;
-  --color-warning-soft: #fff5e9;
-  --color-danger: #c83e4d;
-  --color-danger-soft: #fff0f1;
-  --color-info: #315bc5;
-  --color-info-soft: #edf3ff;
+  --color-success: #167956;
+  --color-success-soft: #eaf7f1;
+  --color-success-border: #bfe3d3;
+  --color-warning: #a45f12;
+  --color-warning-soft: #fff6ea;
+  --color-warning-border: #efd3ad;
+  --color-danger: #c43a49;
+  --color-danger-soft: #fff1f2;
+  --color-danger-border: #f2c4c9;
+  --color-info: #2d627d;
+  --color-info-soft: #eef6fa;
+  --color-info-border: #c1dce9;
+  --color-neutral: #54665b;
+  --color-neutral-soft: #eff3f0;
+  --color-neutral-border: #d6dfd9;
 
   /* Business movement: A-share convention, up red and down green. */
   --color-metric-up: #c83e4d;
   --color-metric-down: #16825d;
-  --color-metric-neutral: #6f7d91;
+  --color-metric-neutral: #6b7b72;
+
+  /* Unified 8-color chart palette harmonious with forest green */
+  --chart-1: #396149;
+  --chart-2: #2d8a7e;
+  --chart-3: #d48a29;
+  --chart-4: #c84b58;
+  --chart-5: #7c6bb8;
+  --chart-6: #4b7399;
+  --chart-7: #6c9a5e;
+  --chart-8: #c4714b;
 
   /* Supporting palette */
-  --color-purple: #8167d9;
+  --color-purple: #7c6bb8;
   --color-purple-soft: #f2effd;
 
   /* Spacing and size */
@@ -80,9 +102,9 @@
   --line-height-readable: 1.75;
 
   /* Elevation and layout */
-  --shadow-sm: 0 3px 10px rgba(34, 45, 65, 0.12);
-  --shadow-md: 0 8px 24px rgba(31, 45, 68, 0.08);
-  --shadow-overlay: 0 20px 50px rgba(31, 45, 68, 0.2);
+  --shadow-sm: 0 2px 8px rgba(31, 51, 39, 0.08);
+  --shadow-md: 0 8px 24px rgba(31, 51, 39, 0.08);
+  --shadow-overlay: 0 18px 46px rgba(24, 41, 31, 0.18);
   --app-sidebar-width: 244px;
   --app-sidebar-collapsed-width: 80px;
   --app-header-height: 82px;
@@ -105,15 +127,15 @@
   --blue: var(--color-brand);
   --blue-dark: var(--color-brand-hover);
   --blue-soft: var(--color-brand-soft);
-  --green: #27a978;
-  --green-soft: #eaf8f3;
-  --orange: #e99436;
-  --orange-soft: #fff5e9;
+  --green: var(--color-success);
+  --green-soft: var(--color-success-soft);
+  --orange: var(--chart-3);
+  --orange-soft: var(--color-warning-soft);
   --purple: var(--color-purple);
   --purple-soft: var(--color-purple-soft);
-  --red: #e45e67;
-  --red-soft: #fff0f1;
-  --shadow: 0 8px 24px rgba(31, 45, 68, 0.05);
+  --red: var(--color-danger);
+  --red-soft: var(--color-danger-soft);
+  --shadow: 0 6px 20px rgba(31, 51, 39, 0.05);
   --sidebar-width: var(--app-sidebar-width);
 
   /* Existing late stylesheet sections already consume these names. */
