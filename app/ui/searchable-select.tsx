@@ -41,6 +41,7 @@ export function SearchableSelect({
   emptyLabel = "没有匹配项",
   placeholder = "请选择",
   disabled = false,
+  onOpenChange,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -51,8 +52,11 @@ export function SearchableSelect({
   emptyLabel?: string;
   placeholder?: string;
   disabled?: boolean;
+  /** Optional: told whenever the menu opens or closes (e.g. to make room for it inside a scrolling table). */
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => { onOpenChange?.(open); }, [open, onOpenChange]);
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const normalizedQuery = query.trim().toLocaleLowerCase("zh-CN");

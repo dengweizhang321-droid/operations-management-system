@@ -150,6 +150,9 @@ def get_product_subdivisions(params: dict[str, Any], principal: Principal) -> di
     parent_names = {item["parent"] for name in shown_majors for item in mapping.labels(name)}
     if subdivision and subdivision not in mapping.label_names(major or None) and subdivision not in parent_names:
         raise SalesRequestError("subdivision 无效")
+    parent = (params.get("parent") or "").strip()
+    if parent and parent not in parent_names:
+        raise SalesRequestError("parent 无效")
     computed = reuse(
         "product-subdivisions", {"mapVersion": mapping.version, "configVersion": mapping.config_version}, principal,
         lambda: _compute(mapping),
@@ -170,6 +173,7 @@ def get_product_subdivisions(params: dict[str, Any], principal: Principal) -> di
         r for r in in_major
         if (status == "all" or r["status"] == status)
         and (not subdivision or r["subdivision"] == subdivision or r["parentSubdivision"] == subdivision)
+        and (not parent or r["parentSubdivision"] == parent)
         and (not needle or needle in " ".join(
             str(r[key] or "") for key in (
                 "specCode", "productName", "specification", "supplier", "erpCategory", "majorCategory", "parentSubdivision", "subdivision",
@@ -185,5 +189,5 @@ def get_product_subdivisions(params: dict[str, Any], principal: Principal) -> di
         "subdivisions": subdivision_list,
         "items": items,
         "pagination": {"page": page, "pageSize": page_size, "total": len(selected), "returned": len(items), "truncated": offset + len(items) < len(selected)},
-        "filters": {"q": query, "status": status, "subdivision": subdivision, "majorCategory": major},
+        "filters": {"q": query, "status": status, "subdivision": subdivision, "parent": parent, "majorCategory": major},
     }

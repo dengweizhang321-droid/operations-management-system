@@ -20,7 +20,7 @@
 ## 变更
 
 - Django：`subdivision_maps/water_purifier.py`、`water_boiler.py`（生成）；`subdivisions.py` 注册两个大类目，细分带 `parent`（二级类目），新增 `parent_of/has_levels/parent_labels`；`subdivision_analysis.py` 新增 `level=leaf|parent`（按二级时三级归并到二级）；`subdivision_mapping.py` 行带 `parentSubdivision`，细分筛选可按二级；`views.py` 透传 `level`。无迁移、无数据写入。
-- 前端：系统设置 › 货品细分映射：列改为一级/二级/三级类目；“细分名称”筛选和行内编辑改为可搜索的下拉直接选择（显示“二级 › 三级”，可按二级整体筛选）；映射来源列出全部表格。销售分析 › 品类分析 › 品类细分：开水器显示“按二级 / 按三级”切换，按二级时不显示新增/删除细分入口。
+- 前端：系统设置 › 货品细分映射：列为一级/二级/三级类目；筛选为一级、二级、三级三个可搜索下拉（三级随所选二级收窄，接口新增 `parent` 参数）；管理员在表格里直接用可搜索下拉改一级/二级/三级，选完即保存为手动归类（改一级后归“未归类”待选二级；改二级时自动选同名二级或第一个三级），可“恢复默认”；没有规格代码的条目仍用“补代码并归类”。`SearchableSelect` 增加可选的 `onOpenChange`。映射来源列出全部表格。演示页 `subdivision-levels-demo.html`（销售数字为模拟）。销售分析 › 品类分析 › 品类细分：开水器显示“按二级 / 按三级”切换，按二级时不显示新增/删除细分入口。
 - 文档：`README.md`、`docs/规范/业务口径.md` 各更新一句。
 
 ## 必需检查

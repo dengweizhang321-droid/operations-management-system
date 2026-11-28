@@ -28,6 +28,7 @@ export async function GET(request: Request) {
       if ((params.get("q") ?? "").length > 100) throw new RangeError("q 不能超过 100 字。");
       if (!STATUSES.has(params.get("status") ?? "all")) throw new RangeError("status 无效。");
       if ((params.get("subdivision") ?? "").length > 100) throw new RangeError("subdivision 不能超过 100 字。");
+      if ((params.get("parent") ?? "").length > 100) throw new RangeError("parent 不能超过 100 字。");
       if ((params.get("majorCategory") ?? "").length > 40) throw new RangeError("majorCategory 不能超过 40 字。");
       boundedInteger(params, "page", 10_000);
       boundedInteger(params, "pageSize", 100);
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
     }
     // Same signed sales reader channel; only the public path differs.
     const target = new URL("/api/sales/product-subdivisions", source);
-    for (const key of ["q", "subdivision", "majorCategory", "status", "page", "pageSize"]) {
+    for (const key of ["q", "subdivision", "parent", "majorCategory", "status", "page", "pageSize"]) {
       const value = params.get(key);
       if (value !== null && value !== "") target.searchParams.set(key, value);
     }

@@ -337,6 +337,7 @@ def product_subdivisions(request: HttpRequest) -> JsonResponse:
         params = {
             "q": _first(inner.GET, "q", "") or "",
             "subdivision": _first(inner.GET, "subdivision", "") or "",
+            "parent": _first(inner.GET, "parent", "") or "",
             "majorCategory": (_first(inner.GET, "majorCategory", "") or "").strip(),
             "status": _first(inner.GET, "status", "all") or "all",
             "page": _bounded_integer(_first(inner.GET, "page"), 1, "page", 10_000),

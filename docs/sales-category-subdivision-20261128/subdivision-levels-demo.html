@@ -43,6 +43,9 @@
   .ss-opt:hover { background:var(--brand-soft); }
   .ss-opt.selected { color:var(--brand); font-weight:700; background:var(--brand-soft); }
   .ss-opt.group { font-weight:700; color:var(--soft-text); }
+  .ss.cell { min-width:140px; }
+  .ss.cell .ss-trigger { height:30px; border-color:var(--brand-border); color:var(--brand); background:var(--brand-soft); font-weight:700; }
+  .ss.cell .ss-menu { width:max(100%,280px); }
   .ss-empty { padding:8px; color:var(--muted); font-size:12px; }
   .table-wrap { overflow-x:auto; }
   .table-wrap.editing { padding-bottom:300px; }
@@ -94,7 +97,7 @@ const MAP = {"majors": [{"name": "直饮机", "labels": [{"name": "柜式旋钮�
 const UNCLASSIFIED = "未归类";
 const state = {
   page: "settings",
-  s: { major: "", sub: "", status: "all", q: "", pageNo: 1, editing: "", draft: "", feedback: "" },
+  s: { major: "", parent: "", leaf: "", status: "all", q: "", pageNo: 1, feedback: "" },
   a: { major: "开水器", level: "parent", sortBy: "net", dir: "desc", open: [] },
   overrides: {},
 };
@@ -114,7 +117,7 @@ function seeded(text) { let h = 2166136261; for (const ch of text) { h ^= ch.cod
 
 // ---- searchable select ------------------------------------------------------
 let openSelect = null;
-function ssHtml(id, value, options, placeholder) {
+function ssHtml(id, value, options, placeholder, variant = "") {
   const sel = options.find((o) => o.value === value);
   const isOpen = openSelect && openSelect.id === id;
   let menu = "";
@@ -125,7 +128,7 @@ function ssHtml(id, value, options, placeholder) {
       shown.map((o) => `<button type="button" class="ss-opt${o.value === value ? " selected" : ""}${o.group ? " group" : ""}" data-ss-pick="${id}" data-value="${esc(o.value)}"><span>${esc(o.label)}</span>${o.value === value ? "<i>✓</i>" : ""}</button>`).join("")
     }${shown.length ? "" : `<p class="ss-empty">没有匹配项</p>`}</div>`;
   }
-  return `<div class="ss${isOpen ? " open" : ""}" data-ss="${id}"><button type="button" class="ss-trigger" data-ss-toggle="${id}"><span>${esc(sel ? sel.label : "请选择")}</span><i aria-hidden="true">⌄</i></button>${menu}</div>`;
+  return `<div class="ss${variant ? " " + variant : ""}${isOpen ? " open" : ""}" data-ss="${id}"><button type="button" class="ss-trigger" data-ss-toggle="${id}"><span>${esc(sel ? sel.label : "请选择")}</span><i aria-hidden="true">⌄</i></button>${menu}</div>`;
 }
 const ssHandlers = {};
 
@@ -135,59 +138,73 @@ function allRows() {
   for (const m of MAP.majors) for (const [code, name, label] of m.entries) {
     const key = `${m.name}|${code}|${name}`;
     const o = state.overrides[key];
-    const sub = o === undefined ? label : (o || null);
-    rows.push({ key, major: m.name, code, name, defaultLabel: label, sub, parent: sub ? parentOf(m.name, sub) : null, overridden: o !== undefined });
+    const major = o ? o.major : m.name;
+    const sub = o ? (o.label || null) : label;
+    rows.push({ key, major, defaultMajor: m.name, code, name, defaultLabel: label, sub, parent: sub ? parentOf(major, sub) : null, overridden: Boolean(o) });
   }
   return rows;
 }
-function filterOptions(major) {
+const parentsOf = (major) => [...new Set((majorOf(major)?.labels || []).map((l) => l.parent))];
+const leavesOf = (major, parent) => (majorOf(major)?.labels || []).filter((l) => l.parent === parent);
+function levelFilterOptions(major, parent) {
   const majors = major ? [majorOf(major)] : MAP.majors;
   const counts = {}; for (const r of allRows()) if (r.sub) counts[`${r.major}|${r.sub}`] = (counts[`${r.major}|${r.sub}`] || 0) + 1;
-  const opts = [{ value: "", label: "全部细分" }];
+  const pre = (m) => (major ? "" : `${m} · `);
+  const l2 = [{ value: "", label: "全部二级类目" }], l3 = [{ value: "", label: "全部三级类目" }];
   for (const m of majors) {
-    const pre = major ? "" : `${m.name} · `;
-    const leafNames = new Set(m.labels.map((l) => l.name));
-    const listed = new Set();
-    for (const l of m.labels) {
-      if (l.parent !== l.name && !listed.has(l.parent) && !leafNames.has(l.parent)) {
-        listed.add(l.parent);
-        const total = m.labels.filter((x) => x.parent === l.parent).reduce((s, x) => s + (counts[`${m.name}|${x.name}`] || 0), 0);
-        opts.push({ value: l.parent, label: `${pre}${l.parent}（二级全部 · ${total}）`, search: `${m.name} ${l.parent}`, group: true });
-      }
-      opts.push({ value: l.name, label: `${pre}${path(l.name, l.parent)}（${counts[`${m.name}|${l.name}`] || 0}）`, search: `${m.name} ${l.parent} ${l.name}` });
+    for (const p of parentsOf(m.name)) {
+      const total = leavesOf(m.name, p).reduce((s, x) => s + (counts[`${m.name}|${x.name}`] || 0), 0);
+      l2.push({ value: p, label: `${pre(m.name)}${p}（${total}）`, search: m.name });
+    }
+    for (const l of m.labels) if (l.parent !== l.name && (!parent || l.parent === parent)) {
+      l3.push({ value: l.name, label: `${pre(m.name)}${parent ? l.name : path(l.name, l.parent)}（${counts[`${m.name}|${l.name}`] || 0}）`, search: `${m.name} ${l.parent}` });
     }
   }
-  return opts;
+  return { l2, l3 };
+}
+function saveAssign(r, major, label) {
+  if (major === r.defaultMajor && label === r.defaultLabel) delete state.overrides[r.key]; else state.overrides[r.key] = { major, label };
+  state.s.feedback = `${r.code || r.name}：已改为 ${major} › ${label ? path(label, parentOf(major, label)) : UNCLASSIFIED}（演示，仅本页生效）`;
 }
 function renderSettings() {
   const s = state.s;
   const rows = allRows().filter((r) => !s.major || r.major === s.major);
   const selected = rows.filter((r) => (s.status === "all" || (s.status === "mapped" ? r.sub : !r.sub))
-    && (!s.sub || r.sub === s.sub || r.parent === s.sub)
+    && (!s.parent || r.parent === s.parent) && (!s.leaf || r.sub === s.leaf)
     && (!s.q || `${r.code} ${r.name} ${r.major} ${r.parent || ""} ${r.sub || ""}`.toLowerCase().includes(s.q.toLowerCase())));
   const pages = Math.max(1, Math.ceil(selected.length / PAGE_SIZE));
   s.pageNo = Math.min(s.pageNo, pages);
   const items = selected.slice((s.pageNo - 1) * PAGE_SIZE, s.pageNo * PAGE_SIZE);
   const labelCount = s.major ? majorOf(s.major).labels.length : MAP.majors.reduce((n, m) => n + m.labels.length, 0);
-  const fopts = filterOptions(s.major);
-  ssHandlers.filter = (v) => { s.sub = v; s.pageNo = 1; };
-  const body = items.map((r) => {
-    const editing = s.editing === r.key;
-    const m = majorOf(r.major);
-    if (editing) ssHandlers.edit = (v) => { s.draft = v; };
-    const editOpts = [{ value: "", label: UNCLASSIFIED }, ...m.labels.map((l) => ({ value: l.name, label: path(l.name, l.parent), search: l.parent }))];
-    const levelCells = editing
-      ? `<td colspan="2">${ssHtml("edit", s.draft, editOpts, "搜索二级或三级细分")}</td>`
-      : `<td>${r.sub ? `<span class="tag">${esc(r.parent)}</span>` : "—"}</td><td>${r.sub && r.parent !== r.sub ? `<span class="tag">${esc(r.sub)}</span>` : "—"}${r.overridden ? `<small class="cell-note">默认：${esc(r.defaultLabel)}</small>` : ""}</td>`;
-    const actions = editing
-      ? `<button type="button" class="btn primary" data-act="save" data-key="${esc(r.key)}">保存</button><button type="button" class="btn" data-act="cancel">取消</button>`
-      : `<button type="button" class="btn link" data-act="edit" data-key="${esc(r.key)}">编辑</button>${r.overridden ? `<button type="button" class="btn" data-act="reset" data-key="${esc(r.key)}">恢复默认</button>` : ""}`;
-    return `<tr><td>${esc(r.code) || "—"}</td><td class="name"><strong>${esc(r.name) || "—"}</strong></td><td>—</td><td>—</td><td>—</td><td><span class="tag l1">${esc(r.major)}</span></td>${levelCells}<td>${r.overridden ? "手动归类" : r.code ? "规格代码" : "名称"}</td><td><span class="status ${r.sub ? "ok" : "warn"}">${r.sub ? "已归类" : "未归类"}</span></td><td><div class="row-actions">${actions}</div></td></tr>`;
+  const { l2, l3 } = levelFilterOptions(s.major, s.parent);
+  ssHandlers.fMajor = (v) => { s.major = v; s.parent = ""; s.leaf = ""; s.pageNo = 1; };
+  ssHandlers.fParent = (v) => { s.parent = v; s.leaf = ""; s.pageNo = 1; };
+  ssHandlers.fLeaf = (v) => { s.leaf = v; s.pageNo = 1; };
+  const majorOpts = MAP.majors.map((m) => ({ value: m.name, label: m.name }));
+  const body = items.map((r, i) => {
+    const id = `r${i}`;
+    ssHandlers[`${id}m`] = (v) => { if (v !== r.major) saveAssign(r, v, ""); };
+    ssHandlers[`${id}p`] = (v) => {
+      if (!v) { if (r.sub) saveAssign(r, r.major, ""); return; }
+      if (v === r.parent) return;
+      const leaves = leavesOf(r.major, v); const next = leaves.find((l) => l.name === v) || leaves[0];
+      if (next) saveAssign(r, r.major, next.name);
+    };
+    ssHandlers[`${id}l`] = (v) => { if (v && v !== r.sub) saveAssign(r, r.major, v); };
+    const leaves = r.parent ? leavesOf(r.major, r.parent) : [];
+    const hasLeaf = leaves.some((l) => l.name !== r.parent);
+    const leafCell = hasLeaf ? ssHtml(`${id}l`, r.sub, leaves.map((l) => ({ value: l.name, label: l.name === r.parent ? "（只到二级）" : l.name })), "搜索三级类目", "cell") : "—";
+    return `<tr><td>${esc(r.code) || "—"}</td><td class="name"><strong>${esc(r.name) || "—"}</strong></td><td>—</td><td>—</td><td>—</td>
+      <td>${ssHtml(`${id}m`, r.major, majorOpts, "搜索一级类目", "cell")}</td>
+      <td>${ssHtml(`${id}p`, r.sub ? r.parent : "", [{ value: "", label: UNCLASSIFIED }, ...parentsOf(r.major).map((p) => ({ value: p, label: p }))], "搜索二级类目", "cell")}</td>
+      <td>${leafCell}${r.overridden ? `<small class="cell-note">默认：${esc(r.defaultMajor)} › ${esc(path(r.defaultLabel, parentOf(r.defaultMajor, r.defaultLabel)))}</small>` : ""}</td>
+      <td>${r.overridden ? "手动归类" : r.code ? "规格代码" : "名称"}</td><td><span class="status ${r.sub ? "ok" : "warn"}">${r.sub ? "已归类" : "未归类"}</span></td>
+      <td>${r.overridden ? `<button type="button" class="btn" data-act="reset" data-key="${esc(r.key)}">恢复默认</button>` : `<span class="muted">—</span>`}</td></tr>`;
   }).join("") || `<tr><td colspan="11" class="muted">没有符合当前条件的货品。</td></tr>`;
   return `<p class="crumb">系统设置 › 主数据与映射 › 货品细分映射</p>
   ${s.feedback ? `<div class="feedback">✓ ${esc(s.feedback)}</div>` : ""}
   <section class="panel overview"><div><span class="eyebrow">品类分析 · 品类细分</span><h2>货品细分映射</h2>
-    <p>映射默认来自《直饮机分类规格匹配.xlsx》直饮机部分、《净水器&amp;开水器分类.xlsx》净水器部分和开水器部分；一级类目即大类目，二级、三级类目来自映射表（只有一层细分的大类目不显示三级）；可在此手动调整，手动归类优先。</p></div>
+    <p>映射默认来自《直饮机分类规格匹配.xlsx》直饮机部分、《净水器&amp;开水器分类.xlsx》净水器部分和开水器部分；一级类目即大类目，二级、三级类目来自映射表（只有一层细分的大类目不显示三级）；管理员可在表格中直接改一级、二级、三级类目，改动即保存为手动归类，可“恢复默认”。</p></div>
     <div class="cards">
       <article><span>映射条数</span><strong>${num(rows.length)}</strong><small>映射表中的条目</small></article>
       <article><span>细分数</span><strong>${num(labelCount)}</strong><small>当前一级类目下可选的细分名称</small></article>
@@ -197,12 +214,13 @@ function renderSettings() {
     </div></section>
   <section class="panel"><div class="toolbar"><div><h2>货品归类明细</h2><p>共 ${num(selected.length)} 条符合条件</p></div>
     <div class="filters">
-      <label class="field"><span>一级类目</span><select data-f="major"><option value="">全部一级类目</option>${MAP.majors.map((m) => `<option value="${esc(m.name)}"${s.major === m.name ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select></label>
-      <div class="field"><span>细分名称</span>${ssHtml("filter", s.sub, fopts, "搜索二级或三级细分")}</div>
+      <div class="field"><span>一级类目</span>${ssHtml("fMajor", s.major, [{ value: "", label: "全部一级类目" }, ...majorOpts], "搜索一级类目")}</div>
+      <div class="field"><span>二级类目</span>${ssHtml("fParent", s.parent, l2, "搜索二级类目")}</div>
+      <div class="field"><span>三级类目</span>${ssHtml("fLeaf", s.leaf, l3, "搜索三级类目")}</div>
       <label class="field"><span>状态</span><select data-f="status"><option value="all">全部状态</option><option value="mapped"${s.status === "mapped" ? " selected" : ""}>已归类</option><option value="unclassified"${s.status === "unclassified" ? " selected" : ""}>未归类</option></select></label>
       <label class="field"><span>搜索</span><input type="search" data-f="q" value="${esc(s.q)}" placeholder="规格代码、名称、分类或细分"></label>
     </div></div>
-    <div class="table-wrap${s.editing ? " editing" : ""}"><table><thead><tr><th>吉客云规格代码</th><th>货品名称</th><th>规格</th><th>供应链名称</th><th>吉客云分类</th><th>一级类目</th><th>二级类目</th><th>三级类目</th><th>匹配方式</th><th>状态</th><th>操作</th></tr></thead><tbody>${body}</tbody></table></div>
+    <div class="table-wrap${openSelect ? " editing" : ""}"><table><thead><tr><th>吉客云规格代码</th><th>货品名称</th><th>规格</th><th>供应链名称</th><th>吉客云分类</th><th>一级类目</th><th>二级类目</th><th>三级类目</th><th>匹配方式</th><th>状态</th><th>操作</th></tr></thead><tbody>${body}</tbody></table></div>
     <div class="pager"><span>第 ${s.pageNo} / ${pages} 页 · 每页 ${PAGE_SIZE} 条</span><div><button type="button" class="btn" data-act="prev"${s.pageNo <= 1 ? " disabled" : ""}>上一页</button><button type="button" class="btn" data-act="next"${s.pageNo >= pages ? " disabled" : ""}>下一页</button></div></div>
   </section>`;
 }
@@ -281,10 +299,7 @@ root.addEventListener("click", (e) => {
   if (t.dataset.ssPick) { ssHandlers[t.dataset.ssPick](t.dataset.value); openSelect = null; render(); return; }
   if (openSelect && !t.closest(".ss")) openSelect = null;
   const act = t.dataset.act;
-  if (act === "edit") { const r = allRows().find((x) => x.key === t.dataset.key); s.editing = r.key; s.draft = r.sub || ""; s.feedback = ""; }
-  else if (act === "cancel") s.editing = "";
-  else if (act === "save") { const r = allRows().find((x) => x.key === t.dataset.key); if (s.draft === r.defaultLabel) delete state.overrides[r.key]; else state.overrides[r.key] = s.draft; s.editing = ""; s.feedback = "已保存手动归类（演示，仅本页生效）"; }
-  else if (act === "reset") { delete state.overrides[t.dataset.key]; s.feedback = "已恢复默认归类"; }
+  if (act === "reset") { delete state.overrides[t.dataset.key]; s.feedback = "已恢复默认归类"; }
   else if (act === "prev") s.pageNo -= 1;
   else if (act === "next") s.pageNo += 1;
   else if (t.dataset.level) { a.level = t.dataset.level; a.open = []; }
@@ -299,7 +314,6 @@ root.addEventListener("input", (e) => {
 });
 root.addEventListener("change", (e) => {
   const t = e.target; const s = state.s;
-  if (t.dataset.f === "major") { s.major = t.value; s.sub = ""; s.pageNo = 1; s.editing = ""; render(); }
   if (t.dataset.f === "status") { s.status = t.value; s.pageNo = 1; render(); }
 });
 root.addEventListener("keydown", (e) => {
