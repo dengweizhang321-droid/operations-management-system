@@ -72,13 +72,15 @@ test("credential-risk and non-whitelisted failure codes stay unresolved; whiteli
   assert.ok(JD_LOGISTICS_CREDENTIAL_RISK_SUFFIXES.every(suffix => JD_LOGISTICS_PRE_BUSINESS_THROW_SUFFIXES.includes(suffix)));
   assert.ok(JD_LOGISTICS_CREDENTIAL_RISK_SUFFIXES.every(suffix => !JD_LOGISTICS_PRE_BUSINESS_FAILURE_CODES.includes(`JD_LOGISTICS_${suffix}`)));
   for (const code of ["JD_LOGISTICS_POLICY_CHANGED_OR_REVOKED", "JD_LOGISTICS_PIPELINE_FAILED_MANUAL_ACTION", "JD_LOGISTICS_EXPORT_RESULT_MISSING", "JD_LOGISTICS_LOGIN_LOCKED_MANUAL_ACTION",
-    "JD_LOGISTICS_LOGIN_CREDENTIAL_REJECTED_MANUAL_ACTION", "JD_LOGISTICS_LOGIN_SUBMISSION_UNKNOWN_MANUAL_ACTION", "JD_LOGISTICS_LOGIN_NOT_COMPLETED_MANUAL_ACTION", "LOGIN_REQUIRED"]) {
+    "JD_LOGISTICS_LOGIN_CREDENTIAL_REJECTED_MANUAL_ACTION", "JD_LOGISTICS_LOGIN_SUBMISSION_UNKNOWN_MANUAL_ACTION", "LOGIN_REQUIRED"]) {
     const f = await fixture(); const old = await f.failedPlan("old", manifest => { manifest.failure.code = code; });
     const verdict = await assessJdLogisticsZeroEffect(f.root, old.active); assert.equal(verdict.verdict, "not_closable", code);
     assert.match(verdict.reasons[0], /failure_code_not_whitelisted/);
     await assert.rejects(f.plan("exec-new"), unresolved);
     assert.deepEqual(await f.closures(), []); assert.equal(JSON.parse((await f.read("active.json")).toString()).runId, old.runId);
   }
+  // Submitted without rejection/lock/challenge but never reaching the business page is closable (whitelist v2).
+  assert.ok(JD_LOGISTICS_PRE_BUSINESS_FAILURE_CODES.includes("JD_LOGISTICS_LOGIN_NOT_COMPLETED_MANUAL_ACTION"));
   for (const suffix of JD_LOGISTICS_PRE_BUSINESS_THROW_SUFFIXES.filter(suffix => !(JD_LOGISTICS_CREDENTIAL_RISK_SUFFIXES as readonly string[]).includes(suffix))) {
     const f = await fixture(); const old = await f.failedPlan("old", manifest => { manifest.failure.code = `JD_LOGISTICS_${suffix}`; });
     assert.equal((await assessJdLogisticsZeroEffect(f.root, old.active)).verdict, "zero_effect", suffix);
@@ -242,6 +244,8 @@ test("pin: pre-business failure codes are raised only inside the session guard, 
   // guard must be a known historical/data reference, never a new raise point.
   const allowedElsewhere = new Set(["tools/close-jd-logistics-login-9851.ts", "tools/jd-logistics-login-9851-target.ts", "tools/jd-logistics-login-11037-target.ts",
     "tools/jd-logistics-zero-effect-closure.ts"]);
+  // Reads (never raises) a few codes to decide whether to reveal the manual verify window.
+  const readOnlyReference = new Set(["tools/jd-logistics-export.ts"]);
   for (const suffix of JD_LOGISTICS_PRE_BUSINESS_THROW_SUFFIXES) {
     // bare suffix only counts when handed to fail(...); the full code string counts anywhere.
     const literal = new RegExp(`fail\\([^;)]*["'\`]${suffix}["'\`]|["'\`]JD_LOGISTICS_${suffix}["'\`]`, "g");
@@ -250,6 +254,10 @@ test("pin: pre-business failure codes are raised only inside the session guard, 
     for (const file of files) {
       if (rel(file) === sessionPath) continue;
       const text = await readFile(file, "utf8");
+      if (readOnlyReference.has(rel(file))) {
+        assert.ok(!new RegExp(`(?:fail|Error)\\([^;)]*["'\`](?:JD_LOGISTICS_)?${suffix}["'\`]`).test(text), `${suffix} is raised by ${rel(file)}; zero-effect whitelist must be re-verified`);
+        continue;
+      }
       if (literal.test(text)) assert.ok(allowedElsewhere.has(rel(file)), `${suffix} is now referenced by ${rel(file)}; zero-effect whitelist must be re-verified`);
       literal.lastIndex = 0;
       // The only code strings that may be built dynamically are the session file's `JD_LOGISTICS_${code}` prefix.

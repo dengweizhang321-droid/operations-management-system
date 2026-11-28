@@ -33,15 +33,20 @@ export const JD_LOGISTICS_PRE_BUSINESS_THROW_SUFFIXES = [
   "LOGIN_NOT_COMPLETED_MANUAL_ACTION", "BUSINESS_FRAME_NOT_READY",
 ] as const;
 /** Pre-business too, but the code itself says a credential was rejected, the
- * account is locked, or a login submission has an unknown/incomplete outcome.
+ * account is locked, or a login submission has an unknown outcome.
  * Automatically planning again would submit the credential again, so these stay
- * with a human even though no business effect exists. */
+ * with a human even though no business effect exists.
+ * LOGIN_NOT_COMPLETED (submitted, no rejection/lock/challenge seen, business
+ * page never reached) is closable: the hourly retry never replans logistics,
+ * so a new plan is a daily schedule or a human run, at most one more
+ * submission per run. Leaving it here blocked every following run. */
 export const JD_LOGISTICS_CREDENTIAL_RISK_SUFFIXES = [
-  "LOGIN_CREDENTIAL_REJECTED_MANUAL_ACTION", "LOGIN_LOCKED_MANUAL_ACTION", "LOGIN_SUBMISSION_UNKNOWN_MANUAL_ACTION", "LOGIN_NOT_COMPLETED_MANUAL_ACTION",
+  "LOGIN_CREDENTIAL_REJECTED_MANUAL_ACTION", "LOGIN_LOCKED_MANUAL_ACTION", "LOGIN_SUBMISSION_UNKNOWN_MANUAL_ACTION",
 ] as const;
 export const JD_LOGISTICS_PRE_BUSINESS_FAILURE_CODES: readonly string[] = JD_LOGISTICS_PRE_BUSINESS_THROW_SUFFIXES
   .filter(suffix => !(JD_LOGISTICS_CREDENTIAL_RISK_SUFFIXES as readonly string[]).includes(suffix)).map(suffix => `JD_LOGISTICS_${suffix}`);
-const whitelistVersion = 1;
+// v2: LOGIN_NOT_COMPLETED_MANUAL_ACTION moved from credential-risk to closable.
+const whitelistVersion = 2;
 const manifestKeys = new Set(["datePolicy", "timeZone", "protocolVersion", "workflowKey", "runId", "executionId", "createdAt", "updatedAt", "anchorAt", "baseUrl",
   "planHash", "stage", "outcome", "notificationPlan", "notification", "operations", "failure"]);
 // Static plan fields only. Any progress field (export, receipt, hashes, row
