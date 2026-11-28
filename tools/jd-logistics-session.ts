@@ -134,6 +134,9 @@ export function createJdLogisticsSessionGuard(
         if (attempted && !restoredTarget && text.trim() && page.url() !== targetUrl()) {
           restoredTarget = true;
           await navigate();
+          // The post-login redirect and this restore used up part of the budget;
+          // the restored page gets the full bounded wait to render (once per surface).
+          attempt = -1;
         }
       }
       await browserStep(() => page.waitForTimeout(400));
