@@ -17,7 +17,7 @@ from typing import Any, Sequence
 
 from django.db.models import Case, Q, Value, When
 
-from . import subdivisions
+from . import subdivision_combos, subdivisions
 from .auth import Principal
 from .calculation_cache import reuse
 from .category import (
@@ -25,6 +25,7 @@ from .category import (
     _base,
     _category_trend,
     _comparison_aggregates,
+    _comparison_period_list,
     _comparison_periods,
     _comparison_queryset,
     _period_annotation,
@@ -103,6 +104,129 @@ def _subdivision_case(mapping: subdivisions.EffectiveMapping, major: str, pairs:
     return Case(*whens, default=Value(""))
 
 
+def _bucket(mapping: subdivisions.EffectiveMapping, major: str, level: str, covered: set[str],
+            code: str, name: str, category: str) -> str:
+    """The subdivision ``_subdivision_case`` gives one line ("" = not counted in this major)."""
+    label, owner, matched_by = mapping.resolve(code, name)
+    if matched_by is not None and owner is not None and owner != major:
+        return ""
+    if label and matched_by in _CODE_SOURCES | {"name"}:
+        return mapping.parent_of(major, label) if level == "parent" else label
+    return subdivisions.UNCLASSIFIED_LABEL if category in covered else ""
+
+
+_GROUP_ZERO = (
+    "gross_sales_cents", "refund_amount_cents", "net_sales_cents", "cost_amount_cents", "gross_profit_cents",
+    "positive_quantity", "return_quantity", "net_quantity", "product_count", "line_count",
+    "current_week_net_sales_cents", "previous_week_net_sales_cents", "year_ago_net_sales_cents",
+)
+
+
+def _within(day: str, period: dict[str, Any]) -> bool:
+    return period["startDate"] <= day <= period["endDate"]
+
+
+def _apply_metric(row: dict[str, Any], net: int, cost: int, profit: int, positive: int, returned: int, net_quantity: int, factor: int) -> None:
+    row["gross_sales_cents"] = int(row.get("gross_sales_cents") or 0) + factor * max(net, 0)
+    row["refund_amount_cents"] = int(row.get("refund_amount_cents") or 0) + factor * max(-net, 0)
+    row["net_sales_cents"] = int(row.get("net_sales_cents") or 0) + factor * net
+    row["cost_amount_cents"] = int(row.get("cost_amount_cents") or 0) + factor * cost
+    row["gross_profit_cents"] = int(row.get("gross_profit_cents") or 0) + factor * profit
+    row["positive_quantity"] = int(row.get("positive_quantity") or 0) + factor * positive
+    row["return_quantity"] = int(row.get("return_quantity") or 0) + factor * returned
+    row["net_quantity"] = int(row.get("net_quantity") or 0) + factor * net_quantity
+
+
+def _combo_adjust(params: dict[str, Any], comparisons: dict[str, Any], scope_queryset, mapping: subdivisions.EffectiveMapping,
+                  major: str, level: str, group_rows: list[dict[str, Any]], product_rows: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
+    """Move bundle pieces from the child's subdivision to the combo parent's; returns daily net deltas for the trend."""
+    def target(code: str, name: str) -> str | None:
+        label, owner, matched_by = mapping.resolve(code, name)
+        if not label or owner != major or matched_by is None:
+            return None
+        return mapping.parent_of(major, label) if level == "parent" else label
+
+    definitions = subdivision_combos.combo_definitions(target)
+    if not definitions:
+        return {}
+    lines = list(scope_queryset.filter(product_code__in=subdivision_combos.child_codes(definitions)).order_by()
+                 .values(*subdivision_combos.LINE_FIELDS)[: subdivision_combos.MAX_LINES + 1])
+    if len(lines) > subdivision_combos.MAX_LINES:
+        raise SalesRequestError(f"组合装子件明细超过 {subdivision_combos.MAX_LINES} 行，请缩短统计周期")
+    for line in lines:
+        value = line["business_date"]
+        line["business_date"] = (value.isoformat() if hasattr(value, "isoformat") else str(value))[:10]
+    pieces = subdivision_combos.allocate(lines, definitions)
+    if not pieces:
+        return {}
+    covered = set(mapping.covered_categories(major))
+    periods = _comparison_period_list(params, comparisons)
+    current, week_current, week_previous, year_ago = periods
+    groups = {row["subdivision"]: row for row in group_rows}
+    products = {(row["subdivision"], row["product_code"] or "", row["product_name"] or "", row["resolved_category"] or ""): row for row in product_rows}
+    trend: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    touched: set[tuple] = set()
+
+    def group(label: str) -> dict[str, Any]:
+        if label not in groups:
+            groups[label] = {"subdivision": label, **{key: 0 for key in _GROUP_ZERO}, "latest_business_date": None}
+            group_rows.append(groups[label])
+        return groups[label]
+
+    def product(label: str, code: str, name: str, category: str) -> dict[str, Any]:
+        key = (label, code, name, category)
+        if key not in products:
+            products[key] = {"subdivision": label, "product_code": code, "product_name": name, "resolved_category": category,
+                             **{k: 0 for k in _GROUP_ZERO if not k.endswith("week_net_sales_cents") and k != "year_ago_net_sales_cents"},
+                             "latest_business_date": None}
+            product_rows.append(products[key])
+        touched.add(key)
+        return products[key]
+
+    for piece in pieces:
+        line, parent = piece["line"], piece["parent"]
+        day = line["business_date"]
+        code, name, category = line["product_code"] or "", line["product_name"] or "", line["resolved_category"] or ""
+        source = _bucket(mapping, major, level, covered, code, name, category)
+        destination = definitions[parent]["target"]
+        if source == destination:
+            continue
+        amounts = piece["amounts"]
+        net, cost, profit = amounts["allocated_amount_cents"], amounts["cost_amount_cents"], amounts["gross_profit_cents"]
+        count, sets = piece["quantity"], piece["sets"]
+        positive_piece, returned_piece = (count, 0) if line["quantity"] > 0 else (0, count)
+        signed_piece = (1 if line["quantity"] > 0 else -1) * count if line["is_net_quantity_row"] else 0
+        set_positive, set_returned = max(sets, 0), max(-sets, 0)
+        set_net = sets if line["is_net_quantity_row"] else 0
+        windows = (("current_week_net_sales_cents", week_current), ("previous_week_net_sales_cents", week_previous), ("year_ago_net_sales_cents", year_ago))
+        for label, factor in ((source, -1), (destination, 1)):
+            if not label:
+                continue
+            row = group(label)
+            for field, period in windows:
+                if _within(day, period):
+                    row[field] = int(row.get(field) or 0) + factor * net
+            if not _within(day, current):
+                continue
+            if factor < 0:
+                _apply_metric(row, net, cost, profit, positive_piece, returned_piece, signed_piece, -1)
+                _apply_metric(product(label, code, name, category), net, cost, profit, positive_piece, returned_piece, signed_piece, -1)
+            else:
+                _apply_metric(row, net, cost, profit, set_positive, set_returned, set_net, 1)
+                row["line_count"] = int(row.get("line_count") or 0) + 1
+                row["latest_business_date"] = max(str(row.get("latest_business_date") or ""), day)
+                combo = product(label, parent, definitions[parent]["name"], subdivision_combos.COMBO_CATEGORY)
+                _apply_metric(combo, net, cost, profit, set_positive, set_returned, set_net, 1)
+                combo["line_count"] = int(combo.get("line_count") or 0) + 1
+            trend[label][day] += factor * net
+    # A child fully consumed into bundles leaves an empty product row; drop it.
+    product_rows[:] = [row for row in product_rows if not (
+        (row["subdivision"], row["product_code"] or "", row["product_name"] or "", row["resolved_category"] or "") in touched
+        and row["resolved_category"] != subdivision_combos.COMBO_CATEGORY
+        and not int(row.get("net_sales_cents") or 0) and not int(row.get("net_quantity") or 0) and not int(row.get("cost_amount_cents") or 0))]
+    return {label: dict(days) for label, days in trend.items()}
+
+
 def _product_entry(row: dict[str, Any], matched_by: str | None) -> dict[str, Any]:
     net = int(row["net_sales_cents"] or 0)
     cost = int(row["cost_amount_cents"] or 0)
@@ -121,8 +245,8 @@ def _top_products(items: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], bo
 
 def _compute(params: dict[str, Any], principal: Principal, comparisons: dict[str, Any],
              mapping: subdivisions.EffectiveMapping, major: str, level: str) -> dict[str, Any]:
-    union_queryset, scope_mode = _comparison_queryset(params, principal, comparisons)
-    union_queryset = union_queryset.filter(candidate_filter(mapping, major))
+    scope_queryset, scope_mode = _comparison_queryset(params, principal, comparisons)
+    union_queryset = scope_queryset.filter(candidate_filter(mapping, major))
     pair_rows = [tuple(pair) for pair in union_queryset.order_by().values_list("product_code", "product_name").distinct()[: PAIR_LIMIT + 1]]
     if len(pair_rows) > PAIR_LIMIT:
         raise SalesRequestError(f"品类细分商品数超过 {PAIR_LIMIT}，暂不支持")
@@ -139,6 +263,7 @@ def _compute(params: dict[str, Any], principal: Principal, comparisons: dict[str
         .order_by().values("subdivision", "product_code", "product_name", "resolved_category")
         .annotate(**category_aggregates()).filter(line_count__gt=0)
     )
+    combo_trend = _combo_adjust(params, comparisons, scope_queryset, mapping, major, level, group_rows, product_rows)
     products: dict[str, list[dict[str, Any]]] = defaultdict(list)
     coverage_keys: dict[str, set[str]] = {key: set() for key in _COVERAGE_BUCKETS}
     coverage_net = {key: 0 for key in _COVERAGE_BUCKETS}
@@ -165,6 +290,7 @@ def _compute(params: dict[str, Any], principal: Principal, comparisons: dict[str
         "products": top,
         "mappedProductCount": len(mapped_codes),
         "coverage": {key: {"productCount": len(coverage_keys[key]), "netSalesCents": coverage_net[key]} for key in coverage_keys},
+        "comboTrend": combo_trend,
     }
 
 
@@ -182,7 +308,7 @@ def _summary(rows: Sequence[dict[str, Any]], mapped_product_count: int) -> dict[
 
 
 def _trend_rows(params: dict[str, Any], principal: Principal, labels: Sequence[str], mapping: subdivisions.EffectiveMapping,
-                major: str, case) -> list[dict[str, Any]]:
+                major: str, case, combo_trend: dict[str, dict[str, int]] | None = None) -> list[dict[str, Any]]:
     if not labels:
         return []
     queryset, _ = _base(params, principal)
@@ -194,6 +320,15 @@ def _trend_rows(params: dict[str, Any], principal: Principal, labels: Sequence[s
         value = row["period_key"]
         normalized = value.isoformat() if hasattr(value, "isoformat") else str(value)
         row["period_key"] = normalized[:10]
+    if combo_trend:
+        indexed = {(row["period_key"], row["subdivision"]): row for row in rows}
+        for label in labels:
+            for day, delta in (combo_trend.get(label) or {}).items():
+                if params["startDate"] <= day <= params["endDate"]:
+                    row = indexed.setdefault((day, label), {"period_key": day, "subdivision": label, "net_sales_cents": 0})
+                    if row not in rows:
+                        rows.append(row)
+                    row["net_sales_cents"] = int(row["net_sales_cents"] or 0) + delta
     recent = set(sorted({row["period_key"] for row in rows}, reverse=True)[:DETAIL_TREND_PERIOD_LIMIT])
     rows = [row for row in rows if row["period_key"] in recent]
     rows.sort(key=lambda row: (row["period_key"], binary_text_key(row["subdivision"])))
@@ -255,7 +390,7 @@ def get_subdivision_analysis(params: dict[str, Any], principal: Principal) -> di
     trend_by_label: dict[str, list[dict[str, Any]]] = defaultdict(list)
     if page_items:
         case = _subdivision_case(mapping, major, computed["pairs"], level)
-        for row in _trend_rows(params, principal, [item["subdivision"] for item in page_items], mapping, major, case):
+        for row in _trend_rows(params, principal, [item["subdivision"] for item in page_items], mapping, major, case, computed.get("comboTrend")):
             trend_by_label[row["subdivision"]].append(row)
     empty_products = {"products": [], "productsTruncated": False}
     details = [{

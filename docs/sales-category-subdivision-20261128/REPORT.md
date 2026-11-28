@@ -21,6 +21,8 @@
 
 - Django：`subdivision_maps/water_purifier.py`、`water_boiler.py`（生成）；`subdivisions.py` 注册两个大类目，细分带 `parent`（二级类目），新增 `parent_of/has_levels/parent_labels`；`subdivision_analysis.py` 新增 `level=leaf|parent`（按二级时三级归并到二级）；`subdivision_mapping.py` 行带 `parentSubdivision`，细分筛选可按二级；`views.py` 透传 `level`。无迁移、无数据写入。
 - 前端：系统设置 › 货品细分映射：列为一级/二级/三级类目；筛选为一级、二级、三级三个可搜索下拉（三级随所选二级收窄，接口新增 `parent` 参数）；管理员在表格里直接用可搜索下拉改一级/二级/三级，选完即保存为手动归类（改一级后归“未归类”待选二级；改二级时自动选同名二级或第一个三级），可“恢复默认”；没有规格代码的条目仍用“补代码并归类”。`SearchableSelect` 增加可选的 `onOpenChange`。映射来源列出全部表格。演示页 `subdivision-levels-demo.html`（销售数字为模拟）。销售分析 › 品类分析 › 品类细分：开水器显示“按二级 / 按三级”切换，按二级时不显示新增/删除细分入口。
+- 三级显示：开水器的三级类目与二级同名时也照常显示和可选（原来显示为“—”）；表格中三级为空的 4 行（2 行数显、2 行步进式）三级取同名二级。
+- 组合代码：新增 `backend/sales/subdivision_combos.py`，品类细分统计时按吉客云组合装规则（与 `products/combinations.py` 相同）从子件凑套，套内金额、成本、毛利从子件细分移到组合代码的细分，数量按套；同比、环比上周、趋势同口径；货品明细中组合装行标“组合装（子件凑套）”。系统设置中组合代码不再标“吉客云未找到”，显示子件构成。销售读库账号已有 `erp_combo_items` 读权限。
 - 文档：`README.md`、`docs/规范/业务口径.md` 各更新一句。
 
 ## 必需检查

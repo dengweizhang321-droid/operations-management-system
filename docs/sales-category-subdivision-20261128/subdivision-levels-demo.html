@@ -156,7 +156,8 @@ function levelFilterOptions(major, parent) {
       const total = leavesOf(m.name, p).reduce((s, x) => s + (counts[`${m.name}|${x.name}`] || 0), 0);
       l2.push({ value: p, label: `${pre(m.name)}${p}（${total}）`, search: m.name });
     }
-    for (const l of m.labels) if (l.parent !== l.name && (!parent || l.parent === parent)) {
+    const levels = m.labels.some((x) => x.parent !== x.name);
+    for (const l of m.labels) if ((levels || l.parent !== l.name) && (!parent || l.parent === parent)) {
       l3.push({ value: l.name, label: `${pre(m.name)}${parent ? l.name : path(l.name, l.parent)}（${counts[`${m.name}|${l.name}`] || 0}）`, search: `${m.name} ${l.parent}` });
     }
   }
@@ -192,8 +193,9 @@ function renderSettings() {
     };
     ssHandlers[`${id}l`] = (v) => { if (v && v !== r.sub) saveAssign(r, r.major, v); };
     const leaves = r.parent ? leavesOf(r.major, r.parent) : [];
-    const hasLeaf = leaves.some((l) => l.name !== r.parent);
-    const leafCell = hasLeaf ? ssHtml(`${id}l`, r.sub, leaves.map((l) => ({ value: l.name, label: l.name === r.parent ? "（只到二级）" : l.name })), "搜索三级类目", "cell") : "—";
+    const levels = majorOf(r.major).labels.some((l) => l.parent !== l.name);
+    const hasLeaf = levels ? leaves.length > 0 : leaves.some((l) => l.name !== r.parent);
+    const leafCell = hasLeaf ? ssHtml(`${id}l`, r.sub, leaves.map((l) => ({ value: l.name, label: l.name })), "搜索三级类目", "cell") : "—";
     return `<tr><td>${esc(r.code) || "—"}</td><td class="name"><strong>${esc(r.name) || "—"}</strong></td><td>—</td><td>—</td><td>—</td>
       <td>${ssHtml(`${id}m`, r.major, majorOpts, "搜索一级类目", "cell")}</td>
       <td>${ssHtml(`${id}p`, r.sub ? r.parent : "", [{ value: "", label: UNCLASSIFIED }, ...parentsOf(r.major).map((p) => ({ value: p, label: p }))], "搜索二级类目", "cell")}</td>
@@ -280,7 +282,7 @@ function renderAnalysis() {
   <section class="panel"><div class="toolbar"><div><h2>品类细分明细</h2><p>${hasLevels && level === "parent" ? "按二级：同一二级下的三级细分合并汇总；新增/删除细分请切到“按三级”。" : "点击表头可在降序、升序间切换。"}</p></div></div>
     <div class="table-wrap"><table><thead><tr><th>排名</th>${head("name", levelName, "")}${head("net", "净销售额")}${head("share", "贡献率")}${head("qty", "净销量")}<th class="num">退货率</th><th class="num">毛利额</th>${head("margin", "毛利率")}${head("yoy", "同比")}${head("count", "货品数")}<th>操作</th></tr></thead>
     <tbody>${rows}</tbody><tfoot><tr class="total"><td>合计</td><td>共 ${num(metrics.length)} 个</td><td class="num">${money(total)}</td><td class="num">100.0%</td><td class="num">${num(qtyAll)}</td><td></td><td class="num">${money(profitAll)}</td><td class="num">${pct(total ? profitAll / total : 0)}</td><td></td><td class="num">${num(countAll)}</td><td></td></tr></tfoot></table></div>
-    <p class="hint">演示说明：金额、销量、毛利、同比均为按条目生成的模拟数字，只用来看布局和“按二级 / 按三级”切换；上线后以真实销售数据为准。</p>
+    <p class="hint">演示说明：金额、销量、毛利、同比均为按条目生成的模拟数字，只用来看布局和“按二级 / 按三级”切换；上线后以真实销售数据为准。组合代码（如“开水器+底座”的 DZLX… 代码）上线后按吉客云组合装规则统计：同一订单里子件凑满配比算 1 套，计入组合代码所在的三级（如“水尺开水器底座款”），没凑成套的子件仍算单品自己的三级；货品明细里组合装显示为“组合装（子件凑套）”。演示页没有订单数据，看不到这部分效果。</p>
   </section>`;
 }
 

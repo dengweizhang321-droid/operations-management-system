@@ -60,7 +60,7 @@ function leavesOf(major: MajorInfo | undefined, parent: string): LabelInfo[] {
   return (major?.labels ?? []).filter((label) => parentName(label) === parent);
 }
 
-function filterOptions(items: MappingResponse["subdivisions"], showMajor: boolean, parent: string) {
+function filterOptions(items: MappingResponse["subdivisions"], showMajor: boolean, parent: string, levelMajors: Set<string>) {
   const prefix = (major: string) => (showMajor ? `${major} · ` : "");
   const parentCounts = new Map<string, { major: string; count: number }>();
   for (const item of items) {
@@ -72,7 +72,7 @@ function filterOptions(items: MappingResponse["subdivisions"], showMajor: boolea
   const level2: SearchableSelectOption[] = [{ value: "", label: "全部二级类目" },
     ...[...parentCounts].map(([name, info]) => ({ value: name, label: `${prefix(info.major)}${name}（${info.count}）`, searchText: info.major }))];
   const level3: SearchableSelectOption[] = [{ value: "", label: "全部三级类目" },
-    ...items.filter((item) => (item.parent ?? item.label) !== item.label && (!parent || item.parent === parent))
+    ...items.filter((item) => (levelMajors.has(item.majorCategory) || (item.parent ?? item.label) !== item.label) && (!parent || (item.parent ?? item.label) === parent))
       .map((item) => ({ value: item.label, label: `${prefix(item.majorCategory)}${parent ? item.label : labelPath(item.label, item.parent)}（${item.productCount}）`, searchText: `${item.majorCategory} ${item.parent ?? ""}` }))];
   return { level2, level3 };
 }
@@ -159,7 +159,7 @@ export default function ProductSubdivisionSettings({ canEdit }: { canEdit: boole
   const majors = data?.mapping.majorCategories ?? [];
   const majorInfo = (name: string | null) => majors.find((item) => item.name === (name ?? majors[0]?.name));
   const unclassifiedLabel = data?.mapping.unclassifiedLabel ?? "未归类";
-  const options = filterOptions(data?.subdivisions ?? [], !major, parentFilter);
+  const options = filterOptions(data?.subdivisions ?? [], !major, parentFilter, new Set(majors.filter((item) => item.hasLevels).map((item) => item.name)));
   const needsCode = (row: MappingRow) => row.status === "missing" && !row.specCode;
   const menuHandler = (id: string) => (open: boolean) => setOpenMenu((current) => (open ? id : current === id ? "" : current));
 
@@ -216,14 +216,16 @@ export default function ProductSubdivisionSettings({ canEdit }: { canEdit: boole
     const info = majorInfo(row.majorCategory);
     const parent = row.parentSubdivision ?? row.subdivision ?? "";
     const leaves = parent ? leavesOf(info, parent) : [];
-    const hasLeaf = leaves.some((item) => item.name !== parent);
-    const leafValue = row.subdivision && row.subdivision !== parent ? row.subdivision : row.subdivision ? parent : "";
+    // A major with a 三级 level (开水器) always shows its 三级, even when it carries the same name as its 二级.
+    const levels = Boolean(info?.hasLevels);
+    const hasLeaf = levels ? leaves.length > 0 : leaves.some((item) => item.name !== parent);
+    const leafValue = row.subdivision ?? "";
     const defaultNote = row.overridden && <small className="cell-note">默认：{row.defaultSubdivision ?? unclassifiedLabel}</small>;
     if (!canEdit || needsCode(row)) {
       return <>
         <td>{row.majorCategory ? <span className="warehouse-category-tag warehouse-level-one">{row.majorCategory}</span> : "—"}</td>
         <td>{row.subdivision ? <span className="warehouse-category-tag">{parent}</span> : "—"}</td>
-        <td>{row.subdivision && parent !== row.subdivision ? <span className="warehouse-category-tag">{row.subdivision}</span> : "—"}{defaultNote}</td>
+        <td>{row.subdivision && (levels || parent !== row.subdivision) ? <span className="warehouse-category-tag">{row.subdivision}</span> : "—"}{defaultNote}</td>
       </>;
     }
     const busy = saving;
@@ -237,7 +239,7 @@ export default function ProductSubdivisionSettings({ canEdit }: { canEdit: boole
         searchPlaceholder="搜索二级类目" onChange={(value) => changeParent(row, value)} onOpenChange={menuHandler(`${key}|2`)} /></td>
       <td>{hasLeaf
         ? <SearchableSelect ariaLabel={`${name}三级类目`} className="warehouse-mapping-cell-select" value={leafValue} disabled={busy}
-          options={leaves.map((item) => ({ value: item.name, label: item.name === parent ? "（只到二级）" : item.name }))}
+          options={leaves.map((item) => ({ value: item.name, label: item.name === parent && !levels ? "（只到二级）" : item.name }))}
           searchPlaceholder="搜索三级类目" onChange={(value) => changeLeaf(row, value)} onOpenChange={menuHandler(`${key}|3`)} />
         : "—"}{defaultNote}</td>
     </>;

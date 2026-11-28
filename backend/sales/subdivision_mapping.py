@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import subdivisions
+from . import subdivision_combos, subdivisions
 from .auth import Principal
 from .calculation_cache import reuse
 from .query import SalesAccessError, SalesRequestError, binary_text_key
@@ -30,8 +30,23 @@ def _row(code: str, name: str, **extra: Any) -> dict[str, Any]:
     }
 
 
+def _combo_parents() -> dict[str, dict[str, str]]:
+    """Jackyun combo parents (组合装): code -> {name, specification}; orders carry only their child codes."""
+    from erp_reference.models import ErpComboItem
+
+    combos: dict[str, dict[str, Any]] = {}
+    for row in ErpComboItem.objects.order_by("parent_code", "child_code").values(
+        "parent_code", "parent_name", "child_code", "child_name", "child_quantity_milli"
+    )[: subdivision_combos.MAX_RELATIONS + 1]:
+        item = combos.setdefault(row["parent_code"], {"name": row["parent_name"] or "", "children": []})
+        quantity = int(row["child_quantity_milli"]) / 1000
+        item["children"].append(f"{row['child_name'] or row['child_code']}×{quantity:g}")
+    return {code: {"name": item["name"], "specification": "子件：" + " + ".join(item["children"])} for code, item in combos.items()}
+
+
 def _compute(mapping: subdivisions.EffectiveMapping) -> dict[str, Any]:
     covered_all = mapping.covered_categories()
+    combos = _combo_parents()
     sales_index = subdivisions.sales_name_index()  # one lookup per computation; rows below only read the dicts
     master = subdivisions.master_candidates(
         covered_all, sorted({*mapping.static_codes(), *mapping.manual_codes(), *(i["code"] for i in mapping.sales_lookup())}),
@@ -67,8 +82,11 @@ def _compute(mapping: subdivisions.EffectiveMapping) -> dict[str, Any]:
         if subdivisions.normalize(manual["code"]) in master_codes:
             continue
         label = manual["label"] if manual["label"] and mapping.is_live(manual["major"], manual["label"]) else None
+        combo = combos.get(manual["code"])
         rows.append(_row(
-            manual["code"], manual["sourceName"], majorCategory=manual["major"], subdivision=label, matchedBy="manual",
+            manual["code"], manual["sourceName"] or (combo["name"] if combo else ""),
+            specification=combo["specification"] if combo else "", erpCategory=subdivision_combos.COMBO_CATEGORY if combo else "",
+            majorCategory=manual["major"], subdivision=label, matchedBy="manual",
             supplier=subdivisions.supplier_for(manual["code"], "", sales_index),
             status="mapped" if label is not None else "unclassified", overridden=True, sourceName=manual["sourceName"],
         ))
@@ -97,6 +115,16 @@ def _compute(mapping: subdivisions.EffectiveMapping) -> dict[str, Any]:
         code_key, name_key = subdivisions.normalize(code), subdivisions.normalize(name)
         if code_key:
             if code_key in master_codes or code_key in manual_keys:
+                continue
+            combo = combos.get(code)
+            if combo is not None:
+                # A Jackyun combo parent: counted from its children's bundled pieces, so it is found, not missing.
+                live_label = label if mapping.is_live(major, label) else None
+                rows.append(_row(
+                    code, name or combo["name"], specification=combo["specification"], erpCategory=subdivision_combos.COMBO_CATEGORY,
+                    majorCategory=major, subdivision=live_label, matchedBy="code",
+                    status="mapped" if live_label is not None else "unclassified", defaultSubdivision=live_label,
+                ))
                 continue
             if mapping.has_sales_code(code, sales_index):
                 # The archive lacks this code but the sales lines carry it: counted by code, listed from sales.
